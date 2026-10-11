@@ -1,0 +1,414 @@
+<?php
+
+namespace App\Support;
+
+use App\Enums\TravellerBand;
+use App\Models\AgeBand;
+use App\Models\Booking;
+use App\Models\CabinCategory;
+use App\Models\Cruise;
+use App\Models\Destination;
+use App\Models\Facility;
+use App\Models\ImageSlot;
+use App\Models\Sailing;
+use App\Models\Ship;
+use App\Models\Testimonial;
+use App\Models\User;
+use Illuminate\Support\Collection;
+
+/**
+ * Builds window.SC_DATA from the database in the exact shape of legacy-html/assets/js/data.js,
+ * so the template's core.js and pages/*.js run unchanged (decision D1 in PROJECT_STEPS.md).
+ *
+ * IDs are the public keys the template uses: ship/cabin/cruise slugs and sailing codes.
+ */
+class ScDataPresenter
+{
+    /**
+     * Scenes the page scripts read directly from SC_DATA.images (home.js, ship.js), so their slots must stay.
+     */
+    public const SCRIPT_SCENES = ['shipHero', 'shipSea'];
+
+    /**
+     * Template scene names (data.js IMG) → image slot keys.
+     */
+    public const SCENES = [
+        'shipHero' => 'hero', 'shipSea' => 'exterior', 'shipDeck' => 'sunset', 'shipNight' => 'night',
+        'aerial' => 'aerial', 'pool' => 'pool', 'sundeck' => 'sundeck', 'lounge' => 'lounge',
+        'city' => 'dest-jeddah', 'coast' => 'dest-yanbu', 'beach' => 'dest-al-wajh', 'reef' => 'dest-safaga',
+        'desert' => 'dest-sokhna', 'petra' => 'dest-aqaba',
+        'interior1' => 'cabin-interior-1', 'interior2' => 'cabin-interior-2',
+        'balcony1' => 'cabin-balcony-1', 'balcony2' => 'cabin-balcony-2', 'balcony3' => 'cabin-balcony-3',
+        'suite1' => 'cabin-suite-1', 'suite2' => 'cabin-suite-2', 'suite3' => 'cabin-suite-3',
+    ];
+
+    /** @var Collection<string, ImageSlot>|null */
+    private ?Collection $slots = null;
+
+    /**
+     * @param  array  $page  Page-specific values exposed as SC_DATA.page (e.g. the cruise on the details page).
+     */
+    public function make(?User $user = null, array $page = [], ?array $account = null): array
+    {
+        return array_filter([
+            'currency' => config('cruise.currency'),
+            'currencySymbol' => config('cruise.currency_symbol'),
+            'whatsappNumber' => config('cruise.whatsapp_number'),
+            'routes' => $this->routes(),
+            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isAdmin()] : null,
+            'favorites' => $user ? $user->favorites()->pluck('slug')->all() : [],
+            'images' => $this->scenes(),
+            'imageFallbacks' => $this->fallbacks(),
+            'ageBands' => $this->ageBands(),
+            'fees' => ['perGuestPerNight' => $this->fees()],
+            // Promo codes are checked on the server (POST /booking/promo), never published here.
+            'promos' => (object) [],
+            'ships' => $this->ships(),
+            'cabins' => $this->cabins(),
+            'cruises' => $this->cruises(),
+            'destinations' => $this->destinations(),
+            'facilities' => $this->facilities(),
+            'testimonials' => $this->testimonials(),
+            'nationalities' => config('cruise.nationalities'),
+            'dialCodes' => config('cruise.dial_codes'),
+            'terms' => $this->terms(),
+            // Fixed website words in both languages (lang/{en,ar}/site.php), read by SC.t() / SC.tc()
+            'i18n' => Bi::scriptStrings(),
+            'lang' => app()->getLocale(),
+            // Port and country names for display in the current language (routes keep the English names as keys)
+            'portNames' => (object) $this->portNames(),
+            'page' => (object) $page,
+            'account' => $account,
+        ], fn ($value) => $value !== null);
+    }
+
+    /**
+     * What core.js needs on pages that don't run a template page script (sign-in, confirmation):
+     * routes, currency, the policy modal and the signed-in state.
+     */
+    public function minimal(?User $user = null): array
+    {
+        return [
+            'currency' => config('cruise.currency'),
+            'currencySymbol' => config('cruise.currency_symbol'),
+            'whatsappNumber' => config('cruise.whatsapp_number'),
+            'routes' => $this->routes(),
+            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isAdmin()] : null,
+            'favorites' => [],
+            'imageFallbacks' => (object) [],
+            'terms' => $this->terms(),
+            'i18n' => Bi::scriptStrings(),
+        ];
+    }
+
+    /**
+     * SC_DATA.account for the dashboard: profile and bookings in the template's booking shape.
+     */
+    public function account(User $user): array
+    {
+        $prefs = $user->notification_prefs ?? [];
+
+        return [
+            'profile' => [
+                'first' => $user->first_name ?? '',
+                'last' => $user->last_name ?? '',
+                'email' => $user->email,
+                'dial' => $user->phone_dial ?? '+966',
+                'phone' => $user->phone ?? '',
+                'dob' => $user->date_of_birth?->toDateString() ?? '',
+                'nationality' => $user->nationality ?? '',
+                'notif' => [
+                    'offers' => (bool) ($prefs['offers'] ?? false),
+                    'whatsapp' => (bool) ($prefs['whatsapp'] ?? false),
+                    'reminders' => (bool) ($prefs['reminders'] ?? true),
+                ],
+            ],
+            'bookings' => $user->bookings()
+                ->with(['sailing.cruise.ship', 'cabinCategory', 'travellers'])
+                ->latest()
+                ->get()
+                ->map(fn (Booking $booking) => $this->booking($booking))
+                ->all(),
+        ];
+    }
+
+    /**
+     * One booking in the shape booking.js stores and dashboard.js reads.
+     */
+    public function booking(Booking $booking): array
+    {
+        $sailing = $booking->sailing;
+        $cruise = $sailing->cruise;
+
+        return [
+            'ref' => $booking->reference,
+            'status' => $booking->status->value,
+            'paymentStatus' => $booking->payment_status->value,
+            'cruiseId' => $cruise->slug,
+            'sailingId' => $sailing->code,
+            'cruiseName' => $cruise->tr('name'),
+            'ship' => $cruise->ship->tr('name'),
+            'image' => $this->slotUrl($cruise->image_slot),
+            'departure' => $sailing->departure_date->toDateString(),
+            'returnDate' => $sailing->return_date->toDateString(),
+            'nights' => $cruise->nights,
+            'departurePort' => $cruise->departure_port,
+            'arrivalPort' => $cruise->arrival_port,
+            'cabinId' => $booking->cabinCategory->slug,
+            'guests' => $booking->guestCounts(),
+            'amountDue' => (float) $booking->grand_total,
+            'amountPaid' => (float) $booking->amount_paid,
+            'quote' => $booking->price_snapshot,
+            'travellers' => $booking->travellers->mapWithKeys(fn ($t) => [
+                "{$t->band->value}-{$t->slot}" => [
+                    'first' => $t->first_name,
+                    'last' => $t->last_name,
+                    'dob' => $t->date_of_birth->toDateString(),
+                    'gender' => ucfirst($t->gender->value),
+                    'nationality' => $t->nationality,
+                ],
+            ])->all(),
+            'voucherUrl' => route('booking.confirmation', $booking),
+        ];
+    }
+
+    public function slotUrl(?string $key): ?string
+    {
+        return $key ? $this->slots()->get($key)?->url() : null;
+    }
+
+    /** @param  list<string>|null  $keys */
+    public function slotUrls(?array $keys): array
+    {
+        return collect($keys ?? [])->map(fn ($key) => $this->slotUrl($key))->filter()->values()->all();
+    }
+
+    private function routes(): array
+    {
+        return [
+            'home' => route('home'),
+            'catalog' => route('cruises.index'),
+            'ship' => route('ship'),
+            'destinations' => route('destinations.index'),
+            'details' => route('cruises.show', ['cruise' => '__cruise__']),
+            'booking' => route('booking.show'),
+            'bookingPromo' => route('booking.promo'),
+            'bookingConfirm' => route('booking.confirm'),
+            'newsletter' => route('newsletter.store'),
+            'login' => route('login'),
+            'logout' => route('logout'),
+            'account' => route('account'),
+            'accountProfile' => route('account.profile'),
+            'accountNotifications' => route('account.notifications'),
+            'accountPassword' => route('account.password'),
+            'favorite' => route('account.favorites.store', ['cruise' => '__cruise__']),
+        ];
+    }
+
+    /** @return Collection<string, ImageSlot> */
+    private function slots(): Collection
+    {
+        return $this->slots ??= ImageSlot::all()->keyBy('key');
+    }
+
+    private function scenes(): array
+    {
+        return collect(self::SCENES)->map(fn ($key) => $this->slotUrl($key))->filter()->all();
+    }
+
+    /**
+     * URL → next URL in the slot's fallback chain (core.js walks this on image errors).
+     */
+    private function fallbacks(): array
+    {
+        $map = [];
+        foreach ($this->slots() as $slot) {
+            $chain = $slot->candidates();
+            for ($i = 0; $i < count($chain) - 1; $i++) {
+                $map[$chain[$i]] ??= $chain[$i + 1];
+            }
+        }
+
+        return $map;
+    }
+
+    private function ageBands(): array
+    {
+        return AgeBand::orderBy('sort_order')->get()->mapWithKeys(function (AgeBand $band) {
+            $base = ['label' => $band->tr('label'), 'labelAr' => $band->label_ar, 'hint' => $band->tr('hint')];
+            $max = $band->max_months_exclusive;
+
+            return [$band->key->value => match ($band->key) {
+                TravellerBand::Adult => $base + ['minYears' => intdiv($band->min_months, 12)],
+                TravellerBand::Child => $base + ['minYears' => intdiv($band->min_months, 12), 'maxYears' => intdiv($max, 12) - 1],
+                TravellerBand::Infant => $base + ['minMonths' => $band->min_months, 'maxMonthsExclusive' => $max],
+            }];
+        })->all();
+    }
+
+    private function fees(): array
+    {
+        return AgeBand::all()->mapWithKeys(fn (AgeBand $band) => [$band->key->value => (float) $band->fee_per_night])->all();
+    }
+
+    private function ships(): array
+    {
+        return Ship::with(['specs', 'zones', 'essentials', 'faqs'])->get()->map(fn (Ship $ship) => [
+            'id' => $ship->slug,
+            'name' => $ship->tr('name'),
+            'image' => $this->slotUrl($ship->image_slot),
+            'tagline' => $ship->tr('tagline'),
+            'story' => $ship->tr('story') ?? [],
+            'zones' => $ship->zones->map(fn ($z) => [
+                'icon' => $z->icon, 'title' => $z->tr('title'), 'image' => $this->slotUrl($z->image_slot), 'text' => $z->tr('text'),
+            ])->all(),
+            'essentials' => $ship->essentials->map(fn ($e) => [$e->icon, $e->tr('title'), $e->tr('text')])->all(),
+            'faqs' => $ship->faqs->map(fn ($f) => [$f->tr('question'), $f->tr('answer')])->all(),
+            'specs' => $ship->specs->map(fn ($s) => [
+                'key' => $s->key, 'value' => $s->tr('value'), 'unit' => $s->tr('unit') ?? '', 'label' => $s->tr('label'),
+            ])->all(),
+        ])->all();
+    }
+
+    private function cabins(): array
+    {
+        return CabinCategory::orderBy('sort_order')->get()->map(fn (CabinCategory $cabin) => [
+            'id' => $cabin->slug,
+            'order' => $cabin->sort_order,
+            'badge' => $cabin->tr('badge') ?? '',
+            // In Arabic the Arabic name is the main one (nameEn is what the page scripts print large)
+            'nameEn' => Bi::isArabic() ? ($cabin->name_ar ?: $cabin->name_en) : $cabin->name_en,
+            'nameAr' => Bi::isArabic() ? $cabin->name_en : $cabin->name_ar,
+            'short' => $cabin->tr('short_description'),
+            'description' => $cabin->tr('description'),
+            'maxGuests' => $cabin->max_guests,
+            'size' => $cabin->tr('size'),
+            'balcony' => $cabin->tr('balcony_size'),
+            'beds' => $cabin->tr('beds'),
+            'bedroom' => $cabin->tr('bedroom'),
+            'features' => $cabin->tr('features') ?? [],
+            'images' => $this->slotUrls($cabin->image_slots),
+            'rates' => [
+                'adult' => (float) $cabin->base_rate_adult,
+                'child' => (float) $cabin->base_rate_child,
+                'infant' => (float) $cabin->base_rate_infant,
+            ],
+        ])->all();
+    }
+
+    /**
+     * Active cruises with their bookable (upcoming, open) sailings. Cruises with no upcoming
+     * sailing are left out, since every template page expects at least one departure.
+     */
+    private function cruises(): array
+    {
+        return Cruise::active()
+            ->with([
+                'ship', 'itinerary',
+                'sailings' => fn ($q) => $q->upcoming()->with('cabinPrices.cabinCategory'),
+            ])
+            ->get()
+            ->filter(fn (Cruise $cruise) => $cruise->sailings->isNotEmpty())
+            ->map(fn (Cruise $cruise) => [
+                'id' => $cruise->slug,
+                'shipId' => $cruise->ship->slug,
+                'name' => $cruise->tr('name'),
+                'nameAr' => $cruise->name_ar,
+                'nights' => $cruise->nights,
+                'departurePort' => $cruise->departure_port,
+                'arrivalPort' => $cruise->arrival_port,
+                'route' => $cruise->route,
+                'tags' => $cruise->tags ?? [],
+                'visaFree' => $cruise->visa_free,
+                'rating' => (float) $cruise->rating,
+                'reviews' => $cruise->reviews_count,
+                'popularity' => $cruise->popularity,
+                'priceFactor' => (float) $cruise->price_factor,
+                'image' => $this->slotUrl($cruise->image_slot),
+                'gallery' => $this->slotUrls($cruise->gallery_slots),
+                'summary' => $cruise->tr('summary'),
+                'itinerary' => $cruise->itinerary->map(fn ($day) => [
+                    'port' => $day->port, 'time' => $day->tr('time_label'), 'text' => $day->tr('description'),
+                ])->all(),
+                'sailings' => $cruise->sailings->map(fn (Sailing $sailing) => [
+                    'id' => $sailing->code,
+                    'departure' => $sailing->departure_date->toDateString(),
+                    'factor' => (float) $sailing->price_factor,
+                    'soldOut' => $sailing->cabinPrices->where('is_sold_out', true)->map(fn ($p) => $p->cabinCategory->slug)->values()->all(),
+                    'prices' => $sailing->cabinPrices->mapWithKeys(fn ($p) => [$p->cabinCategory->slug => [
+                        'adult' => (float) $p->price_adult,
+                        'child' => (float) $p->price_child,
+                        'infant' => (float) $p->price_infant,
+                    ]])->all(),
+                ])->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function destinations(): array
+    {
+        return Destination::active()->orderBy('sort_order')->get()->map(fn (Destination $d) => [
+            'slug' => $d->slug,
+            'name' => $d->name, // port name: also the key that links destinations and cruise routes (shown with SC.port)
+            'nameAr' => $d->name_ar,
+            'country' => $d->tr('country'),
+            'image' => $this->slotUrl($d->image_slot),
+            'blurb' => $d->tr('blurb'),
+            'description' => $d->tr('description'),
+            'highlights' => $d->tr('highlights') ?? [],
+            'visa' => $d->tr('visa_note'),
+        ])->all();
+    }
+
+    /** Terms text and cancellation table in the page language (config/cruise.php text_ar / cancellation_ar). */
+    private function terms(): array
+    {
+        $terms = config('cruise.terms');
+        $ar = Bi::isArabic();
+
+        return [
+            'text' => $ar ? ($terms['text_ar'] ?? $terms['text']) : $terms['text'],
+            'cancellation' => $ar ? ($terms['cancellation_ar'] ?? $terms['cancellation']) : $terms['cancellation'],
+        ];
+    }
+
+    /**
+     * English port / country name → Arabic, from the destinations (e.g. "Safaga" → "سفاجا", "Egypt" → "مصر").
+     * Empty in English, so SC.port() leaves names unchanged.
+     *
+     * @return array<string, string>
+     */
+    private function portNames(): array
+    {
+        if (! Bi::isArabic()) {
+            return [];
+        }
+        $names = ['At sea' => __('site.at_sea')];
+        foreach (Destination::all() as $d) {
+            if ($d->name_ar) {
+                $names[$d->name] = $d->name_ar;
+            }
+            if ($d->country_ar) {
+                $names[$d->country] = $d->country_ar;
+            }
+        }
+
+        return $names;
+    }
+
+    private function facilities(): array
+    {
+        return Facility::orderBy('sort_order')->get()->map(fn (Facility $f) => [
+            'icon' => $f->icon, 'value' => $f->tr('value'), 'label' => $f->tr('label'), 'text' => $f->tr('description'),
+        ])->all();
+    }
+
+    private function testimonials(): array
+    {
+        return Testimonial::where('is_published', true)->with('cruise')->orderBy('sort_order')->get()
+            ->map(fn (Testimonial $t) => [
+                'name' => $t->tr('name'), 'from' => $t->tr('from_city'), 'cruise' => $t->cruise?->tr('name'), 'rating' => $t->rating, 'text' => $t->tr('text'),
+            ])->all();
+    }
+}

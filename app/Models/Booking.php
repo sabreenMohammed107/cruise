@@ -1,0 +1,152 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\PaymentType;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Str;
+
+class Booking extends Model
+{
+    protected $fillable = [
+        'reference', 'user_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
+        'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
+        'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency',
+        'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'status' => BookingStatus::class,
+            'payment_status' => PaymentStatus::class,
+            'fare_total' => 'decimal:2',
+            'fees_total' => 'decimal:2',
+            'discount_total' => 'decimal:2',
+            'grand_total' => 'decimal:2',
+            'amount_paid' => 'decimal:2',
+            'price_snapshot' => 'array',
+            'confirmed_at' => 'datetime',
+            'paid_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+        ];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'reference';
+    }
+
+    /**
+     * Same shape as the template's reference: SC{yymm of departure}-{5 chars}, e.g. SC2611-K4P2Q.
+     */
+    public static function generateReference(CarbonInterface $departure): string
+    {
+        do {
+            $ref = 'SC'.$departure->format('ym').'-'.Str::upper(Str::random(5));
+        } while (static::where('reference', $ref)->exists());
+
+        return $ref;
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function sailing(): BelongsTo
+    {
+        return $this->belongsTo(Sailing::class);
+    }
+
+    public function cabinCategory(): BelongsTo
+    {
+        return $this->belongsTo(CabinCategory::class);
+    }
+
+    public function promoCode(): BelongsTo
+    {
+        return $this->belongsTo(PromoCode::class);
+    }
+
+    public function travellers(): HasMany
+    {
+        return $this->hasMany(BookingTraveller::class)->orderByRaw("CASE band WHEN 'adult' THEN 1 WHEN 'child' THEN 2 ELSE 3 END")->orderBy('slot');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class)->orderBy('received_at');
+    }
+
+    /** Dashboard "Upcoming" tab: confirmed, departing today or later. */
+    public function scopeUpcoming(Builder $query): void
+    {
+        $query->where('status', BookingStatus::Confirmed)
+            ->whereHas('sailing', fn (Builder $q) => $q->whereDate('departure_date', '>=', today()));
+    }
+
+    /** Dashboard "Past" tab: confirmed, already departed. */
+    public function scopePast(Builder $query): void
+    {
+        $query->where('status', BookingStatus::Confirmed)
+            ->whereHas('sailing', fn (Builder $q) => $q->whereDate('departure_date', '<', today()));
+    }
+
+    /** Dashboard "Cancelled" tab. */
+    public function scopeCancelled(Builder $query): void
+    {
+        $query->where('status', BookingStatus::Cancelled);
+    }
+
+    /** Admin follow-up list: confirmed bookings the team still has to collect payment for. */
+    public function scopeAwaitingPayment(Builder $query): void
+    {
+        $query->where('status', BookingStatus::Confirmed)
+            ->whereIn('payment_status', [PaymentStatus::Unpaid, PaymentStatus::Partial]);
+    }
+
+    public function guestCounts(): array
+    {
+        return ['adult' => $this->adults, 'child' => $this->children, 'infant' => $this->infants];
+    }
+
+    public function amountDue(): float
+    {
+        return max(0, (float) $this->grand_total - (float) $this->amount_paid);
+    }
+
+    /**
+     * Recompute amount_paid, payment_status and paid_at from the recorded payments and refunds.
+     * Call after adding or removing a payment.
+     */
+    public function syncPaymentTotals(): void
+    {
+        $payments = $this->payments()->get();
+        $paid = (float) $payments->where('type', PaymentType::Payment)->sum('amount');
+        $refunded = (float) $payments->where('type', PaymentType::Refund)->sum('amount');
+        $net = $paid - $refunded;
+
+        $status = match (true) {
+            // Fully refunded, or a cancelled booking refunded minus the cancellation penalty.
+            $refunded > 0 && ($net <= 0 || $this->status === BookingStatus::Cancelled) => PaymentStatus::Refunded,
+            $net >= (float) $this->grand_total => PaymentStatus::Paid,
+            $net > 0 => PaymentStatus::Partial,
+            default => PaymentStatus::Unpaid,
+        };
+
+        $this->forceFill([
+            'amount_paid' => $net,
+            'payment_status' => $status,
+            'paid_at' => $status === PaymentStatus::Paid
+                ? $payments->where('type', PaymentType::Payment)->max('received_at')
+                : null,
+        ])->save();
+    }
+}

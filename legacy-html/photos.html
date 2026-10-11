@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Photo slots | Safer Cruise (internal)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="assets/css/theme.css">
+</head>
+<body class="min-h-screen flex flex-col">
+  <div id="site-header" data-active=""></div>
+
+  <!-- Internal page (not linked in the menu): checks which AROYA photo slots are filled. -->
+  <main class="flex-1 max-w-site w-full mx-auto px-4 sm:px-6 py-10">
+    <h1 class="font-display font-bold text-3xl">AROYA photo slots</h1>
+    <p class="text-muted mt-2 max-w-[70ch]">Put official AROYA photos in <code class="px-1.5 py-0.5 rounded bg-ocean-50 text-ocean-700">assets/img/aroya/</code> using the file names below (JPG). The site uses them automatically everywhere. Empty slots show the fallback image.</p>
+    <p class="mt-4 font-bold" id="summary"></p>
+    <div id="slots" class="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/core.js"></script>
+  <script>
+    document.addEventListener('sc:ready', () => {
+      const { $ } = SC, slots = SC_DATA.imageSlots;
+      let filled = 0, checked = 0;
+      $('#slots').innerHTML = slots.map((s, i) => `
+        <article class="card overflow-hidden">
+          <div class="aspect-[16/10] bg-ocean-50"><img id="slot-${i}" src="${s.src}" alt="" class="w-full h-full object-cover"></div>
+          <div class="p-4">
+            <p class="font-bold tabular">${s.name}</p>
+            <p class="text-sm text-muted">${s.label}</p>
+            <p class="text-xs text-muted mt-1">Recommended: ${s.size} px or larger</p>
+            <p class="mt-3 text-sm font-bold" id="status-${i}">Checking…</p>
+          </div>
+        </article>`).join('');
+      // Probe each slot separately so the card shows whether the real file exists
+      slots.forEach((s, i) => {
+        const probe = new Image();
+        probe.onload = () => { filled++; done(i, true); };
+        probe.onerror = () => done(i, false);
+        probe.src = s.src;
+      });
+      function done(i, ok) {
+        checked++;
+        $(`#status-${i}`).innerHTML = ok ? '<span class="text-[#12805C]">✓ AROYA photo in use</span>' : '<span class="text-sun-600">Empty: showing fallback</span>';
+        if (checked === slots.length) $('#summary').textContent = `${filled} of ${slots.length} slots filled.`;
+      }
+    });
+  </script>
+</body>
+</html>

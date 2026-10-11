@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The ship: AROYA | Safer Cruise</title>
+  <meta name="description" content="Meet AROYA, Saudi Arabia's first cruise ship: specs, dining, pools, spa, cabins and onboard essentials.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="assets/css/theme.css">
+</head>
+<body class="min-h-screen flex flex-col">
+  <div id="site-header" data-active="ship"></div>
+
+  <main class="flex-1">
+    <!-- =========================================================
+         HERO
+         ========================================================= -->
+    <section class="relative isolate text-white">
+      <img id="ship-hero" src="" alt="AROYA at sea" class="absolute inset-0 -z-10 w-full h-full object-cover object-[75%_center]">
+      <div class="absolute inset-0 -z-10 hero-shade"></div>
+      <div class="max-w-site mx-auto px-4 sm:px-6 pt-24 pb-16 sm:pt-36 sm:pb-24">
+        <nav class="text-sm text-ocean-100 mb-4" aria-label="Breadcrumb"><a href="index.html" class="hover:text-white">Home</a> <span class="mx-1">/</span> <span>The ship</span></nav>
+        <p class="font-semibold text-lagoon-400" id="ship-tagline"></p>
+        <h1 class="font-display font-bold text-5xl sm:text-7xl mt-2">AROYA</h1>
+        <div class="mt-6 flex flex-wrap gap-2" id="ship-chips"></div>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="catalog.html" class="btn btn-accent btn-lg">See sailings</a>
+          <a href="#cabins" class="btn btn-lg text-white border border-white/40 hover:bg-white/10">View cabins</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section nav -->
+    <div class="sticky top-[72px] z-30 bg-white/95 backdrop-blur border-b border-line">
+      <nav class="max-w-site mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto no-scrollbar" aria-label="Sections" id="ship-subnav">
+        <a href="#about" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">About the ship</a>
+        <a href="#onboard" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">Life on board</a>
+        <a href="#cabins" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">Cabins</a>
+        <a href="#essentials" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">Good to know</a>
+        <a href="#faq" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">Questions</a>
+      </nav>
+    </div>
+
+    <!-- =========================================================
+         ABOUT + SPECS
+         ========================================================= -->
+    <section id="about" class="scroll-mt-32 max-w-site mx-auto px-4 sm:px-6 pt-16 sm:pt-20 grid lg:grid-cols-2 gap-12 items-start">
+      <div>
+        <h2 class="font-display font-bold text-3xl sm:text-4xl">Built for the Red Sea</h2>
+        <div id="ship-story" class="mt-5 grid gap-4 text-lg leading-relaxed text-ink/90 max-w-[60ch]"></div>
+      </div>
+      <div>
+        <h3 class="font-display font-semibold text-lg mb-4">Ship facts</h3>
+        <dl id="ship-specs" class="grid grid-cols-2 sm:grid-cols-3 border-t border-s border-line rounded-2xl overflow-hidden bg-white"></dl>
+        <p class="text-xs text-muted mt-3">Figures are indicative and may differ slightly from the operator's published data.</p>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         LIFE ON BOARD — alternating image rows
+         ========================================================= -->
+    <section id="onboard" class="scroll-mt-32 max-w-site mx-auto px-4 sm:px-6 pt-20 sm:pt-28">
+      <h2 class="font-display font-bold text-3xl sm:text-4xl">Life on board</h2>
+      <p class="mt-2 text-muted max-w-[60ch]">Dining, pools and shows are included in your fare. Spa treatments, specialty restaurants and shopping are extra.</p>
+      <div id="ship-zones" class="mt-10 grid gap-12 sm:gap-16"></div>
+
+      <h3 class="font-display font-semibold text-2xl mt-20">Everything on deck</h3>
+      <ul id="ship-facilities" class="mt-6 grid gap-px bg-line border border-line rounded-[22px] overflow-hidden sm:grid-cols-2 lg:grid-cols-3"></ul>
+    </section>
+
+    <!-- =========================================================
+         CABINS
+         ========================================================= -->
+    <section id="cabins" class="scroll-mt-32 max-w-site mx-auto px-4 sm:px-6 pt-20 sm:pt-28">
+      <h2 class="font-display font-bold text-3xl sm:text-4xl">Cabins</h2>
+      <p class="mt-2 text-muted">Three categories, bookable online for every sailing.</p>
+      <div id="ship-cabins" class="mt-8 grid gap-6 md:grid-cols-3"></div>
+    </section>
+
+    <!-- =========================================================
+         ESSENTIALS
+         ========================================================= -->
+    <section id="essentials" class="scroll-mt-32 mt-20 sm:mt-28 bg-white border-y border-line">
+      <div class="max-w-site mx-auto px-4 sm:px-6 py-16">
+        <h2 class="font-display font-bold text-3xl sm:text-4xl">Good to know</h2>
+        <ul id="ship-essentials" class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"></ul>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         FAQ
+         ========================================================= -->
+    <section id="faq" class="scroll-mt-32 max-w-3xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24">
+      <h2 class="font-display font-bold text-3xl sm:text-4xl">Questions about the ship</h2>
+      <div id="ship-faq" class="mt-8 grid gap-3" data-accordion="single"></div>
+    </section>
+
+    <!-- CTA -->
+    <section class="max-w-site mx-auto px-4 sm:px-6 py-20 sm:py-24">
+      <div class="rounded-[28px] bg-ocean-700 text-white px-6 py-12 sm:px-12 flex flex-wrap items-center justify-between gap-6">
+        <div>
+          <h2 class="font-display font-bold text-3xl">Ready to sail on AROYA?</h2>
+          <p class="text-ocean-100 mt-2">Pick a date and see the price for every guest.</p>
+        </div>
+        <a href="catalog.html" class="btn btn-accent btn-lg">Find a sailing</a>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/core.js"></script>
+  <script src="assets/js/pages/ship.js"></script>
+</body>
+</html>

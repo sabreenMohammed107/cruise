@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All cruises | Safer Cruise</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="assets/js/tailwind.config.js"></script>
+  <link rel="stylesheet" href="assets/css/theme.css">
+</head>
+<body class="min-h-screen flex flex-col">
+  <div id="site-header" data-active="catalog"></div>
+
+  <main class="flex-1">
+    <!-- =========================================================
+         PAGE HEAD + NAME SEARCH
+         ========================================================= -->
+    <section class="bg-ocean-700 text-white">
+      <div class="max-w-site mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <nav class="text-sm text-ocean-200 mb-3" aria-label="Breadcrumb"><a href="index.html" class="hover:text-white">Home</a> <span class="mx-1">/</span> <span class="text-white">Cruises</span></nav>
+        <h1 class="font-display font-bold text-3xl sm:text-5xl">Choose your sailing</h1>
+        <p class="mt-3 text-ocean-100 max-w-[60ch]">Every departure of every cruise. Pick a date, then choose your cabin on the next step.</p>
+        <div class="mt-6 max-w-xl relative">
+          <label for="q" class="sr-only">Search by cruise name</label>
+          <i data-icon="search" class="w-5 h-5 absolute start-4 top-1/2 -translate-y-1/2 text-muted pointer-events-none"></i>
+          <input id="q" type="search" class="field !py-3.5 !ps-12 !border-transparent" placeholder="Search by cruise name, e.g. Red Sea">
+        </div>
+      </div>
+    </section>
+
+    <div class="max-w-site mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[280px_1fr] gap-8 items-start">
+
+      <!-- =========================================================
+           FILTERS — sidebar on desktop, off-canvas panel on mobile
+           ========================================================= -->
+      <div id="filter-backdrop" class="fixed inset-0 z-[64] bg-ocean-900/50 hidden lg:hidden"></div>
+      <aside id="filters" class="fixed inset-y-0 start-0 z-[65] w-[88vw] max-w-sm bg-white overflow-y-auto p-5 -translate-x-full rtl:translate-x-full transition-transform duration-300
+                                 lg:static lg:z-auto lg:w-auto lg:max-w-none lg:translate-x-0 rtl:lg:translate-x-0 lg:p-0 lg:bg-transparent lg:overflow-visible lg:sticky lg:top-24"
+             aria-label="Filters">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-display font-semibold text-lg">Filters</h2>
+          <div class="flex items-center gap-2">
+            <button id="clear-all" class="btn btn-ghost btn-sm">Clear all</button>
+            <button class="icon-btn lg:hidden" id="filters-close" aria-label="Close filters"><i data-icon="x" class="w-5 h-5"></i></button>
+          </div>
+        </div>
+
+        <form id="filter-form" class="grid gap-3" onsubmit="return false">
+          <!-- Each group is a collapsible accordion item, open by default -->
+          <div data-accordion class="grid gap-3">
+            <div class="acc-item open card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="true">Departure port <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div><div id="f-ports" class="grid gap-2.5 pt-3"></div></div></div>
+            </div>
+
+            <div class="acc-item open card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="true">Dates <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div class="grid gap-3 pt-3">
+                <div><label class="label" for="f-month">Month</label><select id="f-month" class="field"><option value="">Any month</option></select></div>
+                <div><label class="label" for="f-date">Departing on or after</label><input id="f-date" type="date" class="field"></div>
+              </div></div>
+            </div>
+
+            <div class="acc-item open card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="true">Nights <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div><div id="f-nights" class="flex flex-wrap gap-2 pt-3"></div></div></div>
+            </div>
+
+            <div class="acc-item open card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="true">Price per person <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div class="pt-3">
+                <label for="f-price" class="text-sm">Up to <output id="f-price-out" class="font-bold tabular"></output></label>
+                <input id="f-price" type="range" step="50" class="mt-2">
+                <div class="flex justify-between text-xs text-muted tabular"><span id="f-price-min"></span><span id="f-price-max"></span></div>
+              </div></div>
+            </div>
+
+            <div class="acc-item open card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="true">Cabin type <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div><div id="f-cabins" class="grid gap-2.5 pt-3"></div></div></div>
+            </div>
+
+            <div class="acc-item card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="false">Ship <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div><div id="f-ships" class="grid gap-2.5 pt-3"></div></div></div>
+            </div>
+
+            <div class="acc-item card p-4">
+              <button type="button" class="acc-trigger w-full flex items-center justify-between font-bold" aria-expanded="false">Highlights <i data-icon="chevron-down" class="acc-chevron w-4 h-4"></i></button>
+              <div class="acc-body"><div><div id="f-highlights" class="grid gap-2.5 pt-3"></div></div></div>
+            </div>
+          </div>
+        </form>
+
+        <button id="filters-apply" class="btn btn-primary w-full mt-5 lg:hidden">Show results</button>
+      </aside>
+
+      <!-- =========================================================
+           RESULTS
+           ========================================================= -->
+      <section aria-labelledby="results-title">
+        <div class="flex flex-wrap items-center gap-3 justify-between">
+          <h2 id="results-title" class="font-display font-semibold text-lg"><span id="r-count">0</span> sailings</h2>
+          <div class="flex items-center gap-2">
+            <button id="filters-open" class="btn btn-outline btn-sm lg:hidden"><i data-icon="filter" class="w-4 h-4"></i> Filters <span id="f-badge" class="hidden min-w-5 h-5 px-1.5 rounded-full bg-ocean-600 text-white text-xs grid place-items-center"></span></button>
+            <label for="sort" class="sr-only">Sort by</label>
+            <select id="sort" class="field !py-2 !rounded-full !w-auto text-sm font-semibold">
+              <option value="popular">Most popular</option>
+              <option value="date">Departure date</option>
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+              <option value="rating">Guest rating</option>
+            </select>
+            <div class="hidden sm:flex rounded-full border border-line bg-white p-1" role="group" aria-label="Layout">
+              <button class="w-9 h-9 grid place-items-center rounded-full" data-view="grid" aria-label="Grid view" aria-pressed="true"><i data-icon="grid" class="w-4 h-4"></i></button>
+              <button class="w-9 h-9 grid place-items-center rounded-full" data-view="list" aria-label="List view" aria-pressed="false"><i data-icon="list" class="w-4 h-4"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active filter chips -->
+        <div id="active-chips" class="flex flex-wrap gap-2 mt-4"></div>
+
+        <div id="results" class="mt-6 grid gap-6"></div>
+
+        <!-- Empty state -->
+        <div id="empty" class="hidden card p-10 text-center mt-6">
+          <span class="inline-grid place-items-center w-14 h-14 rounded-2xl bg-ocean-50 text-ocean-600"><i data-icon="search" class="w-7 h-7"></i></span>
+          <h3 class="font-display font-semibold text-xl mt-4">No sailings match these filters</h3>
+          <p class="text-muted mt-2">Remove a filter or widen the price range to see more departures.</p>
+          <button class="btn btn-primary mt-6" data-clear-all>Clear all filters</button>
+        </div>
+
+        <nav id="pagination" class="mt-10 flex items-center justify-center gap-2" aria-label="Pagination"></nav>
+      </section>
+    </div>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/core.js"></script>
+  <script src="assets/js/pages/catalog.js"></script>
+</body>
+</html>

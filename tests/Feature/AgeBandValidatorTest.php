@@ -1,0 +1,74 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\TravellerBand;
+use App\Services\AgeBandValidator;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
+
+/**
+ * Ages are counted on the departure date (SC.checkBand in core.js).
+ */
+class AgeBandValidatorTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected $seed = true;
+
+    private AgeBandValidator $validator;
+
+    private Carbon $departure;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->travelTo('2026-10-11');
+        $this->validator = app(AgeBandValidator::class);
+        $this->departure = Carbon::parse('2026-11-15');
+    }
+
+    public function test_child_turning_twelve_after_departure_is_still_a_child(): void
+    {
+        $this->assertNull($this->validator->check(TravellerBand::Child, '2014-11-16', $this->departure));
+    }
+
+    public function test_child_who_is_twelve_on_departure_day_must_book_as_adult(): void
+    {
+        $this->assertSame(
+            'Children must be 2–11 years old on the departure date.',
+            $this->validator->check(TravellerBand::Child, '2014-11-15', $this->departure),
+        );
+        $this->assertNull($this->validator->check(TravellerBand::Adult, '2014-11-15', $this->departure));
+    }
+
+    public function test_adult_under_twelve_is_rejected(): void
+    {
+        $this->assertStringStartsWith(
+            'Adults must be 12 or older',
+            $this->validator->check(TravellerBand::Adult, '2015-01-01', $this->departure),
+        );
+    }
+
+    public function test_infant_must_be_at_least_six_months_on_departure(): void
+    {
+        $this->assertNull($this->validator->check(TravellerBand::Infant, '2026-05-15', $this->departure));
+        $this->assertSame(
+            'Infants must be at least 6 months and under 2 years old on the departure date.',
+            $this->validator->check(TravellerBand::Infant, '2026-05-16', $this->departure),
+        );
+    }
+
+    public function test_infant_must_be_under_two_on_departure(): void
+    {
+        $this->assertNull($this->validator->check(TravellerBand::Infant, '2024-11-16', $this->departure));
+        $this->assertNotNull($this->validator->check(TravellerBand::Infant, '2024-11-15', $this->departure));
+    }
+
+    public function test_missing_or_future_date_of_birth(): void
+    {
+        $this->assertSame('Enter a date of birth.', $this->validator->check(TravellerBand::Adult, null, $this->departure));
+        $this->assertSame("Date of birth can't be in the future.", $this->validator->check(TravellerBand::Infant, '2026-10-12', $this->departure));
+    }
+}
