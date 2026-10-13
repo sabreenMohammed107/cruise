@@ -223,4 +223,18 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin(), 'admin')->delete("/admin/sailings/{$sailing->id}")->assertSessionHas('error');
         $this->assertModelExists($sailing);
     }
+
+    public function test_arabic_lines_are_saved_intact(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+        $destination = Destination::where('slug', 'yanbu')->firstOrFail();
+        // "م" is D9 85 in UTF-8; 0x85 used to be taken for a line break and cut the letter in half
+        $lines = ['مدينة ينبع التاريخية', 'شعاب مرجانية وغوص'];
+
+        $this->put("/admin/destinations/{$destination->id}", $destination->only(['name', 'name_ar', 'slug', 'country', 'country_ar', 'blurb', 'description', 'visa_note', 'sort_order', 'image'])
+            + ['highlights' => implode("\n", $destination->highlights), 'highlights_ar' => implode("\r\n", $lines), 'is_active' => 1])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($lines, $destination->fresh()->highlights_ar);
+    }
 }

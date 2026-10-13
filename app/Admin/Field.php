@@ -242,7 +242,8 @@ final class Field
 
         return match ($this->type) {
             'checkbox' => $request->boolean($this->name),
-            'lines' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $raw)), 'strlen')),
+            // /u: without it \R also matches the byte 0x85, which is inside Arabic letters (e.g. "م" = D9 85)
+            'lines' => array_values(array_filter(array_map('trim', preg_split('/\R/u', (string) $raw)), 'strlen')),
             'images' => array_values(array_unique(array_filter((array) $raw))),
             'checkboxes' => array_values((array) ($raw ?? [])),
             // Empty input falls back to the field default (e.g. sort_order 0 for NOT NULL columns)
