@@ -28,8 +28,8 @@ class ShipResource extends Resource
             Field::text('home_port', 'Home port')->arabic()->rules(['nullable', 'string', 'max:255']),
             Field::textarea('description', 'Short description')->arabic()->rules(['nullable', 'string', 'max:1000']),
             Field::lines('story', '"Built for the Red Sea" paragraphs')->arabic()->rules(['nullable', 'string'])->help('One paragraph per line.'),
-            Field::imageSlot('image_slot', 'Side view photo'),
-            Field::imageSlot('hero_image_slot', 'Hero photo'),
+            Field::image('image', 'Side view photo'),
+            Field::image('hero_image', 'Hero photo'),
         ];
     }
 

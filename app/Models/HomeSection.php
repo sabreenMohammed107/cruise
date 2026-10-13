@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasArabicCopy;
+use App\Support\MediaLibrary;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Every text column has an Arabic twin ({field}_ar); links and the photo are shared.
  *
  * Image resolution order: uploaded photo (image_path, relative to public/) → the section's
- * default from config (an asset path or an image slot) → none.
+ * default from config (an asset path or a photo of the ship) → none.
  */
 class HomeSection extends Model
 {
@@ -141,8 +142,8 @@ class HomeSection extends Model
         if (isset($default['asset'])) {
             return asset($default['asset']);
         }
-        if (isset($default['slot'])) {
-            return ImageSlot::where('key', $default['slot'])->first()?->url();
+        if (isset($default['ship'])) {
+            return MediaLibrary::url(Ship::first()?->getAttribute($default['ship']));
         }
 
         return null;

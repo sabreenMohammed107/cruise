@@ -90,7 +90,7 @@ class ResourceController extends Controller
     /** @param  class-string<Resource>  $resource */
     private function save(string $resource, Model $record, Request $request): void
     {
-        $request->validate($resource::rules($record->exists ? $record : null));
+        $request->validate($resource::rules($record->exists ? $record : null), $resource::messages());
 
         DB::transaction(function () use ($resource, $record, $request) {
             $resource::fill($record, $request);

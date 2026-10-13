@@ -13,7 +13,7 @@ class ShipZone extends Model
     /** Text columns with an Arabic twin ({column}_ar), see HasArabicCopy. */
     public const TRANSLATABLE = ['title', 'text'];
 
-    protected $fillable = ['ship_id', 'icon', 'title', 'image_slot', 'text', 'sort_order'];
+    protected $fillable = ['ship_id', 'icon', 'title', 'image', 'text', 'sort_order'];
 
     public function ship(): BelongsTo
     {

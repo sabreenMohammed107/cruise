@@ -10,7 +10,7 @@
 |            image, caption, items (primary/secondary = button label + link; label only
 |            when 'link' is false)
 |   image    default picture when nothing is uploaded: ['asset' => path under public/]
-|            or ['slot' => image slot key]
+|            or ['ship' => 'image' | 'hero_image'] (that photo of the ship, from Admin → Ships)
 |   content  default copy, from legacy-html/index.html. HomeSectionSeeder writes it to the
 |            database, and HomeSection::forHome() falls back to it if a row is missing.
 |
@@ -82,7 +82,7 @@ return [
         'ship' => [
             'name' => 'The ship',
             'fields' => ['title', 'body', 'primary', 'image', 'caption'],
-            'image' => ['slot' => 'exterior'],
+            'image' => ['ship' => 'image'],
             'content' => [
                 'title' => 'AROYA at a glance',
                 'title_ar' => 'أرويا في لمحة',

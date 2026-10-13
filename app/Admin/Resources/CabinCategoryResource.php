@@ -49,7 +49,7 @@ class CabinCategoryResource extends Resource
             Field::text('beds', 'Beds')->arabic()->rules(['nullable', 'string', 'max:255'])->wide(),
             Field::textarea('bedroom', 'Bedroom and lounge')->arabic()->rules(['nullable', 'string', 'max:1000']),
             Field::lines('features', 'In the cabin')->arabic()->rules(['nullable', 'string'])->help('One feature per line.'),
-            Field::imageSlots('image_slots', 'Photos'),
+            Field::images('images', 'Photos'),
             Field::number('sort_order', 'Order')->default(0)->rules(['nullable', 'integer', 'min:0']),
         ];
     }

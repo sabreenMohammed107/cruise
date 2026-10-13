@@ -7,11 +7,9 @@ use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\Cruise;
 use App\Models\Destination;
-use App\Models\ImageSlot;
 use App\Models\Sailing;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class AdminPanelTest extends TestCase
@@ -87,7 +85,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin(), 'admin');
         $cruise = Cruise::where('slug', 'red-sea-discovery')->firstOrFail();
 
-        $urls = ['/admin', '/admin/bookings', '/admin/bookings/SC2611-K4P2Q', '/admin/image-slots',
+        $urls = ['/admin', '/admin/bookings', '/admin/bookings/SC2611-K4P2Q',
             "/admin/cruises/{$cruise->slug}/sailings", "/admin/cruises/{$cruise->slug}/sailings/create",
             '/admin/sailings/'.$cruise->sailings()->first()->id.'/edit'];
         foreach (collect(config('admin.resources'))->flatten() as $resource) {
@@ -139,7 +137,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin(), 'admin');
 
         $this->post('/admin/destinations', [
-            'name' => 'Duba', 'slug' => 'duba', 'country' => 'Saudi Arabia', 'image_slot' => 'dest-al-wajh',
+            'name' => 'Duba', 'slug' => 'duba', 'country' => 'Saudi Arabia', 'image' => Destination::where('slug', 'al-wajh')->value('image'),
             'highlights' => "Port town walk\nRed Sea reefs", 'is_active' => '1', 'sort_order' => '',
         ])->assertRedirect('/admin/destinations')->assertSessionHasNoErrors();
 
@@ -224,22 +222,5 @@ class AdminPanelTest extends TestCase
 
         $this->actingAs($this->admin(), 'admin')->delete("/admin/sailings/{$sailing->id}")->assertSessionHas('error');
         $this->assertModelExists($sailing);
-    }
-
-    public function test_photo_slot_upload_and_clear(): void
-    {
-        $this->actingAs($this->admin(), 'admin');
-        $slot = ImageSlot::where('key', 'hero')->firstOrFail();
-
-        $this->post('/admin/image-slots/hero', ['photo' => UploadedFile::fake()->image('hero.jpg', 1200, 700)])->assertSessionHasNoErrors();
-        $slot->refresh();
-        $this->assertStringStartsWith('uploads/image-slots/hero-', $slot->path);
-        $this->assertFileExists(public_path($slot->path));
-        $this->assertTrue($slot->isFilled());
-
-        $file = public_path($slot->path);
-        $this->delete('/admin/image-slots/hero');
-        $this->assertNull($slot->fresh()->path);
-        $this->assertFileDoesNotExist($file);
     }
 }

@@ -1,22 +1,23 @@
 {{--
     Photo field with two sources: an upload from the device, or a photo picked from the shared media library
-    (admin.partials.media-library). Used by the image_slot / image_slots field types.
+    (admin.partials.media-library). Used by the image / images field types.
 
-    The picked photos post as "{name}" / "{name}[]" (slot keys, or "file:…" for loose images, see MediaLibrary);
-    uploads post as "{name}_upload" / "{name}_upload[]" and are turned into photo slots by Resource::fill().
+    The picked photos post as "{name}" / "{name}[]" (paths under public/ or photo URLs, see MediaLibrary);
+    uploads post as "{name}_upload" / "{name}_upload[]" and are saved to the library by Resource::fill().
     A gallery is ordered by dragging its photos; uploads are added after them.
 
-    @include('admin.partials.media-picker', ['name' => 'gallery_slots', 'label' => 'Gallery', 'value' => [...], 'multiple' => true, 'slotOptions' => $slotOptions])
+    @include('admin.partials.media-picker', ['name' => 'gallery', 'label' => 'Gallery', 'value' => [...], 'multiple' => true])
 --}}
 @php
   use App\Support\MediaLibrary;
   $multiple = $multiple ?? false;
   $values = array_values(array_filter((array) $value));
-  $picked = array_map(fn ($v) => ['value' => $v, 'url' => MediaLibrary::previewUrl($v, $slotOptions)], $values);
+  $picked = array_map(fn ($v) => ['value' => $v, 'url' => MediaLibrary::url($v)], $values);
   $uploadError = $errors->first($name.'_upload') ?: $errors->first($name.'_upload.*');
 @endphp
 
-<div data-media-picker data-multiple="{{ $multiple ? '1' : '0' }}" data-name="{{ $multiple ? $name.'[]' : $name }}" data-label="{{ $label }}">
+<div data-media-picker data-multiple="{{ $multiple ? '1' : '0' }}" data-name="{{ $multiple ? $name.'[]' : $name }}" data-label="{{ $label }}"
+     data-max-bytes="{{ MediaLibrary::maxUploadBytes() }}" data-max-label="{{ MediaLibrary::maxUploadLabel() }}">
   @if ($multiple)
     {{-- Current gallery, in order: drag to reorder, × to remove --}}
     <ol data-role="list" class="flex flex-wrap gap-3 empty:hidden" aria-label="{{ $label }}: chosen photos">
@@ -44,7 +45,7 @@
         <label class="btn btn-ghost btn-sm cursor-pointer" for="f-{{ $name }}-upload"><i data-icon="plus" class="w-4 h-4"></i> Upload new photos</label>
         <input id="f-{{ $name }}-upload" data-role="file" type="file" name="{{ $name }}_upload[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only">
       </div>
-      <p class="text-xs text-muted mt-2">Drag the photos to change their order. Uploads (JPG, PNG or WebP, up to 5 MB each) are added at the end when you save, and are kept in the library so you can reuse them.</p>
+      <p class="text-xs text-muted mt-2">Drag the photos to change their order. Uploads (JPG, PNG or WebP, up to {{ MediaLibrary::maxUploadLabel() }} each) are added at the end when you save, and are kept in the library so you can reuse them.</p>
     </div>
   @else
     @php($current = $picked[0] ?? null)
@@ -62,9 +63,10 @@
       </div>
     </div>
     <p data-role="source" class="text-xs text-muted mt-2 break-all"></p>
+    <p class="text-xs text-muted mt-1">JPG, PNG or WebP, up to {{ MediaLibrary::maxUploadLabel() }}.</p>
   @endif
 
-  @if ($uploadError)<p class="err show">{{ $uploadError }}</p>@endif
+  <p data-role="upload-error" class="err {{ $uploadError ? 'show' : '' }}">{{ $uploadError }}</p>
 </div>
 
 @once

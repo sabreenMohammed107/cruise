@@ -16,7 +16,7 @@ class CabinCategory extends Model
 
     protected $fillable = [
         'ship_id', 'slug', 'name_en', 'name_ar', 'badge', 'short_description', 'description', 'max_guests',
-        'size', 'balcony_size', 'beds', 'bedroom', 'features', 'image_slots',
+        'size', 'balcony_size', 'beds', 'bedroom', 'features', 'images',
         'base_rate_adult', 'base_rate_child', 'base_rate_infant', 'sort_order',
     ];
 
@@ -24,7 +24,7 @@ class CabinCategory extends Model
     {
         return [
             'features' => 'array',
-            'image_slots' => 'array',
+            'images' => 'array',
             'base_rate_adult' => 'decimal:2',
             'base_rate_child' => 'decimal:2',
             'base_rate_infant' => 'decimal:2',

@@ -48,8 +48,8 @@ class CruiseResource extends Resource
             Field::number('rating', 'Guest rating', '0.1')->rules(['nullable', 'numeric', 'min:0', 'max:5']),
             Field::number('reviews_count', 'Number of reviews')->rules(['nullable', 'integer', 'min:0']),
             Field::number('popularity', 'Popularity (0–100)')->rules(['nullable', 'integer', 'min:0', 'max:100'])->help('Used for "Most popular" sorting.'),
-            Field::imageSlot('image_slot', 'Card image'),
-            Field::imageSlots('gallery_slots', 'Gallery'),
+            Field::image('image', 'Card image'),
+            Field::images('gallery', 'Gallery'),
             Field::textarea('summary', 'Summary')->arabic()->rules(['nullable', 'string', 'max:2000']),
             Field::checkbox('is_active', 'Show on the website')->default(true)->index(),
         ];

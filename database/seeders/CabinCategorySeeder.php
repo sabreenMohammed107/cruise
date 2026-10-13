@@ -23,7 +23,7 @@ class CabinCategorySeeder extends Seeder
                 'max_guests' => 3, 'size' => '14–17 m²', 'balcony_size' => null,
                 'beds' => 'Twin beds convertible to a queen, plus sofa bed', 'bedroom' => null,
                 'features' => ['Private bathroom with shower', 'Smart TV', 'In-room safe', 'Air conditioning', 'Daily housekeeping', 'Hairdryer'],
-                'image_slots' => ['cabin-interior-1', 'cabin-interior-2'],
+                'images' => StockPhotos::urls(['cabin-interior-1', 'cabin-interior-2']),
                 'base_rate_adult' => 330, 'base_rate_child' => 170, 'base_rate_infant' => 45,
             ],
             [
@@ -34,7 +34,7 @@ class CabinCategorySeeder extends Seeder
                 'max_guests' => 4, 'size' => '20 m²', 'balcony_size' => '5 m²',
                 'beds' => 'Queen bed (or twins), plus double sofa bed', 'bedroom' => null,
                 'features' => ['Private balcony', 'Sitting area', 'Smart TV', 'Mini fridge', 'In-room safe', 'Daily housekeeping'],
-                'image_slots' => ['cabin-balcony-1', 'cabin-balcony-2', 'cabin-balcony-3'],
+                'images' => StockPhotos::urls(['cabin-balcony-1', 'cabin-balcony-2', 'cabin-balcony-3']),
                 'base_rate_adult' => 520, 'base_rate_child' => 240, 'base_rate_infant' => 45,
             ],
             [
@@ -46,7 +46,7 @@ class CabinCategorySeeder extends Seeder
                 'beds' => 'King bed in bedroom, double sofa bed in lounge',
                 'bedroom' => 'Separate bedroom with wardrobe; lounge with sofa bed and dining table for four.',
                 'features' => ['Private balcony', 'Separate bedroom', 'Bathtub and rain shower', 'Priority embarkation', 'Suite reception', 'Coffee machine', 'Welcome fruit and drinks'],
-                'image_slots' => ['cabin-suite-1', 'cabin-suite-2', 'cabin-suite-3'],
+                'images' => StockPhotos::urls(['cabin-suite-1', 'cabin-suite-2', 'cabin-suite-3']),
                 'base_rate_adult' => 1150, 'base_rate_child' => 380, 'base_rate_infant' => 45,
             ],
         ];

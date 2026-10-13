@@ -7,7 +7,6 @@ use App\Models\Booking;
 use App\Models\CabinCategory;
 use App\Models\Cruise;
 use App\Models\Destination;
-use App\Models\ImageSlot;
 use App\Models\Sailing;
 use App\Models\Ship;
 use App\Models\ShipZone;
@@ -32,7 +31,7 @@ class SeededDataTest extends TestCase
         $this->assertSame(6, Cruise::count());
         $this->assertSame(17, Sailing::upcoming()->count());
         $this->assertSame(8, Cruise::where('slug', 'red-sea-discovery')->firstOrFail()->itinerary()->count());
-        $this->assertSame(22, ImageSlot::count());
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('image_slots'));
 
         $ship = Ship::where('slug', 'aroya')->firstOrFail();
         $this->assertSame("Saudi Arabia's first cruise ship", $ship->tagline);
@@ -43,19 +42,16 @@ class SeededDataTest extends TestCase
         ]);
     }
 
-    public function test_every_image_slot_reference_points_to_an_existing_slot(): void
+    public function test_every_seeded_image_is_a_valid_photo(): void
     {
-        $used = collect()
-            ->merge(Cruise::pluck('image_slot'))
-            ->merge(Cruise::pluck('gallery_slots')->flatten())
-            ->merge(CabinCategory::pluck('image_slots')->flatten())
-            ->merge(Destination::pluck('image_slot'))
-            ->merge(ShipZone::pluck('image_slot'))
-            ->merge(Ship::pluck('image_slot'))
-            ->merge(Ship::pluck('hero_image_slot'))
-            ->filter()->unique();
+        $used = \App\Support\MediaLibrary::usedValues();
 
-        $this->assertSame([], $used->diff(ImageSlot::pluck('key'))->values()->all());
+        $this->assertNotEmpty($used);
+        $this->assertSame([], array_values(array_filter($used, fn ($v) => ! \App\Support\MediaLibrary::isValid($v))));
+        $this->assertCount(3, CabinCategory::where('slug', 'balcony')->firstOrFail()->images);
+        $this->assertCount(4, Ship::firstOrFail()->zones->pluck('image')->filter());
+        $this->assertNotNull(Destination::firstOrFail()->image);
+        $this->assertNotNull(ShipZone::firstOrFail()->image);
     }
 
     public function test_destinations_list_the_cruises_that_call_there(): void

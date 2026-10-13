@@ -23,5 +23,5 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# Photos uploaded from the admin panel (Photo slots)
+# Photos uploaded from the admin panel (media library)
 /public/uploads

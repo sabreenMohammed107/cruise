@@ -40,10 +40,10 @@
         </div>
         @break
 
-      @case('image_slot')
-      @case('image_slots')
+      @case('image')
+      @case('images')
         {{-- Media library: upload from the device or pick a photo already on the server --}}
-        @include('admin.partials.media-picker', ['name' => $name, 'label' => $field->label, 'value' => $value, 'multiple' => $field->type === 'image_slots', 'slotOptions' => $slotOptions])
+        @include('admin.partials.media-picker', ['name' => $name, 'label' => $field->label, 'value' => $value, 'multiple' => $field->type === 'images'])
         @break
 
       @default

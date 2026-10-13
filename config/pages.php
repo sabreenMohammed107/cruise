@@ -28,7 +28,7 @@ return [
                 'name' => 'Hero',
                 'fields' => ['primary', 'secondary', 'image'],
                 'help' => 'The ship name, tagline and fact chips come from Admin → Ships and Ship facts.',
-                'image' => ['slot' => 'hero'],
+                'image' => ['ship' => 'hero_image'],
                 'content' => [
                     'title' => 'AROYA', 'title_ar' => 'أرويا',
                     'primary_label' => 'See sailings', 'primary_label_ar' => 'شاهد الرحلات', 'primary_url' => '/cruises',

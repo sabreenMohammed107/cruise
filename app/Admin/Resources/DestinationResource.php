@@ -35,7 +35,7 @@ class DestinationResource extends Resource
                 ->help('Used in /destinations#{slug}.'),
             Field::text('name_ar', 'Name (Arabic)')->rules(['nullable', 'string', 'max:255']),
             Field::text('country', 'Country')->arabic()->rules(['required', 'string', 'max:255'])->index(),
-            Field::imageSlot('image_slot', 'Photo'),
+            Field::image('image', 'Photo'),
             Field::text('blurb', 'Short line')->arabic()->rules(['nullable', 'string', 'max:255'])->help('Shown on the homepage slider.')->wide(),
             Field::textarea('description', 'Description')->arabic()->rules(['nullable', 'string', 'max:3000']),
             Field::lines('highlights', 'Things to do')->arabic()->rules(['nullable', 'string'])->help('One per line.'),

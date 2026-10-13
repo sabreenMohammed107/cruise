@@ -15,7 +15,7 @@ class Destination extends Model
     public const TRANSLATABLE = ['name', 'country', 'blurb', 'description', 'highlights', 'visa_note'];
 
     protected $fillable = [
-        'slug', 'name', 'name_ar', 'country', 'image_slot', 'blurb', 'description', 'highlights', 'visa_note',
+        'slug', 'name', 'name_ar', 'country', 'image', 'blurb', 'description', 'highlights', 'visa_note',
         'sort_order', 'is_active',
     ];
 

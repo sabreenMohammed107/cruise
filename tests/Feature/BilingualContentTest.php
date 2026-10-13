@@ -41,7 +41,6 @@ class BilingualContentTest extends TestCase
         'users', 'password_reset_tokens', 'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
         'migrations', 'bookings', 'booking_travellers', 'payments', 'favorites', 'newsletter_subscribers',
         'sailings', 'sailing_cabin_prices',
-        'image_slots', // labels are admin-only; photos have no language
     ];
 
     private function inArabic(): static

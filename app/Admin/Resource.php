@@ -2,7 +2,6 @@
 
 namespace App\Admin;
 
-use App\Models\ImageSlot;
 use App\Support\MediaLibrary;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +10,7 @@ use Illuminate\Http\Request;
 /**
  * Describes one admin CRUD screen. Admin\ResourceController and the views in
  * resources/views/admin/resources render any resource from this description.
- * Screens with their own workflow (bookings, sailings, image slots) have dedicated controllers.
+ * Screens with their own workflow (bookings, sailings) have dedicated controllers.
  */
 abstract class Resource
 {
@@ -105,6 +104,12 @@ abstract class Resource
         return $rules + static::extraRules($record);
     }
 
+    /** Custom validation messages of the fields (e.g. oversized photo uploads). */
+    public static function messages(): array
+    {
+        return array_merge(...array_map(fn (Field $field) => $field->messages(), static::allFields()));
+    }
+
     /**
      * Copy validated input onto the model. Override for attributes that aren't mass-assignable.
      */
@@ -120,61 +125,30 @@ abstract class Resource
             $record->setAttribute($field->name, $field->value($request));
         }
 
-        static::resolveLibraryPicks($record);
         static::storePhotoUploads($record, $request);
     }
 
     /**
-     * Media library picks of loose images ("file:…", see MediaLibrary) become new photo slots named after
-     * the record, like direct uploads; picked slot keys are kept as they are.
-     */
-    protected static function resolveLibraryPicks(Model $record): void
-    {
-        foreach (static::fields() as $field) {
-            if (! in_array($field->type, ['image_slot', 'image_slots'], true)) {
-                continue;
-            }
-            $owner = trim((string) $record->getAttribute(static::$title)) ?: static::$singular;
-
-            if ($field->type === 'image_slot') {
-                $record->setAttribute($field->name, MediaLibrary::resolve($record->getAttribute($field->name), "{$owner} – {$field->label}", "{$owner} photo"));
-
-                continue;
-            }
-
-            $keys = [];
-            foreach (array_values((array) $record->getAttribute($field->name)) as $i => $value) {
-                $n = $i + 1;
-                $keys[] = MediaLibrary::resolve($value, "{$owner} – {$field->label} {$n}", "{$owner} {$n}");
-            }
-            $record->setAttribute($field->name, array_values(array_unique(array_filter($keys))));
-        }
-    }
-
-    /**
-     * Direct uploads in photo fields ({name}_upload): each file becomes a new photo slot (Photo slots,
-     * "Added by you") named after the record. A gallery gets the new slots appended; a single photo
-     * field switches to the new slot.
+     * Direct uploads in photo fields ({name}_upload) are saved to the media library, named after the
+     * record (e.g. uploads/media/aroya-repositioning-4-1a2b3c.jpg). A gallery gets them appended; a
+     * single photo field switches to the new photo.
      */
     protected static function storePhotoUploads(Model $record, Request $request): void
     {
         foreach (static::fields() as $field) {
-            if (! in_array($field->type, ['image_slot', 'image_slots'], true) || ! $request->hasFile($field->name.'_upload')) {
+            if (! in_array($field->type, ['image', 'images'], true) || ! $request->hasFile($field->name.'_upload')) {
                 continue;
             }
             $owner = trim((string) $record->getAttribute(static::$title)) ?: static::$singular;
             $files = array_values(array_filter(\Illuminate\Support\Arr::wrap($request->file($field->name.'_upload'))));
-            $current = $field->type === 'image_slots' ? array_values((array) $record->getAttribute($field->name)) : [];
+            $current = $field->type === 'images' ? array_values((array) $record->getAttribute($field->name)) : [];
 
-            $keys = [];
+            $paths = [];
             foreach ($files as $i => $file) {
-                $n = count($current) + $i + 1;
-                $label = $field->type === 'image_slots' ? "{$owner} – {$field->label} {$n}" : "{$owner} – {$field->label}";
-                // short readable keys: aroya-repositioning-4, yanbu-photo
-                $keys[] = ImageSlot::fromUpload($file, $label, $field->type === 'image_slots' ? "{$owner} {$n}" : "{$owner} photo")->key;
+                $paths[] = MediaLibrary::store($file, $field->type === 'images' ? $owner.' '.(count($current) + $i + 1) : "{$owner} {$field->label}");
             }
 
-            $record->setAttribute($field->name, $field->type === 'image_slots' ? [...$current, ...$keys] : $keys[0]);
+            $record->setAttribute($field->name, $field->type === 'images' ? [...$current, ...$paths] : $paths[0]);
         }
     }
 

@@ -989,6 +989,32 @@ Photo slots add form and gallery upload box render; 0 console errors.
 - Tests: **96 passed**; `PhotoSlotsTest::test_every_slot_has_replace_and_delete` (buttons on every card, replace a
   built-in photo, delete a built-in slot once unused, template slots protected), new key format checked.
 
+### Step 7: Media library replaces photo slots (2026-10-13)
+
+Request: pick photos like the media library in the safeer project (upload, or choose from the server), with no
+slot dropdowns; then remove photo slots completely. **This supersedes D7 and Steps 6 / 6b.**
+
+- **Storage:** records hold the image itself, a path under `public/` or a photo URL. Columns: `ships.image` /
+  `hero_image`, `ship_zones.image`, `destinations.image`, `cruises.image` / `gallery` (json), `cabin_categories.images`
+  (json). Migration `2026_10_13_000001_replace_image_slots_with_direct_images` converts each slot key to what the
+  slot showed (upload → `assets/img/aroya/{key}.jpg` → stock URL → SVG) and drops `image_slots`. Uploaded files stay
+  where they were (`public/uploads/image-slots/`).
+- **Removed:** `ImageSlot`, `Admin\ImageSlotController`, `admin/image-slots` routes and view, the sidebar link,
+  `ImageSlotSeeder`, `SC_DATA.imageFallbacks` (now `{}`: broken images show core.js's placeholder). Seeders use
+  `Database\Seeders\StockPhotos` (the template's stock URLs by name). `SC_DATA.images` only has `shipHero` /
+  `shipSea`, from the ship's photos; page-section defaults use `['ship' => 'image' | 'hero_image']`.
+- **`App\Support\MediaLibrary`:** `url()` / `urls()` for the site, `store()` for uploads (`public/uploads/media/
+  {record}-{n}-xxxxxx.jpg`), `items()` for the library (images under `public/uploads` and `public/assets/img/aroya`,
+  newest first, plus the photo URLs records use), `isValid()` (library file or http(s) URL),
+  `maxUploadBytes()` (5 MB or PHP's lower `upload_max_filesize` / `post_max_size`).
+- **Admin:** field types `image` / `images` (`Field::image()`, `Field::images()`) render
+  `admin.partials.media-picker`; the shared modal `admin.partials.media-library` loads `GET admin/media-library`
+  (24 per page, search, load more on scroll). Galleries: drag to reorder, × to remove, multi-select from the library,
+  new uploads previewed (removable) and appended on save. Oversized files are refused in the browser and get a clear
+  message on the server (PHP's "failed to upload" happened when a photo was bigger than the server's limit).
+- Tests: **89 passed**; new `MediaLibraryTest` (slots gone, library listing/search, pick + reorder + remove, uploads,
+  limits, single photo upload / clear). Local MySQL migrated (backup taken first); cruise 4 kept its 4 photos.
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.

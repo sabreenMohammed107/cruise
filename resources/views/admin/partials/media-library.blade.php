@@ -233,6 +233,20 @@
   document.addEventListener('change', (e) => {
     const p = e.target.closest('[data-media-picker]');
     if (!p || e.target.dataset.role !== 'file') return;
+
+    // Drop files over the server's upload limit right away: PHP would reject them and the save would fail.
+    const input = e.target, max = Number(p.dataset.maxBytes), errorEl = $('upload-error', p);
+    const tooBig = Array.from(input.files).filter((f) => f.size > max);
+    errorEl.textContent = tooBig.length
+      ? `Too large (limit ${p.dataset.maxLabel}): ${tooBig.map((f) => `${f.name} (${(f.size / 1048576).toFixed(1)} MB)`).join(', ')}. Compress ${tooBig.length > 1 ? 'them' : 'it'} first, e.g. on squoosh.app.`
+      : '';
+    errorEl.classList.toggle('show', tooBig.length > 0);
+    if (tooBig.length) {
+      const dt = new DataTransfer();
+      Array.from(input.files).forEach((f) => { if (f.size <= max) dt.items.add(f); });
+      input.files = dt.files;
+    }
+
     if (multiple(p)) return showUploads(p);
     const file = e.target.files[0];
     if (!file) return;

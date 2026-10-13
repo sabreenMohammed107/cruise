@@ -77,7 +77,7 @@
               @if ($section->hasUpload())
                 <span class="text-[#12805C]">✓ Uploaded photo in use</span>
               @else
-                <span class="text-muted">Showing the default photo{{ isset($section->config('image')['slot']) ? ' (photo slot “'.$section->config('image')['slot'].'”)' : '' }}</span>
+                <span class="text-muted">Showing the default photo{{ isset($section->config('image')['ship']) ? ' (the ship’s '.($section->config('image')['ship'] === 'hero_image' ? 'hero' : 'side view').' photo from Admin → Ships)' : '' }}</span>
               @endif
             </p>
             <div>

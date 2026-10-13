@@ -14,7 +14,7 @@ class Ship extends Model
     public const TRANSLATABLE = ['name', 'tagline', 'flag', 'home_port', 'description', 'story'];
 
     protected $fillable = [
-        'slug', 'name', 'tagline', 'flag', 'home_port', 'description', 'story', 'image_slot', 'hero_image_slot',
+        'slug', 'name', 'tagline', 'flag', 'home_port', 'description', 'story', 'image', 'hero_image',
     ];
 
     protected function casts(): array

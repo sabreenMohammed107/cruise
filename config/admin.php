@@ -7,7 +7,7 @@ use App\Admin\Resources;
 | Admin panel
 |--------------------------------------------------------------------------
 | Generic CRUD screens (App\Admin\Resource subclasses), grouped as in the sidebar.
-| Bookings, sailings and photo slots have their own controllers (routes/admin.php).
+| Bookings and sailings have their own controllers (routes/admin.php).
 */
 
 return [

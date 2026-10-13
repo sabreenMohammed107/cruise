@@ -51,9 +51,6 @@
                 $active = $r::$slug === 'cruises' ? $link('admin.cruises.*', 'admin.sailings.*') : $link('admin.'.$r::$slug.'.*');
                 $groups[$group][] = [$r::$label, route($r::routeName('index')), null, $active];
             }
-            if ($group === 'Ship page') {
-                $groups[$group][] = ['Photo slots', route('admin.image-slots.index'), 'image', $link('admin.image-slots.*')];
-            }
         }
         return $groups;
     };

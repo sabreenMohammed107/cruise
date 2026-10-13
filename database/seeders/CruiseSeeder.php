@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * SC_DATA.cruises: cruises, day-by-day itineraries and sailings (departures).
- * Images are slot keys (see ImageSlotSeeder). Each sailing gets a price row per cabin category from the rate card; `soldOut` in the
+ * Images are stock photo names (see StockPhotos). Each sailing gets a price row per cabin category from the rate card; `soldOut` in the
  * template becomes is_sold_out on that row.
  */
 class CruiseSeeder extends Seeder
@@ -37,8 +37,8 @@ class CruiseSeeder extends Seeder
                 'reviews_count' => $data['reviews_count'],
                 'popularity' => $data['popularity'],
                 'price_factor' => $data['price_factor'],
-                'image_slot' => $data['image'],
-                'gallery_slots' => $data['gallery'],
+                'image' => StockPhotos::url($data['image']),
+                'gallery' => StockPhotos::urls($data['gallery']),
                 'summary' => $data['summary'],
                 'is_active' => true,
             ]);

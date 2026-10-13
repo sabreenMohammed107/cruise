@@ -2,7 +2,6 @@
 
 @php
   $title = $record ? $resource::$singular.': '.$record->getAttribute($resource::$title) : 'New '.strtolower($resource::$singular);
-  $slotOptions = \App\Models\ImageSlot::orderBy('sort_order')->orderBy('id')->get();
 @endphp
 
 @section('title', $title)
@@ -20,7 +19,7 @@
 
     <div class="grid sm:grid-cols-2 gap-5">
       @foreach ($resource::formFields() as $field)
-        @include('admin.resources.field', ['field' => $field, 'record' => $record, 'slotOptions' => $slotOptions])
+        @include('admin.resources.field', ['field' => $field, 'record' => $record])
       @endforeach
     </div>
 

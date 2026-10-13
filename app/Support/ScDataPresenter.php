@@ -9,7 +9,6 @@ use App\Models\CabinCategory;
 use App\Models\Cruise;
 use App\Models\Destination;
 use App\Models\Facility;
-use App\Models\ImageSlot;
 use App\Models\Sailing;
 use App\Models\Ship;
 use App\Models\Testimonial;
@@ -25,27 +24,6 @@ use Illuminate\Support\Collection;
 class ScDataPresenter
 {
     /**
-     * Scenes the page scripts read directly from SC_DATA.images (home.js, ship.js), so their slots must stay.
-     */
-    public const SCRIPT_SCENES = ['shipHero', 'shipSea'];
-
-    /**
-     * Template scene names (data.js IMG) → image slot keys.
-     */
-    public const SCENES = [
-        'shipHero' => 'hero', 'shipSea' => 'exterior', 'shipDeck' => 'sunset', 'shipNight' => 'night',
-        'aerial' => 'aerial', 'pool' => 'pool', 'sundeck' => 'sundeck', 'lounge' => 'lounge',
-        'city' => 'dest-jeddah', 'coast' => 'dest-yanbu', 'beach' => 'dest-al-wajh', 'reef' => 'dest-safaga',
-        'desert' => 'dest-sokhna', 'petra' => 'dest-aqaba',
-        'interior1' => 'cabin-interior-1', 'interior2' => 'cabin-interior-2',
-        'balcony1' => 'cabin-balcony-1', 'balcony2' => 'cabin-balcony-2', 'balcony3' => 'cabin-balcony-3',
-        'suite1' => 'cabin-suite-1', 'suite2' => 'cabin-suite-2', 'suite3' => 'cabin-suite-3',
-    ];
-
-    /** @var Collection<string, ImageSlot>|null */
-    private ?Collection $slots = null;
-
-    /**
      * @param  array  $page  Page-specific values exposed as SC_DATA.page (e.g. the cruise on the details page).
      */
     public function make(?User $user = null, array $page = [], ?array $account = null): array
@@ -58,7 +36,8 @@ class ScDataPresenter
             'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isAdmin()] : null,
             'favorites' => $user ? $user->favorites()->pluck('slug')->all() : [],
             'images' => $this->scenes(),
-            'imageFallbacks' => $this->fallbacks(),
+            // Broken images fall back to core.js's placeholder drawing
+            'imageFallbacks' => (object) [],
             'ageBands' => $this->ageBands(),
             'fees' => ['perGuestPerNight' => $this->fees()],
             // Promo codes are checked on the server (POST /booking/promo), never published here.
@@ -148,7 +127,7 @@ class ScDataPresenter
             'sailingId' => $sailing->code,
             'cruiseName' => $cruise->tr('name'),
             'ship' => $cruise->ship->tr('name'),
-            'image' => $this->slotUrl($cruise->image_slot),
+            'image' => MediaLibrary::url($cruise->image),
             'departure' => $sailing->departure_date->toDateString(),
             'returnDate' => $sailing->return_date->toDateString(),
             'nights' => $cruise->nights,
@@ -170,17 +149,6 @@ class ScDataPresenter
             ])->all(),
             'voucherUrl' => route('booking.confirmation', $booking),
         ];
-    }
-
-    public function slotUrl(?string $key): ?string
-    {
-        return $key ? $this->slots()->get($key)?->url() : null;
-    }
-
-    /** @param  list<string>|null  $keys */
-    public function slotUrls(?array $keys): array
-    {
-        return collect($keys ?? [])->map(fn ($key) => $this->slotUrl($key))->filter()->values()->all();
     }
 
     private function routes(): array
@@ -205,31 +173,15 @@ class ScDataPresenter
         ];
     }
 
-    /** @return Collection<string, ImageSlot> */
-    private function slots(): Collection
-    {
-        return $this->slots ??= ImageSlot::all()->keyBy('key');
-    }
-
+    /** The ship photos the page scripts read from SC_DATA.images when the page has none (home.js, ship.js). */
     private function scenes(): array
     {
-        return collect(self::SCENES)->map(fn ($key) => $this->slotUrl($key))->filter()->all();
-    }
+        $ship = Ship::first();
 
-    /**
-     * URL → next URL in the slot's fallback chain (core.js walks this on image errors).
-     */
-    private function fallbacks(): array
-    {
-        $map = [];
-        foreach ($this->slots() as $slot) {
-            $chain = $slot->candidates();
-            for ($i = 0; $i < count($chain) - 1; $i++) {
-                $map[$chain[$i]] ??= $chain[$i + 1];
-            }
-        }
-
-        return $map;
+        return array_filter([
+            'shipHero' => MediaLibrary::url($ship?->hero_image),
+            'shipSea' => MediaLibrary::url($ship?->image),
+        ]);
     }
 
     private function ageBands(): array
@@ -256,11 +208,11 @@ class ScDataPresenter
         return Ship::with(['specs', 'zones', 'essentials', 'faqs'])->get()->map(fn (Ship $ship) => [
             'id' => $ship->slug,
             'name' => $ship->tr('name'),
-            'image' => $this->slotUrl($ship->image_slot),
+            'image' => MediaLibrary::url($ship->image),
             'tagline' => $ship->tr('tagline'),
             'story' => $ship->tr('story') ?? [],
             'zones' => $ship->zones->map(fn ($z) => [
-                'icon' => $z->icon, 'title' => $z->tr('title'), 'image' => $this->slotUrl($z->image_slot), 'text' => $z->tr('text'),
+                'icon' => $z->icon, 'title' => $z->tr('title'), 'image' => MediaLibrary::url($z->image), 'text' => $z->tr('text'),
             ])->all(),
             'essentials' => $ship->essentials->map(fn ($e) => [$e->icon, $e->tr('title'), $e->tr('text')])->all(),
             'faqs' => $ship->faqs->map(fn ($f) => [$f->tr('question'), $f->tr('answer')])->all(),
@@ -287,7 +239,7 @@ class ScDataPresenter
             'beds' => $cabin->tr('beds'),
             'bedroom' => $cabin->tr('bedroom'),
             'features' => $cabin->tr('features') ?? [],
-            'images' => $this->slotUrls($cabin->image_slots),
+            'images' => MediaLibrary::urls($cabin->images),
             'rates' => [
                 'adult' => (float) $cabin->base_rate_adult,
                 'child' => (float) $cabin->base_rate_child,
@@ -324,8 +276,8 @@ class ScDataPresenter
                 'reviews' => $cruise->reviews_count,
                 'popularity' => $cruise->popularity,
                 'priceFactor' => (float) $cruise->price_factor,
-                'image' => $this->slotUrl($cruise->image_slot),
-                'gallery' => $this->slotUrls($cruise->gallery_slots),
+                'image' => MediaLibrary::url($cruise->image),
+                'gallery' => MediaLibrary::urls($cruise->gallery),
                 'summary' => $cruise->tr('summary'),
                 'itinerary' => $cruise->itinerary->map(fn ($day) => [
                     'port' => $day->port, 'time' => $day->tr('time_label'), 'text' => $day->tr('description'),
@@ -353,7 +305,7 @@ class ScDataPresenter
             'name' => $d->name, // port name: also the key that links destinations and cruise routes (shown with SC.port)
             'nameAr' => $d->name_ar,
             'country' => $d->tr('country'),
-            'image' => $this->slotUrl($d->image_slot),
+            'image' => MediaLibrary::url($d->image),
             'blurb' => $d->tr('blurb'),
             'description' => $d->tr('description'),
             'highlights' => $d->tr('highlights') ?? [],

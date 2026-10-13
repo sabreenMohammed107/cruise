@@ -3,7 +3,6 @@
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HomeSectionController;
-use App\Http\Controllers\Admin\ImageSlotController;
 use App\Http\Controllers\Admin\MediaLibraryController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SailingController;
@@ -44,14 +43,7 @@ Route::get('pages', [HomeSectionController::class, 'pages'])->name('pages.index'
 Route::get('pages/{page}/{key}/edit', [HomeSectionController::class, 'editPage'])->name('pages.edit')->where(['page' => '[a-z]+', 'key' => '[a-z_-]+']);
 Route::put('pages/{page}/{key}', [HomeSectionController::class, 'updatePage'])->name('pages.update')->where(['page' => '[a-z]+', 'key' => '[a-z_-]+']);
 
-// Photo slots (photos.html)
-Route::get('image-slots', [ImageSlotController::class, 'index'])->name('image-slots.index');
-Route::post('image-slots', [ImageSlotController::class, 'store'])->name('image-slots.store');
-Route::delete('image-slots/{slot:key}/slot', [ImageSlotController::class, 'remove'])->name('image-slots.remove');
-Route::post('image-slots/{slot:key}', [ImageSlotController::class, 'update'])->name('image-slots.update');
-Route::delete('image-slots/{slot:key}', [ImageSlotController::class, 'destroy'])->name('image-slots.destroy');
-
-// Media library behind every photo field: photo slots + images in public/uploads (JSON pages)
+// Media library behind every photo field: images on the server + photo URLs in use (JSON pages)
 Route::get('media-library', MediaLibraryController::class)->name('media-library');
 
 // Generic CRUD screens (config/admin.php)

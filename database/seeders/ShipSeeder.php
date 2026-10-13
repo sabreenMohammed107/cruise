@@ -23,8 +23,8 @@ class ShipSeeder extends Seeder
                 'AROYA is the first ship of Aroya Cruises, the Saudi cruise line launched to bring ocean holidays to families across the region. She sails from Jeddah and Yanbu on short breaks and week-long voyages around the Red Sea.',
                 'Everything on board is designed for Arab guests: all food is halal, there are prayer rooms on several decks, family and adults-only pool areas are separate, and entertainment runs in Arabic and English.',
             ],
-            'image_slot' => 'exterior',
-            'hero_image_slot' => 'hero',
+            'image' => StockPhotos::url('exterior'),
+            'hero_image' => StockPhotos::url('hero'),
         ]);
 
         $specs = [
@@ -48,9 +48,9 @@ class ShipSeeder extends Seeder
             ['utensils', 'Dining with a view', 'sunset', 'Arabic, Asian, Italian and grill restaurants, all halal. Breakfast, lunch and dinner in the main restaurants are included in your fare.'],
             ['music', 'Evenings on board', 'night', 'Nightly shows in the main theatre, live music lounges and family performances in Arabic and English.'],
         ];
-        foreach ($zones as $i => [$icon, $title, $slot, $text]) {
+        foreach ($zones as $i => [$icon, $title, $photo, $text]) {
             $ship->zones()->updateOrCreate(['title' => $title], [
-                'icon' => $icon, 'image_slot' => $slot, 'text' => $text, 'sort_order' => $i + 1,
+                'icon' => $icon, 'image' => StockPhotos::url($photo), 'text' => $text, 'sort_order' => $i + 1,
             ]);
         }
 

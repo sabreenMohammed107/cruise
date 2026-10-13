@@ -26,7 +26,7 @@ class ShipZoneResource extends ShipContentResource
             static::shipField(),
             Field::text('title', 'Title')->arabic()->rules(['required', 'string', 'max:255'])->index(),
             static::iconField(),
-            Field::imageSlot('image_slot', 'Photo'),
+            Field::image('image', 'Photo'),
             Field::textarea('text', 'Text')->arabic()->rules(['required', 'string', 'max:2000']),
             static::orderField(),        ];
     }

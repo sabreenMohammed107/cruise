@@ -10,12 +10,11 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Seed the application's database with the template's sample data (legacy-html/assets/js/data.js).
-     * Order matters: image slots → ships → cabins → cruises/sailings/prices → people and bookings.
+     * Order matters: ships → cabins → cruises/sailings/prices → people and bookings.
      */
     public function run(): void
     {
         $this->call([
-            ImageSlotSeeder::class,
             AgeBandSeeder::class,
             ShipSeeder::class,
             CabinCategorySeeder::class,

@@ -88,16 +88,16 @@ final class Field
         return (new self($name, $label, 'checkboxes'))->options($options)->wide();
     }
 
-    /** One photo, picked from the media library or uploaded; stored as an image slot key. */
-    public static function imageSlot(string $name, string $label): self
+    /** One photo, picked from the media library or uploaded; stores a path under public/ or a photo URL. */
+    public static function image(string $name, string $label): self
     {
-        return new self($name, $label, 'image_slot');
+        return new self($name, $label, 'image');
     }
 
-    /** Ordered gallery of photos from the media library or uploads; stored as a list of image slot keys. */
-    public static function imageSlots(string $name, string $label): self
+    /** Ordered gallery of photos from the media library or uploads; stores a list of paths / photo URLs. */
+    public static function images(string $name, string $label): self
     {
-        return (new self($name, $label, 'image_slots'))->wide();
+        return (new self($name, $label, 'images'))->wide();
     }
 
     /** Left empty on edit = keep the current password. */
@@ -192,9 +192,9 @@ final class Field
     {
         $rules = $this->rules instanceof Closure ? ($this->rules)($record) : $this->rules;
 
-        // Photo fields also take direct uploads ({name}_upload), saved as new photo slots by Resource::fill()
-        $photo = ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
-        // A media library pick: a slot key, or "file:…" for an image in public/uploads (see MediaLibrary)
+        // Photo fields also take direct uploads ({name}_upload), saved to the media library by Resource::fill()
+        $photo = ['image', 'mimes:jpg,jpeg,png,webp', 'max:'.intdiv(MediaLibrary::maxUploadBytes(), 1024)];
+        // A media library pick: an image file under public/ or a photo URL (see MediaLibrary)
         $pick = function (string $attribute, mixed $value, Closure $fail) {
             if (! MediaLibrary::isValid($value)) {
                 $fail('That photo is no longer in the media library. Choose another one.');
@@ -202,12 +202,12 @@ final class Field
         };
 
         return match ($this->type) {
-            'image_slots' => [
+            'images' => [
                 $this->name => ['nullable', 'array'], $this->name.'.*' => ['nullable', 'string', $pick],
                 $this->name.'_upload' => ['nullable', 'array', 'max:12'], $this->name.'_upload.*' => $photo,
             ],
             'checkboxes' => [$this->name => ['nullable', 'array'], $this->name.'.*' => ['string', 'in:'.implode(',', array_keys($this->options))]],
-            'image_slot' => [
+            'image' => [
                 // a new upload replaces the picked photo, so the pick may be empty then
                 $this->name => array_merge(request()->hasFile($this->name.'_upload') ? ['nullable'] : ($rules ?: ['nullable']), ['string', $pick]),
                 $this->name.'_upload' => ['nullable', ...$photo],
@@ -215,6 +215,22 @@ final class Field
             'checkbox' => [$this->name => ['nullable', 'boolean']],
             default => [$this->name => $rules],
         };
+    }
+
+    /**
+     * Clear messages for photo uploads PHP rejected (bigger than the server allows) or that are too large.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        if (! in_array($this->type, ['image', 'images'], true)) {
+            return [];
+        }
+        $key = $this->name.'_upload'.($this->type === 'images' ? '.*' : '');
+        $tooBig = 'A photo is too large: the limit is '.MediaLibrary::maxUploadLabel().'. Compress it first (e.g. squoosh.app) and try again.';
+
+        return ["{$key}.uploaded" => $tooBig, "{$key}.max" => $tooBig];
     }
 
     /**
@@ -227,7 +243,7 @@ final class Field
         return match ($this->type) {
             'checkbox' => $request->boolean($this->name),
             'lines' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) $raw)), 'strlen')),
-            'image_slots' => array_values(array_filter((array) $raw)),
+            'images' => array_values(array_unique(array_filter((array) $raw))),
             'checkboxes' => array_values((array) ($raw ?? [])),
             // Empty input falls back to the field default (e.g. sort_order 0 for NOT NULL columns)
             default => ($raw === '' || $raw === null) ? $this->default : $raw,
