@@ -2,6 +2,7 @@
 
 namespace App\Admin;
 
+use App\Support\MediaLibrary;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -27,8 +28,6 @@ final class Field
 
     /** Shown as an index column only, never in the form. */
     public bool $indexOnly = false;
-
-    public int $slots = 6;
 
     /** Value shown when creating a new record. */
     public mixed $default = null;
@@ -89,19 +88,16 @@ final class Field
         return (new self($name, $label, 'checkboxes'))->options($options)->wide();
     }
 
-    /** One image slot key (see image_slots). */
+    /** One photo, picked from the media library or uploaded; stored as an image slot key. */
     public static function imageSlot(string $name, string $label): self
     {
         return new self($name, $label, 'image_slot');
     }
 
-    /** Ordered list of image slot keys (galleries). */
-    public static function imageSlots(string $name, string $label, int $slots = 6): self
+    /** Ordered gallery of photos from the media library or uploads; stored as a list of image slot keys. */
+    public static function imageSlots(string $name, string $label): self
     {
-        $field = (new self($name, $label, 'image_slots'))->wide();
-        $field->slots = $slots;
-
-        return $field;
+        return (new self($name, $label, 'image_slots'))->wide();
     }
 
     /** Left empty on edit = keep the current password. */
@@ -198,16 +194,22 @@ final class Field
 
         // Photo fields also take direct uploads ({name}_upload), saved as new photo slots by Resource::fill()
         $photo = ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
+        // A media library pick: a slot key, or "file:…" for an image in public/uploads (see MediaLibrary)
+        $pick = function (string $attribute, mixed $value, Closure $fail) {
+            if (! MediaLibrary::isValid($value)) {
+                $fail('That photo is no longer in the media library. Choose another one.');
+            }
+        };
 
         return match ($this->type) {
             'image_slots' => [
-                $this->name => ['nullable', 'array'], $this->name.'.*' => ['nullable', 'string', 'exists:image_slots,key'],
+                $this->name => ['nullable', 'array'], $this->name.'.*' => ['nullable', 'string', $pick],
                 $this->name.'_upload' => ['nullable', 'array', 'max:12'], $this->name.'_upload.*' => $photo,
             ],
             'checkboxes' => [$this->name => ['nullable', 'array'], $this->name.'.*' => ['string', 'in:'.implode(',', array_keys($this->options))]],
             'image_slot' => [
-                // a new upload replaces the chosen slot, so the choice may be empty then
-                $this->name => array_merge(request()->hasFile($this->name.'_upload') ? ['nullable'] : ($rules ?: ['nullable']), ['exists:image_slots,key']),
+                // a new upload replaces the picked photo, so the pick may be empty then
+                $this->name => array_merge(request()->hasFile($this->name.'_upload') ? ['nullable'] : ($rules ?: ['nullable']), ['string', $pick]),
                 $this->name.'_upload' => ['nullable', ...$photo],
             ],
             'checkbox' => [$this->name => ['nullable', 'boolean']],

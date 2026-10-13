@@ -35,23 +35,44 @@ class ImageSlot extends Model
      */
     public static function fromUpload(UploadedFile $file, string $label, ?string $key = null, ?string $recommendedSize = null): self
     {
+        $slot = static::newCustom($label, $key, $recommendedSize);
+        $slot->storeUpload($file);
+        $slot->save();
+
+        return $slot;
+    }
+
+    /**
+     * New custom slot holding a copy of an image already on the server (a media library pick).
+     */
+    public static function fromFile(string $source, string $label, ?string $key = null): self
+    {
+        $slot = static::newCustom($label, $key);
+        $name = $slot->key.'-'.Str::lower(Str::random(6)).'.'.strtolower(pathinfo($source, PATHINFO_EXTENSION));
+        \Illuminate\Support\Facades\File::ensureDirectoryExists(public_path(self::UPLOAD_DIR));
+        copy($source, public_path(self::UPLOAD_DIR.'/'.$name));
+        $slot->path = self::UPLOAD_DIR.'/'.$name;
+        $slot->save();
+
+        return $slot;
+    }
+
+    /** Unsaved custom slot with a unique key made from $key (or the label). */
+    private static function newCustom(string $label, ?string $key = null, ?string $recommendedSize = null): self
+    {
         $base = Str::limit(Str::slug($key ?: $label) ?: 'photo', 30, '');
         $key = $base;
         while (static::where('key', $key)->exists()) {
             $key = $base.'-'.Str::lower(Str::random(4));
         }
 
-        $slot = new static([
+        return new static([
             'key' => $key,
             'label' => Str::limit($label, 250, ''),
             'recommended_size' => $recommendedSize,
             'is_custom' => true,
             'sort_order' => (int) static::max('sort_order') + 1,
         ]);
-        $slot->storeUpload($file);
-        $slot->save();
-
-        return $slot;
     }
 
     /** Put an uploaded photo in the slot (replacing a previous upload). Doesn't save the model. */

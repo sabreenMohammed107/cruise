@@ -3,6 +3,7 @@
 namespace App\Admin;
 
 use App\Models\ImageSlot;
+use App\Support\MediaLibrary;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -119,7 +120,35 @@ abstract class Resource
             $record->setAttribute($field->name, $field->value($request));
         }
 
+        static::resolveLibraryPicks($record);
         static::storePhotoUploads($record, $request);
+    }
+
+    /**
+     * Media library picks of loose images ("file:…", see MediaLibrary) become new photo slots named after
+     * the record, like direct uploads; picked slot keys are kept as they are.
+     */
+    protected static function resolveLibraryPicks(Model $record): void
+    {
+        foreach (static::fields() as $field) {
+            if (! in_array($field->type, ['image_slot', 'image_slots'], true)) {
+                continue;
+            }
+            $owner = trim((string) $record->getAttribute(static::$title)) ?: static::$singular;
+
+            if ($field->type === 'image_slot') {
+                $record->setAttribute($field->name, MediaLibrary::resolve($record->getAttribute($field->name), "{$owner} – {$field->label}", "{$owner} photo"));
+
+                continue;
+            }
+
+            $keys = [];
+            foreach (array_values((array) $record->getAttribute($field->name)) as $i => $value) {
+                $n = $i + 1;
+                $keys[] = MediaLibrary::resolve($value, "{$owner} – {$field->label} {$n}", "{$owner} {$n}");
+            }
+            $record->setAttribute($field->name, array_values(array_unique(array_filter($keys))));
+        }
     }
 
     /**

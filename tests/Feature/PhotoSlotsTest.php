@@ -64,8 +64,60 @@ class PhotoSlotsTest extends TestCase
         $this->post('/admin/image-slots', ['label' => 'No photo'])->assertSessionHasErrors('photo');
         $this->post('/admin/image-slots', ['label' => 'Pdf', 'photo' => UploadedFile::fake()->create('a.pdf', 10, 'application/pdf')])->assertSessionHasErrors('photo');
 
-        // It can be chosen in any photo field
-        $this->get('/admin/destinations/'.Destination::first()->id.'/edit')->assertSee('value="kids-club-morning"', false);
+        // It can be chosen in any photo field, from the media library
+        $this->get('/admin/destinations/'.Destination::first()->id.'/edit')->assertSee('Choose from library');
+        $this->assertContains('kids-club-morning', $this->getJson('/admin/media-library?q=kids club')->assertOk()->json('items.*.value'));
+    }
+
+    public function test_media_library_replaces_the_slot_dropdowns(): void
+    {
+        $cruise = Cruise::where('slug', 'aroya-repositioning')->firstOrFail();
+        $page = $this->get("/admin/cruises/{$cruise->id}/edit")->assertOk();
+
+        $page->assertDontSee('— none —')->assertDontSee('— No image —');
+        $this->assertSame(1, substr_count($page->getContent(), 'id="mediaLibrary"'), 'one shared library modal');
+        foreach ($cruise->gallery_slots as $key) {
+            $page->assertSee('name="gallery_slots[]" value="'.$key.'"', false);
+        }
+
+        // Newest first, paged, every slot with a picture is listed
+        $first = $this->getJson('/admin/media-library')->assertOk()->json();
+        $this->assertCount(min(24, $first['total']), $first['items']);
+        $this->assertSame($first['total'] > 24, $first['has_more']);
+    }
+
+    public function test_pick_a_loose_upload_and_reorder_the_gallery(): void
+    {
+        @mkdir(public_path('uploads/home'), 0777, true);
+        $file = public_path('uploads/home/test-library-'.uniqid().'.jpg');
+        $fake = UploadedFile::fake()->image('x.jpg', 40, 30);
+        copy($fake->getPathname(), $file);
+        $value = 'file:home/'.basename($file);
+
+        try {
+            $this->getJson('/admin/media-library?q='.basename($file))->assertJsonPath('items.0.value', $value);
+
+            $cruise = Cruise::where('slug', 'aroya-repositioning')->firstOrFail();
+            [$a, $b] = $cruise->gallery_slots;
+            $this->put("/admin/cruises/{$cruise->id}", $this->cruiseForm($cruise, ['gallery_slots' => [$b, $value, $a], 'image_slot' => $value]))
+                ->assertSessionHasNoErrors();
+
+            $gallery = $cruise->fresh()->gallery_slots;
+            $this->assertSame([$b, $a], [$gallery[0], $gallery[2]]);
+            $copy = ImageSlot::where('key', $gallery[1])->firstOrFail();
+            $this->assertTrue($copy->is_custom);
+            $this->assertSame('AROYA – Repositioning – Gallery 2', $copy->label);
+            $this->assertFileExists(public_path($copy->path));
+            $this->assertFileExists($file); // the original stays where it was
+            $this->assertNotSame($copy->key, $cruise->fresh()->image_slot);
+            $this->assertTrue(ImageSlot::where('key', $cruise->fresh()->image_slot)->exists());
+
+            // Unknown picks are rejected
+            $this->put("/admin/cruises/{$cruise->id}", $this->cruiseForm($cruise->fresh(), ['gallery_slots' => ['no-such-slot', 'file:../.env']]))
+                ->assertSessionHasErrors(['gallery_slots.0', 'gallery_slots.1']);
+        } finally {
+            @unlink($file);
+        }
     }
 
     public function test_every_slot_has_replace_and_delete(): void
