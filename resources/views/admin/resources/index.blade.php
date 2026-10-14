@@ -11,7 +11,9 @@
     @endif
   </div>
 
-  @if ($resource::$search)
+  @if ($toolbar = $resource::indexToolbar())
+    @include($toolbar)
+  @elseif ($resource::$search)
     <form method="GET" class="mt-5 flex gap-2 max-w-md">
       <label for="q" class="sr-only">Search</label>
       <input id="q" name="q" value="{{ request('q') }}" class="field !py-2" placeholder="Search…">

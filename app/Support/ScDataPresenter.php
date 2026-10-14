@@ -33,7 +33,7 @@ class ScDataPresenter
             'currencySymbol' => config('cruise.currency_symbol'),
             'whatsappNumber' => config('cruise.whatsapp_number'),
             'routes' => $this->routes(),
-            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isAdmin()] : null,
+            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
             'favorites' => $user ? $user->favorites()->pluck('slug')->all() : [],
             'images' => $this->scenes(),
             // Broken images fall back to core.js's placeholder drawing
@@ -72,7 +72,7 @@ class ScDataPresenter
             'currencySymbol' => config('cruise.currency_symbol'),
             'whatsappNumber' => config('cruise.whatsapp_number'),
             'routes' => $this->routes(),
-            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isAdmin()] : null,
+            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
             'favorites' => [],
             'imageFallbacks' => (object) [],
             'terms' => $this->terms(),

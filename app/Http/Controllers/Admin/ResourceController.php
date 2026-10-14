@@ -19,19 +19,10 @@ class ResourceController extends Controller
     public function index(Request $request): View
     {
         $resource = $this->resource($request);
-        $query = $resource::query();
-
-        if (($q = trim((string) $request->query('q'))) !== '' && $resource::$search) {
-            $query->where(function ($w) use ($resource, $q) {
-                foreach ($resource::$search as $column) {
-                    $w->orWhere($column, 'like', "%{$q}%");
-                }
-            });
-        }
 
         return view('admin.resources.index', [
             'resource' => $resource,
-            'records' => $query->paginate(25)->withQueryString(),
+            'records' => $resource::indexQuery($request)->paginate(25)->withQueryString(),
         ]);
     }
 
@@ -108,6 +99,6 @@ class ResourceController extends Controller
     /** @param  class-string<Resource>  $resource */
     private function find(string $resource, string $id): Model
     {
-        return $resource::$model::query()->findOrFail($id);
+        return $resource::scope()->findOrFail($id);
     }
 }

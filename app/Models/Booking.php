@@ -18,7 +18,7 @@ class Booking extends Model
         'reference', 'user_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
         'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
         'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency',
-        'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes',
+        'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes', 'seller_id',
     ];
 
     protected function casts(): array
@@ -58,6 +58,12 @@ class Booking extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** The seller following up this booking (Admin → Bookings → Assigned seller). */
+    public function seller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'seller_id');
     }
 
     public function sailing(): BelongsTo

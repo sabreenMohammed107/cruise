@@ -1,14 +1,29 @@
-<nav class="grid gap-0.5">
-  @foreach ($groups as $group => $items)
-    @if ($group)
-      <p class="px-3 pt-4 pb-1 text-[11px] font-bold uppercase tracking-wide text-muted">{{ $group }}</p>
-    @endif
-    @foreach ($items as $item)
-      <a href="{{ $item[1] }}" class="side-link {{ $item[3] }} !py-2 text-sm">
-        @if ($item[2])<i data-icon="{{ $item[2] }}" class="w-4 h-4"></i>@endif
-        <span class="flex-1">{{ $item[0] }}</span>
-        @if (! empty($item[4]))<span class="min-w-5 h-5 px-1.5 rounded-full bg-sun-500 text-white text-xs grid place-items-center tabular" title="Awaiting payment">{{ $item[4] }}</span>@endif
+{{-- Admin sidebar from App\Admin\Menu: links with an icon, and groups that open and close (the current one starts open). --}}
+<nav class="grid gap-1 text-sm" aria-label="Admin menu">
+  @foreach ($menu as $node)
+    @if (isset($node['children']))
+      <details class="admin-group group/menu" @if ($node['active']) open @endif>
+        <summary class="side-link !py-2.5 cursor-pointer list-none select-none {{ $node['active'] ? '!text-ocean-700' : '' }}">
+          <i data-icon="{{ $node['icon'] }}" class="w-5 h-5 shrink-0"></i>
+          <span class="flex-1">{{ $node['label'] }}</span>
+          <svg class="admin-arrow w-4 h-4 shrink-0 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+        </summary>
+        <div class="grid gap-0.5 mt-0.5 mb-1 ms-[1.35rem] ps-3 border-s border-line">
+          @foreach ($node['children'] as $child)
+            <a href="{{ $child['href'] }}" @if ($child['active']) aria-current="page" @endif
+               class="flex items-center gap-2.5 rounded-lg px-3 py-2 font-semibold transition {{ $child['active'] ? 'bg-ocean-50 text-ocean-700' : 'text-muted hover:text-ocean-700 hover:bg-ocean-50/60' }}">
+              <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ $child['active'] ? 'bg-ocean-600' : 'bg-current opacity-40' }}"></span>
+              {{ $child['label'] }}
+            </a>
+          @endforeach
+        </div>
+      </details>
+    @else
+      <a href="{{ $node['href'] }}" class="side-link !py-2.5 {{ $node['active'] ? 'is-active' : '' }}" @if ($node['active']) aria-current="page" @endif>
+        <i data-icon="{{ $node['icon'] }}" class="w-5 h-5 shrink-0"></i>
+        <span class="flex-1">{{ $node['label'] }}</span>
+        @if (! empty($node['badge']))<span class="min-w-5 h-5 px-1.5 rounded-full bg-sun-500 text-white text-xs grid place-items-center tabular" title="Awaiting payment">{{ $node['badge'] }}</span>@endif
       </a>
-    @endforeach
+    @endif
   @endforeach
 </nav>

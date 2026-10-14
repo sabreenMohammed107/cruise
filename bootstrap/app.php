@@ -22,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 });
                 Route::post('logout', [AdminAuthController::class, 'destroy'])->middleware('auth:admin')->name('logout');
 
-                Route::middleware(['auth:admin', 'can:admin'])->group(base_path('routes/admin.php'));
+                Route::middleware(['auth:admin', 'can:admin-panel'])->group(base_path('routes/admin.php'));
             });
         },
     )

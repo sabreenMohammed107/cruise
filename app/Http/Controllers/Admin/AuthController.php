@@ -32,7 +32,7 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => "That email and password don't match an account."]);
         }
 
-        if (! $guard->user()->isAdmin()) {
+        if (! $guard->user()->isStaff()) {
             $guard->logout();
             throw ValidationException::withMessages(['email' => "This account doesn't have access to the admin panel."]);
         }

@@ -3,7 +3,10 @@
 @section('title', 'Bookings')
 
 @section('content')
-  <h1 class="font-display font-bold text-2xl sm:text-3xl">Bookings</h1>
+  <h1 class="font-display font-bold text-2xl sm:text-3xl">{{ auth()->user()->isSeller() ? 'My bookings' : 'Bookings' }}</h1>
+  @if (auth()->user()->isSeller())
+    <p class="text-muted mt-1">The bookings assigned to you.</p>
+  @endif
 
   <form method="GET" class="mt-5 flex flex-wrap gap-2 items-end">
     <div class="w-full sm:w-72">
@@ -28,6 +31,18 @@
         @endforeach
       </select>
     </div>
+    @if ($sellers->isNotEmpty())
+      <div>
+        <label for="seller" class="label">Seller</label>
+        <select id="seller" name="seller" class="field !py-2 !w-auto">
+          <option value="">All</option>
+          <option value="none" @selected(($filters['seller'] ?? '') === 'none')>Unassigned</option>
+          @foreach ($sellers as $s)
+            <option value="{{ $s->id }}" @selected(($filters['seller'] ?? '') === (string) $s->id)>{{ $s->name }}</option>
+          @endforeach
+        </select>
+      </div>
+    @endif
     <button class="btn btn-primary btn-sm">Filter</button>
     @if (array_filter($filters))
       <a href="{{ route('admin.bookings.index') }}" class="btn btn-ghost btn-sm">Clear</a>

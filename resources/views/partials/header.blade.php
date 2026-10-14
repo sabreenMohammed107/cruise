@@ -7,9 +7,8 @@
       ['id' => 'ship', 'href' => route('ship')],
       ['id' => 'destinations', 'href' => route('destinations.index')],
   ];
-  // Website customer (guard "web"); the admin panel has its own sign-in (guard "admin")
+  // Website customer (guard "web"); the admin panel has its own sign-in (guard "admin") and no link from the site
   $user = auth('web')->user();
-  $adminSignedIn = auth('admin')->check();
 @endphp
 <header class="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-line">
   <div class="max-w-site mx-auto px-4 sm:px-6 h-[72px] flex items-center gap-4">
@@ -21,9 +20,6 @@
     </nav>
     <div class="ms-auto flex items-center gap-2">
       <button class="hidden sm:inline-flex btn btn-ghost btn-sm" data-dir-toggle title="عربي / English">@bi('site.nav.switch_language')</button>
-      @if ($adminSignedIn)
-        <a href="{{ route('admin.dashboard') }}" class="hidden md:inline-flex btn btn-ghost btn-sm"><i data-icon="sliders" class="w-4 h-4"></i> @bi('site.nav.admin')</a>
-      @endif
       <a href="{{ route('account') }}#bookings" class="hidden md:inline-flex btn btn-ghost btn-sm {{ $active === 'dashboard' ? 'bg-ocean-50' : '' }}"><i data-icon="ticket" class="w-4 h-4"></i> @bi('site.nav.my_bookings')</a>
       @auth('web')
         <a href="{{ route('account') }}#profile" class="hidden sm:inline-flex btn btn-primary btn-sm"><i data-icon="user" class="w-4 h-4"></i> @if ($user->first_name){{ $user->first_name }}@else @bi('site.nav.my_account') @endif</a>
@@ -43,9 +39,6 @@
         <a href="{{ $n['href'] }}" class="side-link {{ $n['id'] === $active ? 'is-active' : '' }}">@bi('site.nav.'.$n['id'])</a>
       @endforeach
       <a href="{{ route('account') }}#bookings" class="side-link {{ $active === 'dashboard' ? 'is-active' : '' }}">@bi('site.nav.my_bookings')</a>
-      @if ($adminSignedIn)
-        <a href="{{ route('admin.dashboard') }}" class="side-link">@bi('site.nav.admin')</a>
-      @endif
     </nav>
     <div class="mt-auto pt-6 grid gap-2">
       @auth('web')

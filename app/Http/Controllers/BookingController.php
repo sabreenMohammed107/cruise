@@ -95,7 +95,7 @@ class BookingController extends Controller
         return in_array($booking->reference, $request->session()->get(self::VIEWABLE, []), true)
             || $request->hasValidSignature()
             || ($user && ($user->id === $booking->user_id || $user->isAdmin()))
-            // An admin signed in to the panel (guard "admin") opening the guest voucher from a booking
-            || Auth::guard('admin')->user()?->isAdmin();
+            // Staff signed in to the panel (guard "admin") opening the guest voucher from a booking
+            || (bool) Auth::guard('admin')->user()?->can('view-booking', $booking);
     }
 }

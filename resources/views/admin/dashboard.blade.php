@@ -5,6 +5,9 @@
 
 @section('content')
   <h1 class="font-display font-bold text-2xl sm:text-3xl">Dashboard</h1>
+  @if (auth()->user()->isSeller())
+    <p class="mt-2"><span class="tag tag-ocean">Seller</span> <span class="text-muted">These figures cover the bookings assigned to you.</span></p>
+  @endif
   <p class="text-muted mt-1">Bookings are confirmed online; payment is arranged by the team within {{ config('cruise.payment_contact_hours') }} hours.</p>
 
   <div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
@@ -21,7 +24,7 @@
     @endforeach
   </div>
 
-  <div class="grid xl:grid-cols-[1.4fr_1fr] gap-6 mt-8 items-start">
+  <div class="grid {{ $sailings ? 'xl:grid-cols-[1.4fr_1fr]' : '' }} gap-6 mt-8 items-start">
     <section class="card overflow-hidden">
       <div class="p-5 flex items-center justify-between gap-3">
         <h2 class="font-display font-semibold text-lg">Awaiting payment</h2>
@@ -30,6 +33,7 @@
       @include('admin.bookings.table', ['bookings' => $awaiting, 'empty' => 'Every confirmed booking is paid.'])
     </section>
 
+    @if ($sailings)
     <section class="card overflow-hidden">
       <h2 class="font-display font-semibold text-lg p-5">Next departures</h2>
       <ul class="divide-y divide-line">
@@ -49,6 +53,7 @@
         @endforelse
       </ul>
     </section>
+    @endif
   </div>
 
   <section class="card overflow-hidden mt-6">

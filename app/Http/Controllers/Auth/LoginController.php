@@ -24,7 +24,9 @@ class LoginController extends Controller
             'password' => ['required', 'string'],
         ]);
 
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        // Customers only: admins and sellers sign in at /admin/login, so a staff account is treated as unknown here
+        $isCustomer = fn ($user) => ! $user->isStaff();
+        if (! Auth::guard('web')->attemptWhen($credentials, $isCustomer, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => 'That email and password don\'t match an account.',
             ]);

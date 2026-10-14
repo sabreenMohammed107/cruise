@@ -38,6 +38,40 @@ abstract class Resource
         return static::$model::query()->latest('id');
     }
 
+    /** Records this screen may edit or delete (e.g. only customers on Customers). */
+    public static function scope(): Builder
+    {
+        return static::$model::query();
+    }
+
+    /** Extra index filters from the request (shown by indexToolbar()). */
+    public static function filter(Builder $query, Request $request): Builder
+    {
+        return $query;
+    }
+
+    /** The index list: query() + filter() + the search box over $search. */
+    public static function indexQuery(Request $request): Builder
+    {
+        $query = static::filter(static::query(), $request);
+
+        if (($q = trim((string) $request->query('q'))) !== '' && static::$search) {
+            $query->where(function (Builder $w) use ($q) {
+                foreach (static::$search as $column) {
+                    $w->orWhere($column, 'like', "%{$q}%");
+                }
+            });
+        }
+
+        return $query;
+    }
+
+    /** Optional Blade partial with extra filters and buttons, shown next to the index search box. */
+    public static function indexToolbar(): ?string
+    {
+        return null;
+    }
+
     public static function canCreate(): bool
     {
         return true;

@@ -2,8 +2,7 @@
 @php
   // Signed in on the admin guard (routes use auth:admin), independent of the website sign-in
   $user = auth('admin')->user();
-  $awaitingCount = \App\Models\Booking::awaitingPayment()->count();
-  $link = fn (string $route, ...$match) => request()->routeIs($match ?: [$route]) ? 'is-active' : '';
+  $menu = \App\Admin\Menu::build();
 @endphp
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
@@ -22,6 +21,10 @@
     .admin-scroll::-webkit-scrollbar { width: 6px; }
     .admin-scroll::-webkit-scrollbar-thumb { background: #B9CBDD; border-radius: 999px; }
     .admin-scroll::-webkit-scrollbar-track { background: transparent; }
+    /* Collapsible menu groups (admin.partials.nav) */
+    .admin-group > summary::-webkit-details-marker { display: none; }
+    .admin-group[open] > summary .admin-arrow { transform: rotate(90deg); }
+    [dir="rtl"] .admin-group:not([open]) > summary .admin-arrow { transform: rotate(180deg); }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -38,27 +41,9 @@
     </div>
   </header>
 
-  @php
-    $nav = function () use ($link, $awaitingCount) {
-        $groups = ['' => [
-            ['Dashboard', route('admin.dashboard'), 'home', $link('admin.dashboard')],
-            ['Bookings', route('admin.bookings.index'), 'ticket', $link('admin.bookings.*'), $awaitingCount],
-            ['Homepage', route('admin.home-sections.index'), 'edit', $link('admin.home-sections.*')],
-            ['Cruise pages', route('admin.pages.index'), 'ship', $link('admin.pages.*')],
-        ]];
-        foreach (config('admin.resources') as $group => $resources) {
-            foreach ($resources as $r) {
-                $active = $r::$slug === 'cruises' ? $link('admin.cruises.*', 'admin.sailings.*') : $link('admin.'.$r::$slug.'.*');
-                $groups[$group][] = [$r::$label, route($r::routeName('index')), null, $active];
-            }
-        }
-        return $groups;
-    };
-  @endphp
-
   <div class="max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 grid lg:grid-cols-[240px_1fr] gap-6 items-start flex-1">
     <aside class="hidden lg:block sticky top-[88px] card p-2 max-h-[calc(100vh-110px)] overflow-y-auto overscroll-contain admin-scroll" aria-label="Admin" id="admin-sidebar">
-      @include('admin.partials.nav', ['groups' => $nav()])
+      @include('admin.partials.nav', ['menu' => $menu])
     </aside>
 
     <main class="min-w-0">
@@ -71,7 +56,7 @@
     <div class="drawer-backdrop" data-drawer-close></div>
     <aside class="drawer-panel p-4 overflow-y-auto" role="dialog" aria-label="Admin menu">
       <div class="flex justify-end mb-2"><button class="icon-btn" data-drawer-close aria-label="Close menu"><i data-icon="x" class="w-5 h-5"></i></button></div>
-      @include('admin.partials.nav', ['groups' => $nav()])
+      @include('admin.partials.nav', ['menu' => $menu])
     </aside>
   </div>
 
@@ -80,7 +65,7 @@
   <script>
     // Keep the current page's menu link in view when the sidebar is taller than the screen
     (() => {
-      const bar = document.getElementById('admin-sidebar'), active = bar && bar.querySelector('.is-active');
+      const bar = document.getElementById('admin-sidebar'), active = bar && bar.querySelector('[aria-current="page"]');
       if (!active) return;
       const top = active.getBoundingClientRect().top - bar.getBoundingClientRect().top + bar.scrollTop;
       if (top + active.offsetHeight > bar.clientHeight) bar.scrollTop = top - bar.clientHeight / 2;

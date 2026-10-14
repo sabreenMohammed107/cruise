@@ -6,7 +6,8 @@ use App\Admin\Resources;
 |--------------------------------------------------------------------------
 | Admin panel
 |--------------------------------------------------------------------------
-| Generic CRUD screens (App\Admin\Resource subclasses), grouped as in the sidebar.
+| Generic CRUD screens (App\Admin\Resource subclasses); routes are made for each of them.
+| The sidebar (its groups, order and icons) is App\Admin\Menu.
 | Bookings and sailings have their own controllers (routes/admin.php).
 */
 
@@ -33,6 +34,7 @@ return [
             Resources\NewsletterSubscriberResource::class,
         ],
         'People' => [
+            Resources\CustomerResource::class,
             Resources\UserResource::class,
         ],
     ],

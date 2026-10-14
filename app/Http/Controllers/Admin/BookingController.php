@@ -6,18 +6,24 @@ use App\Enums\BookingStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
  * Bookings come from the website only. The team follows up on payment (offline), records
  * payments and refunds here, and cancels bookings when needed.
+ *
+ * Admins see every booking and assign them to sellers. A seller sees only the bookings assigned to
+ * them, and can add notes and record payments on those (Gate "view-booking").
  */
 class BookingController extends Controller
 {
@@ -27,9 +33,16 @@ class BookingController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::enum(BookingStatus::class)],
             'payment' => ['nullable', Rule::enum(PaymentStatus::class)],
+            // a seller's id, or "none" for unassigned bookings (admins only)
+            'seller' => ['nullable', Rule::in(['none', ...User::sellers()->pluck('id')->map(fn ($id) => (string) $id)])],
         ]);
+        $user = $request->user();
 
-        $bookings = Booking::with(['sailing.cruise', 'cabinCategory'])
+        $bookings = Booking::with(['sailing.cruise', 'cabinCategory', 'seller'])
+            ->when($user->isSeller(), fn (Builder $query) => $query->where('seller_id', $user->id))
+            ->when($user->isAdmin() ? ($filters['seller'] ?? null) : null, fn (Builder $query, string $seller) => $seller === 'none'
+                ? $query->whereNull('seller_id')
+                : $query->where('seller_id', $seller))
             ->when($filters['q'] ?? null, function (Builder $query, string $q) {
                 $query->where(fn (Builder $w) => $w
                     ->where('reference', 'like', "%{$q}%")
@@ -48,7 +61,8 @@ class BookingController extends Controller
 
     public function show(Booking $booking): View
     {
-        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'travellers', 'payments.recordedBy', 'promoCode', 'user']);
+        Gate::authorize('view-booking', $booking);
+        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'travellers', 'payments.recordedBy', 'promoCode', 'user', 'seller']);
 
         return view('admin.bookings.show', [
             'booking' => $booking,
@@ -58,6 +72,7 @@ class BookingController extends Controller
 
     public function update(Request $request, Booking $booking): RedirectResponse
     {
+        Gate::authorize('view-booking', $booking);
         $booking->update($request->validate(['admin_notes' => ['nullable', 'string', 'max:5000']]));
 
         return back()->with('status', 'Notes saved.');
@@ -73,8 +88,24 @@ class BookingController extends Controller
         return back()->with('status', "Booking {$booking->reference} cancelled. Record any refund below.");
     }
 
+    /** Assign the booking to a seller, or unassign it (empty seller_id). Admins only. */
+    public function assignSeller(Request $request, Booking $booking): RedirectResponse
+    {
+        $data = $request->validate([
+            'seller_id' => ['nullable', Rule::exists('users', 'id')->where('role', UserRole::Seller->value)],
+        ], ['seller_id.exists' => 'Choose one of the sellers.']);
+
+        $booking->update(['seller_id' => $data['seller_id'] ?? null]);
+        $seller = $booking->seller()->value('name');
+
+        return back()->with('status', $seller
+            ? "Booking {$booking->reference} assigned to {$seller}."
+            : "Booking {$booking->reference} is no longer assigned to a seller.");
+    }
+
     public function storePayment(Request $request, Booking $booking): RedirectResponse
     {
+        Gate::authorize('view-booking', $booking);
         $data = $request->validate([
             'type' => ['required', Rule::enum(PaymentType::class)],
             'method' => ['required', Rule::enum(PaymentMethod::class)],

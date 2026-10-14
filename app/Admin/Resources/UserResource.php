@@ -12,24 +12,47 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
+/**
+ * Admins & staff: people who sign in to the admin panel (admins and sellers). Website customers have
+ * their own screen (CustomerResource). Changing someone's role moves them between the two screens.
+ */
 class UserResource extends Resource
 {
     public static string $model = User::class;
 
     public static string $slug = 'users';
 
-    public static string $label = 'Users';
+    public static string $label = 'Admins & staff';
 
-    public static string $singular = 'User';
+    public static string $singular = 'Staff member';
 
     public static array $search = ['name', 'email', 'phone'];
 
     public static function query(): Builder
     {
-        return User::query()->withCount('bookings')->latest('id');
+        return User::query()->staff()->withCount('assignedBookings')->orderBy('role')->orderBy('name');
+    }
+
+    public static function scope(): Builder
+    {
+        return User::query()->staff();
     }
 
     public static function fields(): array
+    {
+        return [
+            ...static::personFields(),
+            // Staff roles only: customers are managed on their own screen (Customers)
+            Field::select('role', 'Role', static::roleOptions(UserRole::staff()))->default(UserRole::Seller->value)
+                ->rules(['required', Rule::enum(UserRole::class)->only(UserRole::staff())])->index()
+                ->help('Admin: the whole panel. Seller: the dashboard and the bookings assigned to them.'),
+            Field::number('assigned_bookings_count', 'Assigned bookings')->indexOnly(),
+            static::passwordField(),
+        ];
+    }
+
+    /** @return list<Field> name, email, phone and nationality, shared with Customers */
+    protected static function personFields(): array
     {
         return [
             Field::text('name', 'Name')->indexOnly(),
@@ -41,11 +64,22 @@ class UserResource extends Resource
             Field::text('phone', 'Mobile number')->rules(['nullable', 'regex:/^\d{7,12}$/']),
             Field::select('nationality', 'Nationality', ['' => '—'] + array_combine(config('cruise.nationalities'), config('cruise.nationalities')))
                 ->rules(['nullable', Rule::in(config('cruise.nationalities'))]),
-            Field::select('role', 'Role', ['customer' => 'Customer', 'admin' => 'Admin'])->default('customer')->rules(['required', Rule::enum(UserRole::class)])->index(),
-            Field::number('bookings_count', 'Bookings')->indexOnly(),
-            Field::password('password', 'Password')->rules(fn (?Model $r) => [$r ? 'nullable' : 'required', Password::min(8)->numbers()])
-                ->help('Leave empty to keep the current password.'),
         ];
+    }
+
+    /**
+     * @param  list<UserRole>|null  $roles  defaults to every role
+     * @return array<string, string>
+     */
+    protected static function roleOptions(?array $roles = null): array
+    {
+        return collect($roles ?? array_reverse(UserRole::cases()))->mapWithKeys(fn (UserRole $r) => [$r->value => $r->label()])->all();
+    }
+
+    protected static function passwordField(): Field
+    {
+        return Field::password('password', 'Password')->rules(fn (?Model $r) => [$r ? 'nullable' : 'required', Password::min(8)->numbers()])
+            ->help('Leave empty to keep the current password.');
     }
 
     /** "name" is filled by the model from first/last name; role is not mass-assignable. */
@@ -66,8 +100,8 @@ class UserResource extends Resource
 
     public static function rowActions(Model $record): array
     {
-        return $record->bookings_count
-            ? ["Bookings ({$record->bookings_count})" => route('admin.bookings.index', ['q' => $record->email])]
+        return $record->assigned_bookings_count
+            ? ["Bookings ({$record->assigned_bookings_count})" => route('admin.bookings.index', ['seller' => $record->id])]
             : [];
     }
 

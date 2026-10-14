@@ -28,8 +28,6 @@
       </label>
       <button class="btn btn-primary btn-lg w-full mt-2">Sign in</button>
     </form>
-
-    <p class="text-center text-sm text-muted mt-6">This sign-in is separate from customer accounts on the website. <a href="{{ route('home') }}" class="font-bold text-ocean-600 hover:underline">Go to the website</a></p>
   </div>
 
   <script>window.SC_DATA = @json(app(\App\Support\ScDataPresenter::class)->minimal());</script>

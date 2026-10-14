@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * Local demo accounts. Both use the password "password". Never run this seeder in production.
+ * Local demo accounts (admin, seller, customer). All use the password "password". Never run this seeder in production.
  */
 class UserSeeder extends Seeder
 {
@@ -20,6 +20,14 @@ class UserSeeder extends Seeder
             'password' => 'password',
         ]);
         $admin->forceFill(['role' => UserRole::Admin, 'email_verified_at' => now()])->save();
+
+        // A seller: signs in to /admin and sees the bookings an admin assigns to them.
+        $seller = User::updateOrCreate(['email' => 'seller@safercruise.test'], [
+            'first_name' => 'Sara',
+            'last_name' => 'Seller',
+            'password' => 'password',
+        ]);
+        $seller->forceFill(['role' => UserRole::Seller, 'email_verified_at' => now()])->save();
 
         // The demo customer shown on dashboard.html.
         $reem = User::updateOrCreate(['email' => 'reem@example.com'], [

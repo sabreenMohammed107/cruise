@@ -5,6 +5,8 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -72,14 +74,53 @@ class User extends Authenticatable
         });
     }
 
+    /** "+966 501234567", or null without a number. */
+    protected function fullPhone(): Attribute
+    {
+        return Attribute::get(fn () => $this->phone ? trim("{$this->phone_dial} {$this->phone}") : null);
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;
     }
 
+    public function isSeller(): bool
+    {
+        return $this->role === UserRole::Seller;
+    }
+
+    /** Admins and sellers: can sign in to the admin panel. */
+    public function isStaff(): bool
+    {
+        return (bool) $this->role?->isStaff();
+    }
+
+    public function scopeCustomers(Builder $query): void
+    {
+        $query->where('role', UserRole::Customer);
+    }
+
+    public function scopeStaff(Builder $query): void
+    {
+        $query->whereIn('role', UserRole::staff());
+    }
+
+    public function scopeSellers(Builder $query): void
+    {
+        $query->where('role', UserRole::Seller);
+    }
+
+    /** Bookings this user made on the website. */
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    /** Bookings assigned to this seller to follow up. */
+    public function assignedBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'seller_id');
     }
 
     public function favorites(): BelongsToMany

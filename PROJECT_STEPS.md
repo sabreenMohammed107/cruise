@@ -40,10 +40,12 @@ admin on a real server: register on the site, then run):
 
 ```powershell
 C:\xampp\php\php.exe artisan user:make-admin someone@example.com            # give admin access
+C:\xampp\php\php.exe artisan user:make-admin someone@example.com --seller   # seller (their assigned bookings only)
 C:\xampp\php\php.exe artisan user:make-admin someone@example.com --revoke   # back to customer
 ```
 
-An admin can also change roles under Admin â†’ Users.
+An admin can also change roles under Admin → Customers (Account type) or Admin → Admins & staff (Role).
+Demo accounts (password `password`): `admin@safercruise.test`, `seller@safercruise.test`, `reem@example.com`.
 
 ---
 
@@ -1014,6 +1016,33 @@ slot dropdowns; then remove photo slots completely. **This supersedes D7 and Ste
   message on the server (PHP's "failed to upload" happened when a photo was bigger than the server's limit).
 - Tests: **89 passed**; new `MediaLibraryTest` (slots gone, library listing/search, pick + reorder + remove, uploads,
   limits, single photo upload / clear). Local MySQL migrated (backup taken first); cruise 4 kept its 4 photos.
+
+### Step 8: Customers vs staff, customer export, Seller role, bookings assigned to sellers (2026-10-14)
+
+- **Roles** (`App\Enums\UserRole`): `customer`, `seller`, `admin`. `User::isStaff()` (admin or seller), scopes
+  `customers()`, `staff()`, `sellers()`. Gates: `admin-panel` (staff; the whole `/admin` group), `admin` (admins;
+  every admin route except the dashboard and bookings, see `routes/admin.php`), `view-booking` (admins, or the
+  seller the booking is assigned to; also opens the guest voucher from the panel). The admin sign-in accepts staff.
+- **Sellers** see a short menu (Dashboard, My bookings) and only their assigned bookings: list, details, notes,
+  record payments. Dashboard figures cover their bookings; the sailings box is hidden. Cancelling, removing payment
+  entries and (re)assigning are admin-only.
+- **Customers** (`/admin/customers`, `CustomerResource`): only `role = customer`; search, filters (nationality,
+  has / no bookings, registration dates), details page (`customers/{id}`: profile, totals, bookings), edit
+  (Account type promotes to Seller / Admin), delete only without bookings. **Export to Excel**
+  (`customers/export`): the filtered list as UTF-8 CSV with BOM (Arabic shows in Excel), columns ID, names, email,
+  phone `(+966) 5…`, nationality, registered, email verified, bookings, confirmed bookings, last booking, status;
+  cells starting with `= + - @` are prefixed with `'`. No Excel package added (composer.json has none).
+- **Admins & staff** (`/admin/users`, `UserResource`): only admins and sellers; Role select (Admin / Seller /
+  Customer), assigned bookings count with a link to them. Each screen 404s for people of the other kind
+  (`Resource::scope()`).
+- **Bookings:** migration `2026_10_14_000001_add_seller_id_to_bookings_table` (`seller_id` → users, null on delete);
+  `Booking::seller()`, `User::assignedBookings()`. Admins pick the seller on each row of the bookings tables and on the
+  booking page (`PATCH bookings/{ref}/seller`, sellers only), and filter the list by seller or Unassigned.
+- Generic resources gained `scope()`, `filter()`, `indexQuery()` and `indexToolbar()`. Seeder adds the demo seller.
+- Tests: **98 passed**; new `StaffCustomersSellersTest` (separation and 404s, filters and details, admin-only
+  screens, CSV export incl. BOM / Arabic / formula guard / filters, creating sellers and seller sign-in,
+  assign / reassign / unassign / filter / seller deleted, seller limited to own bookings). Local MySQL migrated
+  (backup first), Apache smoke test as seller and admin.
 
 **Open items (next):**
 

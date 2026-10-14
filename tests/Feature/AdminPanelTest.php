@@ -39,6 +39,19 @@ class AdminPanelTest extends TestCase
         $this->get('/admin')->assertOk();
     }
 
+    public function test_website_sign_in_is_for_customers_only(): void
+    {
+        foreach (['admin@safercruise.test', 'seller@safercruise.test'] as $email) {
+            $this->post('/login', ['email' => $email, 'password' => 'password'])->assertSessionHasErrors('email');
+            $this->assertGuest('web');
+        }
+
+        // Staff sign in to the dashboard directly; the website shows no link to it
+        $this->post('/admin/login', ['email' => 'seller@safercruise.test', 'password' => 'password'])->assertRedirect('/admin');
+        $this->get('/')->assertOk()->assertDontSee(url('/admin'));
+        $this->get('/admin/login')->assertRedirect('/admin');
+    }
+
     public function test_admin_and_customer_can_be_signed_in_at_the_same_time(): void
     {
         // Same browser session: customer on the site, admin in the panel
@@ -93,7 +106,7 @@ class AdminPanelTest extends TestCase
             if ($resource::canCreate()) {
                 $urls[] = route($resource::routeName('create'));
             }
-            if ($first = $resource::$model::query()->first()) {
+            if ($first = $resource::scope()->first()) {
                 $urls[] = route($resource::routeName('edit'), $first->getKey());
             }
         }
@@ -180,13 +193,20 @@ class AdminPanelTest extends TestCase
     {
         $admin = $this->admin();
         $this->actingAs($admin, 'admin')->put("/admin/users/{$admin->id}", [
-            'first_name' => 'Safer', 'last_name' => 'Admin', 'email' => $admin->email, 'role' => 'customer',
+            'first_name' => 'Safer', 'last_name' => 'Admin', 'email' => $admin->email, 'role' => 'seller',
         ])->assertSessionHasNoErrors();
+        $this->assertTrue($admin->fresh()->isAdmin());
+        // "Customer" isn't a choice on Admins & staff at all
+        $this->put("/admin/users/{$admin->id}", ['first_name' => 'Safer', 'last_name' => 'Admin', 'email' => $admin->email, 'role' => 'customer'])
+            ->assertSessionHasErrors('role');
         $this->assertTrue($admin->fresh()->isAdmin());
 
         $reem = User::where('email', 'reem@example.com')->firstOrFail();
-        $this->put("/admin/users/{$reem->id}", ['first_name' => 'Reem', 'last_name' => 'Alharbi', 'email' => $reem->email, 'role' => 'admin']);
+        // A customer is promoted from Customers, and then shows under Admins & staff
+        $this->put("/admin/customers/{$reem->id}", ['first_name' => 'Reem', 'last_name' => 'Alharbi', 'email' => $reem->email, 'role' => 'admin']);
         $this->assertTrue($reem->fresh()->isAdmin());
+        $this->get("/admin/customers/{$reem->id}/edit")->assertNotFound();
+        $this->get("/admin/users/{$reem->id}/edit")->assertOk();
     }
 
     public function test_sailing_create_fills_prices_and_grid_overrides_them(): void
@@ -222,6 +242,24 @@ class AdminPanelTest extends TestCase
 
         $this->actingAs($this->admin(), 'admin')->delete("/admin/sailings/{$sailing->id}")->assertSessionHas('error');
         $this->assertModelExists($sailing);
+    }
+
+    public function test_sidebar_groups_like_the_safeer_dashboard(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+        $cruise = Cruise::firstOrFail();
+
+        $html = $this->get("/admin/cruises/{$cruise->slug}/sailings")->assertOk()->getContent();
+        foreach (['Dashboard', 'Bookings', 'Cruises', 'Ship', 'Website content', 'Pricing &amp; offers', 'Customers', 'Admins &amp; staff', 'Newsletter', 'Add cruise', 'Add staff member'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+        // Only the group of the current page is open, with its link marked
+        $groups = preg_split('#<details #', $html);
+        $open = array_values(array_filter($groups, fn ($g) => preg_match('#^class="admin-group[^"]*"\s+open\s*>#', $g)));
+        $this->assertCount(2, $open, 'one open group in the sidebar and one in the mobile drawer');
+        $this->assertStringContainsString('<span class="flex-1">Cruises</span>', $open[0]);
+        $this->assertMatchesRegularExpression('#href="[^"]+/admin/cruises"\s+aria-current="page"#', $html);
+        $this->assertStringNotContainsString('Photo slots', $html);
     }
 
     public function test_arabic_lines_are_saved_intact(): void

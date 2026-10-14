@@ -7,14 +7,16 @@ use App\Models\User;
 use Illuminate\Console\Command;
 
 /**
- * Accounts created on the website are always customers, so admins are made here
- * (or by another admin under Admin → Users).
+ * Accounts created on the website are always customers, so staff are made here
+ * (or by an admin under Admin → Customers / Admins & staff).
  */
 class MakeAdmin extends Command
 {
-    protected $signature = 'user:make-admin {email : Email of an existing account} {--revoke : Make the account a customer again}';
+    protected $signature = 'user:make-admin {email : Email of an existing account}
+        {--seller : Make the account a seller instead of an admin}
+        {--revoke : Make the account a customer again}';
 
-    protected $description = 'Give an existing user access to the admin panel (or take it away with --revoke)';
+    protected $description = 'Give an existing user access to the admin panel as an admin or seller (or take it away with --revoke)';
 
     public function handle(): int
     {
@@ -26,7 +28,11 @@ class MakeAdmin extends Command
             return self::FAILURE;
         }
 
-        $role = $this->option('revoke') ? UserRole::Customer : UserRole::Admin;
+        $role = match (true) {
+            (bool) $this->option('revoke') => UserRole::Customer,
+            (bool) $this->option('seller') => UserRole::Seller,
+            default => UserRole::Admin,
+        };
         $user->forceFill(['role' => $role])->save();
 
         $this->info("{$user->email} is now: {$role->value}.");
