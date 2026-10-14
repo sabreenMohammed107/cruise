@@ -10,7 +10,9 @@ document.addEventListener('sc:ready', () => {
   // Laravel: labels from lang/*/ui.php (catalog.highlights)
   const HIGHLIGHTS = ['visaFree', 'family', 'excursions', 'weekend', 'festive'].map((k) => [k, SC.t(`ui.catalog.highlights.${k}`)]);
   const priceMin = Math.floor(Math.min(...ALL.map((s) => s.fromPrice)) / 50) * 50;
-  const priceMax = Math.ceil(Math.max(...ALL.map((s) => SC.prices(s.cruise, s.sailing, 'suite').adult)) / 50) * 50;
+  // Laravel: top of the price slider from the cabins each sailing really has (a fixed 'suite' id crashed the page when that cabin was renamed or removed)
+  const topPrice = (s) => Math.max(s.fromPrice, ...Object.values(s.sailing.prices || {}).map((p) => p.adult));
+  const priceMax = Math.ceil(Math.max(...ALL.map(topPrice)) / 50) * 50;
 
   /* ---------- State (initialised from URL) ---------- */
   const qs = SC.params();
