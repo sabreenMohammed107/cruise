@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BookingTraveller extends Model
 {
     protected $fillable = [
-        'booking_id', 'band', 'slot', 'is_primary', 'first_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
+        'booking_id', 'booking_cabin_id', 'band', 'slot', 'is_primary', 'first_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
     ];
 
     protected function casts(): array
@@ -26,5 +26,11 @@ class BookingTraveller extends Model
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
+    }
+
+    /** The cabin this traveller sleeps in. */
+    public function cabin(): BelongsTo
+    {
+        return $this->belongsTo(BookingCabin::class, 'booking_cabin_id');
     }
 }

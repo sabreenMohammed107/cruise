@@ -17,7 +17,7 @@ Our team will contact you within {{ config('cruise.payment_contact_hours') }} ho
 | Ship | {{ $cruise->ship->name }} |
 | Departs | {{ $sailing->departure_date->format('j M Y') }}, {{ $cruise->departure_port }} |
 | Returns | {{ $sailing->return_date->format('j M Y') }}, {{ $cruise->arrival_port }} |
-| Cabin | {{ $booking->cabinCategory->name_en }} |
+| {{ $booking->cabins->count() > 1 ? 'Cabins' : 'Cabin' }} | {{ $booking->cabinSummary() }} |
 | Travellers | {{ $booking->travellers->map(fn ($t) => "$t->first_name $t->last_name")->join(', ') }} |
 | **Total** | **{{ $money($booking->grand_total) }}** |
 </x-mail::table>

@@ -42,7 +42,7 @@
               'Ship' => $cruise->ship->name,
               'Departs' => Format::date($sailing->departure_date, 'D j M Y').', '.$cruise->departure_port,
               'Returns' => Format::date($sailing->return_date, 'D j M Y').', '.$cruise->arrival_port,
-              'Cabin' => $booking->cabinCategory->name_en,
+              ($booking->cabins->count() > 1 ? 'Cabins ('.$booking->cabins->count().')' : 'Cabin') => $booking->cabinSummary(),
               'Guests' => Format::guests($booking->adults, $booking->children, $booking->infants),
               'Booked' => Format::date($booking->confirmed_at, 'j M Y, H:i'),
               'Account' => $booking->user?->email ?? 'Guest checkout',
@@ -57,6 +57,11 @@
         <h2 class="font-display font-semibold text-lg mb-4">Travellers</h2>
         <ul class="divide-y divide-line text-sm">
           @foreach ($booking->travellers as $t)
+            {{-- several cabins (step 15): a heading before each cabin's travellers --}}
+            @if ($booking->cabins->count() > 1 && ($loop->first || $booking->travellers[$loop->index - 1]->booking_cabin_id !== $t->booking_cabin_id))
+              @php($c = $booking->cabins->firstWhere('id', $t->booking_cabin_id))
+              <li class="pt-4 pb-1 first:pt-0 text-xs font-bold text-muted">Cabin {{ $c?->position }} · {{ $c?->cabinCategory->name_en }} ({{ $c ? Format::guests($c->adults, $c->children, $c->infants) : '' }})</li>
+            @endif
             <li class="py-3 first:pt-0 last:pb-0 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="font-bold">{{ $t->first_name }} {{ $t->last_name }} @if ($t->is_primary)<span class="text-xs font-semibold text-lagoon-600 ms-1">Primary guest</span>@endif</p>
@@ -78,6 +83,10 @@
         <table class="w-full text-sm tabular">
           <tbody>
             @foreach ($quote['lines'] ?? [] as $line)
+              @if (count($quote['cabins'] ?? []) > 1 && ($loop->first || ($quote['lines'][$loop->index - 1]['cabin'] ?? null) !== ($line['cabin'] ?? null)))
+                @php($part = collect($quote['cabins'])->firstWhere('position', $line['cabin'] ?? 1))
+                <tr class="border-b border-line bg-page"><td class="py-2 font-bold" colspan="3">Cabin {{ $part['position'] ?? '' }} · {{ $part['name'] ?? '' }} <span class="font-normal text-muted">({{ Format::guests($part['guests']['adult'] ?? 0, $part['guests']['child'] ?? 0, $part['guests']['infant'] ?? 0) }}, fees {{ Format::money($part['fees'] ?? 0) }})</span></td></tr>
+              @endif
               <tr class="border-b border-line"><td class="py-2">{{ $line['label'] ?? ucfirst($line['band']) }}</td><td class="text-end">{{ Format::money($line['unit']) }} × {{ $line['qty'] }}</td><td class="text-end font-bold">{{ Format::money($line['total']) }}</td></tr>
             @endforeach
             <tr class="border-b border-line"><td class="py-2">Taxes, port charges & fees</td><td></td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>

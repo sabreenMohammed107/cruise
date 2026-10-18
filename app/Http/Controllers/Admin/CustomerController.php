@@ -21,7 +21,7 @@ class CustomerController extends Controller
 
         return view('admin.customers.show', [
             'customer' => $customer,
-            'bookings' => $customer->bookings()->with(['sailing.cruise', 'cabinCategory', 'seller'])->latest()->get(),
+            'bookings' => $customer->bookings()->with(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'seller'])->latest()->get(),
             'spent' => (float) $customer->bookings()->where('status', BookingStatus::Confirmed)->sum('amount_paid'),
         ]);
     }

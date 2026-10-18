@@ -27,8 +27,8 @@ class DashboardController extends Controller
                 'outstanding' => (float) (clone $awaiting)->selectRaw('SUM(grand_total - amount_paid) as due')->value('due'),
                 'collectedThisMonth' => (float) (clone $confirmed)->where('paid_at', '>=', now()->startOfMonth())->sum('amount_paid'),
             ],
-            'awaiting' => $awaiting->with(['sailing.cruise', 'cabinCategory', 'seller'])->oldest('confirmed_at')->limit(10)->get(),
-            'recent' => $bookings()->with(['sailing.cruise', 'cabinCategory', 'seller'])->latest('confirmed_at')->limit(8)->get(),
+            'awaiting' => $awaiting->with(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'seller'])->oldest('confirmed_at')->limit(10)->get(),
+            'recent' => $bookings()->with(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'seller'])->latest('confirmed_at')->limit(8)->get(),
             // Sailings (and their price screens) are for admins
             'sailings' => $user->isAdmin() ? Sailing::upcoming()->with('cruise')
                 ->whereHas('cruise', fn ($q) => $q->withoutTrashed())

@@ -71,9 +71,16 @@ class Booking extends Model
         return $this->belongsTo(Sailing::class);
     }
 
+    /** The first cabin's category (kept on the booking for lists and exports; see cabins() for all of them). */
     public function cabinCategory(): BelongsTo
     {
         return $this->belongsTo(CabinCategory::class);
+    }
+
+    /** The cabins of this booking, in the order the guest added them (step 15). */
+    public function cabins(): HasMany
+    {
+        return $this->hasMany(BookingCabin::class)->orderBy('position');
     }
 
     public function promoCode(): BelongsTo
@@ -83,7 +90,8 @@ class Booking extends Model
 
     public function travellers(): HasMany
     {
-        return $this->hasMany(BookingTraveller::class)->orderByRaw("CASE band WHEN 'adult' THEN 1 WHEN 'child' THEN 2 ELSE 3 END")->orderBy('slot');
+        // grouped by cabin (step 15), then adults, children, infants
+        return $this->hasMany(BookingTraveller::class)->orderBy('booking_cabin_id')->orderByRaw("CASE band WHEN 'adult' THEN 1 WHEN 'child' THEN 2 ELSE 3 END")->orderBy('slot');
     }
 
     public function payments(): HasMany
@@ -116,6 +124,19 @@ class Booking extends Model
     {
         $query->where('status', BookingStatus::Confirmed)
             ->whereIn('payment_status', [PaymentStatus::Unpaid, PaymentStatus::Partial]);
+    }
+
+    /**
+     * The cabins in English for the panel and team emails: "Balcony Cabin", or "2 × Balcony Cabin, Interior Cabin".
+     * Falls back to the booking's cabin for rows saved before step 15.
+     */
+    public function cabinSummary(): string
+    {
+        $names = $this->cabins->isNotEmpty()
+            ? $this->cabins->map(fn (BookingCabin $c) => $c->cabinCategory->name_en)
+            : collect([$this->cabinCategory?->name_en]);
+
+        return $names->filter()->countBy()->map(fn ($n, $name) => $n > 1 ? "$n × $name" : $name)->join(', ');
     }
 
     public function guestCounts(): array

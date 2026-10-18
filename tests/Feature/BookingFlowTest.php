@@ -87,12 +87,12 @@ class BookingFlowTest extends TestCase
         // 18 on the departure day: must book as an adult
         $this->postJson('/booking/confirm', $this->payload(['travellers' => ['child-1' => ['dob' => '2008-12-13']]]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['travellers.child-1.dob' => 'Child 1: Children must be 2–17 years old on the departure date.']);
+            ->assertJsonValidationErrors(['cabins.0.travellers.child-1.dob' => 'Child 1: Children must be 2–17 years old on the departure date.']);
 
         // 17 as an adult: rejected
         $this->postJson('/booking/confirm', $this->payload(['travellers' => ['adult-2' => ['dob' => '2009-01-01']]]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['travellers.adult-2.dob' => 'Adult 2: Adults must be 18 or older on the departure date.']);
+            ->assertJsonValidationErrors(['cabins.0.travellers.adult-2.dob' => 'Adult 2: Adults must be 18 or older on the departure date.']);
     }
 
     /** The payload for a party of the given size, with a traveller for every slot. */
@@ -117,15 +117,15 @@ class BookingFlowTest extends TestCase
     {
         // 3 guests in total, infants included
         $this->postJson('/booking/confirm', $this->party(2, 1, 1))->assertUnprocessable()
-            ->assertJsonValidationErrors(['guests' => "Balcony Cabin fits up to 3 guests including infants, and you've added 4."]);
-        $this->postJson('/booking/confirm', $this->party(1, 0, 3))->assertUnprocessable()->assertJsonValidationErrors(['guests']);
-        $this->postJson('/booking/confirm', $this->party(2, 2, 0, 'interior'))->assertUnprocessable()->assertJsonValidationErrors(['guests']);
+            ->assertJsonValidationErrors(['cabins.0.guests' => "Balcony Cabin fits up to 3 guests including infants, and you've added 4."]);
+        $this->postJson('/booking/confirm', $this->party(1, 0, 3))->assertUnprocessable()->assertJsonValidationErrors(['cabins.0.guests']);
+        $this->postJson('/booking/confirm', $this->party(2, 2, 0, 'interior'))->assertUnprocessable()->assertJsonValidationErrors(['cabins.0.guests']);
 
         // no adult: infants can't travel alone
         $this->postJson('/booking/confirm', $this->party(0, 1, 1))->assertUnprocessable()
-            ->assertJsonValidationErrors(['guests.adult' => 'Infants must travel with at least one adult. Add an adult to the booking.']);
+            ->assertJsonValidationErrors(['cabins.0.guests' => 'Infants must travel with at least one adult. Add an adult to the booking.']);
         $this->postJson('/booking/confirm', $this->party(0, 1, 0))->assertUnprocessable()
-            ->assertJsonValidationErrors(['guests.adult' => 'Every booking needs at least one adult.']);
+            ->assertJsonValidationErrors(['cabins.0.guests' => 'Every booking needs at least one adult.']);
     }
 
     public function test_infant_under_six_months_on_departure_blocks_the_booking(): void
@@ -135,10 +135,10 @@ class BookingFlowTest extends TestCase
         $payload['travellers']['infant-1']['dob'] = '2026-06-14';
 
         $this->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors([
-            'travellers.infant-1.dob' => 'Infant 1: Infants must be at least 6 months and under 2 years old on the departure date.',
+            'cabins.0.travellers.infant-1.dob' => 'Infant 1: Infants must be at least 6 months and under 2 years old on the departure date.',
         ]);
         $this->withCredentials()->withUnencryptedCookie('sc_lang', 'ar')->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors([
-            'travellers.infant-1.dob' => 'رضيع 1: يجب أن يكون عمر الرضيع 6 أشهر على الأقل وأقل من سنتين في تاريخ المغادرة.',
+            'cabins.0.travellers.infant-1.dob' => 'رضيع 1: يجب أن يكون عمر الرضيع 6 أشهر على الأقل وأقل من سنتين في تاريخ المغادرة.',
         ]);
         $this->assertSame(0, Booking::count() - 3); // only the 3 demo bookings
 
@@ -164,20 +164,20 @@ class BookingFlowTest extends TestCase
         $payload = $this->payload();
         unset($payload['travellers']['child-1']);
 
-        $this->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors(['travellers']);
+        $this->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors(['cabins.0.travellers']);
     }
 
     public function test_sold_out_or_full_cabins_cannot_be_booked(): void
     {
         $this->postJson('/booking/confirm', $this->payload(['sailing' => 'RSD-270117', 'cabin' => 'suite']))
-            ->assertUnprocessable()->assertJsonValidationErrors(['cabin']);
+            ->assertUnprocessable()->assertJsonValidationErrors(['cabins.0.cabin']);
 
         // capacity set by the admin: 1 balcony cabin left
         $sailing = Sailing::where('code', 'RSD-261213')->firstOrFail();
         $sailing->cabinPrices()->where('cabin_category_id', CabinCategory::where('slug', 'balcony')->value('id'))->update(['capacity' => 1]);
 
         $this->postJson('/booking/confirm', $this->payload())->assertCreated();
-        $this->postJson('/booking/confirm', $this->payload())->assertUnprocessable()->assertJsonValidationErrors(['cabin']);
+        $this->postJson('/booking/confirm', $this->payload())->assertUnprocessable()->assertJsonValidationErrors(['cabins']);
     }
 
     public function test_past_or_closed_sailings_cannot_be_booked(): void

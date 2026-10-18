@@ -26,7 +26,7 @@ class BookingConfirmed extends Mailable
     public function content(): Content
     {
         return new Content(markdown: 'mail.booking-confirmed', with: [
-            'booking' => $this->booking->loadMissing(['sailing.cruise.ship', 'cabinCategory', 'travellers']),
+            'booking' => $this->booking->loadMissing(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'travellers']),
         ]);
     }
 }

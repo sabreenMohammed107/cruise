@@ -26,7 +26,7 @@ class NewBookingForTeam extends Mailable
     public function content(): Content
     {
         return new Content(markdown: 'mail.new-booking-for-team', with: [
-            'booking' => $this->booking->loadMissing(['sailing.cruise', 'cabinCategory', 'travellers']),
+            'booking' => $this->booking->loadMissing(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'travellers']),
         ]);
     }
 }

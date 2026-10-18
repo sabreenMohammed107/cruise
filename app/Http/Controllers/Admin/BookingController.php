@@ -62,7 +62,7 @@ class BookingController extends Controller
     public function show(Booking $booking): View
     {
         Gate::authorize('view-booking', $booking);
-        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'travellers', 'payments.recordedBy', 'promoCode', 'user', 'seller']);
+        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers', 'payments.recordedBy', 'promoCode', 'user', 'seller']);
 
         return view('admin.bookings.show', [
             'booking' => $booking,

@@ -16,6 +16,14 @@ use Illuminate\Validation\Validator;
 /**
  * "Confirm booking" (booking.js). Re-checks on the server everything the template checks in the
  * browser (details.js guest limits, booking.js traveller and contact rules) plus availability.
+ *
+ * Payload (step 15): one or more cabins on the same sailing, each with its own guests and travellers:
+ *
+ *   { sailing, cabins: [ { cabin: "balcony", guests: {adult, child, infant}, travellers: {"adult-1": {...}} }, … ],
+ *     contact: {email, dial, phone}, promoCode, agreed }
+ *
+ * The one-cabin payload of earlier versions ({ cabin, guests, travellers }) is still accepted and read as
+ * a booking with one cabin, so a browser running a cached old booking.js can still book.
  */
 class ConfirmBookingRequest extends FormRequest
 {
@@ -23,30 +31,46 @@ class ConfirmBookingRequest extends FormRequest
 
     public ?Sailing $sailing = null;
 
-    public ?SailingCabinPrice $price = null;
-
     public ?PromoCode $promo = null;
+
+    /** @var list<array{price: SailingCabinPrice, guests: array{adult: int, child: int, infant: int}, travellers: array}> */
+    public array $cabins = [];
 
     public function authorize(): bool
     {
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('cabins') && $this->has('cabin')) {
+            $this->merge(['cabins' => [[
+                'cabin' => $this->input('cabin'),
+                'guests' => $this->input('guests'),
+                'travellers' => $this->input('travellers'),
+            ]]]);
+        }
+    }
+
     public function rules(): array
     {
+        $max = (int) config('cruise.max_cabin_guests');
+
         return [
             'sailing' => ['required', 'string', 'max:20'],
-            'cabin' => ['required', 'string', 'max:40'],
-            'guests' => ['required', 'array'],
-            'guests.adult' => ['required', 'integer', 'min:1', 'max:'.config('cruise.max_cabin_guests')],
-            'guests.child' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_cabin_guests')],
-            'guests.infant' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_cabin_guests')],
-            'travellers' => ['required', 'array'],
-            'travellers.*.first' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
-            'travellers.*.last' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
-            'travellers.*.dob' => ['required', 'date_format:Y-m-d'],
-            'travellers.*.gender' => ['required', Rule::in(['Male', 'Female', 'male', 'female'])],
-            'travellers.*.nationality' => ['required', Rule::in(config('cruise.nationalities'))],
+            'cabins' => ['required', 'array', 'min:1', 'max:'.config('cruise.max_cabins_per_booking')],
+            'cabins.*.cabin' => ['required', 'string', 'max:40'],
+            'cabins.*.guests' => ['required', 'array'],
+            // "at least one adult in every cabin" is checked after, with a clearer message
+            'cabins.*.guests.adult' => ['required', 'integer', 'min:0', "max:$max"],
+            'cabins.*.guests.child' => ['required', 'integer', 'min:0', "max:$max"],
+            'cabins.*.guests.infant' => ['required', 'integer', 'min:0', "max:$max"],
+            'cabins.*.travellers' => ['required', 'array'],
+            'cabins.*.travellers.*.first' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
+            'cabins.*.travellers.*.last' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
+            'cabins.*.travellers.*.dob' => ['required', 'date_format:Y-m-d'],
+            'cabins.*.travellers.*.gender' => ['required', Rule::in(['Male', 'Female', 'male', 'female'])],
+            'cabins.*.travellers.*.nationality' => ['required', Rule::in(config('cruise.nationalities'))],
             'contact' => ['required', 'array'],
             'contact.email' => ['required', 'string', 'email:rfc,strict', 'max:255'],
             'contact.dial' => ['required', Rule::in(array_column(config('cruise.dial_codes'), 0))],
@@ -59,16 +83,16 @@ class ConfirmBookingRequest extends FormRequest
     public function messages(): array
     {
         // In the visitor's language (lang/{en,ar}/site.php → booking.errors)
-        $e = fn (string $key) => __("site.booking.errors.$key");
+        $e = fn (string $key, array $r = []) => __("site.booking.errors.$key", $r);
 
         return [
-            // with infants in the party, say why an adult is needed
-            'guests.adult.min' => (int) $this->input('guests.infant') > 0 ? $e('infant_needs_adult') : $e('adult_required'),
-            'travellers.*.first.*' => $e('first_each'),
-            'travellers.*.last.*' => $e('last_each'),
-            'travellers.*.dob.*' => $e('dob_each'),
-            'travellers.*.gender.*' => $e('gender_each'),
-            'travellers.*.nationality.*' => $e('nationality_each'),
+            'cabins.required' => $e('choose_cabin'),
+            'cabins.max' => $e('too_many_cabins', ['max' => config('cruise.max_cabins_per_booking')]),
+            'cabins.*.travellers.*.first.*' => $e('first_each'),
+            'cabins.*.travellers.*.last.*' => $e('last_each'),
+            'cabins.*.travellers.*.dob.*' => $e('dob_each'),
+            'cabins.*.travellers.*.gender.*' => $e('gender_each'),
+            'cabins.*.travellers.*.nationality.*' => $e('nationality_each'),
             'contact.email.*' => $e('email_invalid'),
             'contact.dial.*' => $e('dial'),
             'contact.phone.*' => $e('phone_required'),
@@ -94,32 +118,10 @@ class ConfirmBookingRequest extends FormRequest
             return;
         }
 
-        $cabin = CabinCategory::where('ship_id', $this->sailing->cruise->ship_id)->where('slug', $this->input('cabin'))->first();
-        $this->price = $cabin ? $this->sailing->cabinPrices()->with('cabinCategory')->where('cabin_category_id', $cabin->id)->first() : null;
-        if (! $this->price) {
-            $validator->errors()->add('cabin', __('site.booking.errors.choose_cabin'));
-
-            return;
+        $several = count($this->input('cabins')) > 1;
+        foreach (array_values($this->input('cabins')) as $i => $row) {
+            $this->checkCabin($validator, $i, $row, $several);
         }
-        $cabinName = app()->getLocale() === 'ar' ? ($cabin->name_ar ?: $cabin->name_en) : $cabin->name_en;
-        if ($this->price->is_sold_out) {
-            $validator->errors()->add('cabin', __('site.booking.errors.cabin_sold_out', ['cabin' => $cabinName]));
-
-            return;
-        }
-
-        $guests = $this->guests();
-        // Same rules as SC.guestError() in core.js: every infant travels with an adult, and adults + children +
-        // infants together fit the cabin (at most 3, config cruise.max_cabin_guests)
-        if ($guests['infant'] > 0 && $guests['adult'] < 1) {
-            $validator->errors()->add('guests', __('site.booking.errors.infant_needs_adult'));
-        }
-        $total = array_sum($guests);
-        if ($total > $cabin->capacity()) {
-            $validator->errors()->add('guests', __('site.booking.errors.cabin_too_small', ['cabin' => $cabinName, 'max' => $cabin->capacity(), 'count' => $total]));
-        }
-
-        $this->checkTravellers($validator, $guests);
 
         if ($error = $this->phoneError($this->input('contact.dial'), (string) $this->input('contact.phone'))) {
             $validator->errors()->add('contact.phone', $error);
@@ -134,38 +136,91 @@ class ConfirmBookingRequest extends FormRequest
     }
 
     /**
-     * Travellers must be exactly the template's slots (adult-1, adult-2, child-1, …) and each
+     * One cabin: on this ship and priced on this sailing, not sold out, at least one adult (also for any infant),
+     * everyone (infants included) within the cabin's limit, and the travellers of exactly its guest slots.
+     * With several cabins, messages start with "Cabin 2: …".
+     */
+    private function checkCabin(Validator $validator, int $i, array $row, bool $several): void
+    {
+        $key = "cabins.$i";
+        $say = fn (string $message) => $several ? __('site.booking.errors.in_cabin', ['n' => $i + 1, 'error' => $message]) : $message;
+
+        $cabin = CabinCategory::where('ship_id', $this->sailing->cruise->ship_id)->where('slug', $row['cabin'])->first();
+        $price = $cabin ? $this->sailing->cabinPrices()->with('cabinCategory')->where('cabin_category_id', $cabin->id)->first() : null;
+        if (! $price) {
+            $validator->errors()->add("$key.cabin", $say(__('site.booking.errors.choose_cabin')));
+
+            return;
+        }
+        $cabinName = app()->getLocale() === 'ar' ? ($cabin->name_ar ?: $cabin->name_en) : $cabin->name_en;
+        if ($price->is_sold_out) {
+            $validator->errors()->add("$key.cabin", $say(__('site.booking.errors.cabin_sold_out', ['cabin' => $cabinName])));
+
+            return;
+        }
+
+        $guests = [
+            'adult' => (int) ($row['guests']['adult'] ?? 0),
+            'child' => (int) ($row['guests']['child'] ?? 0),
+            'infant' => (int) ($row['guests']['infant'] ?? 0),
+        ];
+        // Same rules as SC.guestError() in core.js: an adult in every cabin (and so with every infant), and
+        // adults + children + infants together within the cabin's limit
+        if ($guests['adult'] < 1) {
+            $validator->errors()->add("$key.guests", $say(__(match (true) {
+                $guests['infant'] > 0 => 'site.booking.errors.infant_needs_adult',
+                $several => 'site.booking.errors.adult_per_cabin',
+                default => 'site.booking.errors.adult_required',
+            })));
+        }
+        $total = array_sum($guests);
+        if ($total > $cabin->capacity()) {
+            $validator->errors()->add("$key.guests", $say(__('site.booking.errors.cabin_too_small', ['cabin' => $cabinName, 'max' => $cabin->capacity(), 'count' => $total])));
+        }
+
+        $travellers = (array) ($row['travellers'] ?? []);
+        if ($this->checkTravellers($validator, $key, $guests, $travellers, $say)) {
+            $this->cabins[] = ['price' => $price, 'guests' => $guests, 'travellers' => $travellers];
+        }
+    }
+
+    /**
+     * Travellers must be exactly the cabin's slots (adult-1, adult-2, child-1, …) and each
      * date of birth must fit its age band on the departure date.
      */
-    private function checkTravellers(Validator $validator, array $guests): void
+    private function checkTravellers(Validator $validator, string $key, array $guests, array $travellers, \Closure $say): bool
     {
         $expected = [];
         foreach (TravellerBand::cases() as $band) {
-            for ($i = 1; $i <= $guests[$band->value]; $i++) {
-                $expected[] = "{$band->value}-{$i}";
+            for ($n = 1; $n <= $guests[$band->value]; $n++) {
+                $expected[] = "{$band->value}-{$n}";
             }
         }
 
-        $given = array_keys($this->input('travellers', []));
+        $given = array_keys($travellers);
         sort($given);
         $sorted = $expected;
         sort($sorted);
         if ($given !== $sorted) {
-            $validator->errors()->add('travellers', __('site.booking.errors.travellers'));
+            $validator->errors()->add("$key.travellers", $say(__('site.booking.errors.travellers')));
 
-            return;
+            return false;
         }
 
         $ages = app(AgeBandValidator::class);
         // "Adult 1", "رضيع 1": band labels from Admin → Age bands, in the visitor's language
         $labels = AgeBand::all()->mapWithKeys(fn (AgeBand $b) => [$b->key->value => $b->tr('label')]);
-        foreach ($expected as $key) {
-            [$band, $n] = explode('-', $key);
-            $error = $ages->check(TravellerBand::from($band), $this->input("travellers.$key.dob"), $this->sailing->departure_date);
+        $ok = true;
+        foreach ($expected as $slot) {
+            [$band, $n] = explode('-', $slot);
+            $error = $ages->check(TravellerBand::from($band), $travellers[$slot]['dob'] ?? null, $this->sailing->departure_date);
             if ($error) {
-                $validator->errors()->add("travellers.$key.dob", __('site.booking.errors.traveller', ['traveller' => ($labels[$band] ?? ucfirst($band))." $n", 'error' => $error]));
+                $ok = false;
+                $validator->errors()->add("$key.travellers.$slot.dob", $say(__('site.booking.errors.traveller', ['traveller' => ($labels[$band] ?? ucfirst($band))." $n", 'error' => $error])));
             }
         }
+
+        return $ok;
     }
 
     /** Same rules as phoneError() in booking.js. */
@@ -183,16 +238,6 @@ class ConfirmBookingRequest extends FormRequest
         };
 
         return $key ? __("site.booking.errors.$key") : null;
-    }
-
-    /** @return array{adult: int, child: int, infant: int} */
-    public function guests(): array
-    {
-        return [
-            'adult' => (int) $this->input('guests.adult'),
-            'child' => (int) $this->input('guests.child'),
-            'infant' => (int) $this->input('guests.infant'),
-        ];
     }
 
     /** Phone number as the template normalises it (no spaces, dashes or leading zeros). */

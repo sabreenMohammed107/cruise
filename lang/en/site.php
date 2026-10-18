@@ -173,6 +173,7 @@ return [
         'ports' => 'Ports',
         'route' => ':from to :to',
         'cabin' => 'Cabin',
+        'cabins' => 'Cabins',
         'cabin_type' => 'Cabin type',
         'category' => 'Category',
         'guests' => 'Guests',
@@ -238,6 +239,10 @@ return [
             'cabin_just_sold_out' => 'This cabin has just sold out on this date. Choose another cabin or date.',
             'cabin_too_small' => ":cabin fits up to :max guests including infants, and you've added :count.",
             'infant_needs_adult' => 'Infants must travel with at least one adult. Add an adult to the booking.',
+            // Several cabins in one booking (step 15)
+            'adult_per_cabin' => 'Every cabin needs at least one adult.',
+            'in_cabin' => 'Cabin :n: :error',
+            'too_many_cabins' => 'You can book up to :max cabins at once. For more, contact our team.',
             'promo_invalid' => "That code isn't valid for this sailing. Remove it and try again.",
             'promo_unknown' => "That code isn't valid for this sailing.",
         ],

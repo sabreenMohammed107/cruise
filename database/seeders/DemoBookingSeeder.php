@@ -79,7 +79,7 @@ class DemoBookingSeeder extends Seeder
             foreach ($trip['travellers'] as [$band]) {
                 $guests[$band]++;
             }
-            $quote = $pricing->quote($price, $guests);
+            $quote = $pricing->quoteBooking([['price' => $price, 'guests' => $guests]]);
 
             $bookedAt = $departure->copy()->subDays(45)->setTime(10, 30);
             $cancelled = $trip['status'] === BookingStatus::Cancelled;
@@ -105,10 +105,18 @@ class DemoBookingSeeder extends Seeder
                 'cancelled_at' => $cancelled ? $bookedAt->copy()->addDays(10) : null,
             ]);
 
+            // One cabin per demo trip (step 15: a booking can hold several)
             $booking->travellers()->delete();
+            $booking->cabins()->delete();
+            $part = $quote['cabins'][0];
+            $row = $booking->cabins()->create([
+                'position' => 1, 'cabin_category_id' => $cabin->id,
+                'adults' => $guests['adult'], 'children' => $guests['child'], 'infants' => $guests['infant'],
+                'fare_total' => $part['fare'], 'fees_total' => $part['fees'], 'price_snapshot' => $part,
+            ]);
             foreach ($trip['travellers'] as [$band, $slot, $person]) {
                 $booking->travellers()->create($person + [
-                    'band' => $band, 'slot' => $slot, 'is_primary' => $band === 'adult' && $slot === 1,
+                    'booking_cabin_id' => $row->id, 'band' => $band, 'slot' => $slot, 'is_primary' => $band === 'adult' && $slot === 1,
                 ]);
             }
 

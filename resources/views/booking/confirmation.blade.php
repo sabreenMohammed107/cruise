@@ -17,6 +17,14 @@
       ->join(__('site.guests.join'));
   $bandLabels = \App\Models\AgeBand::all()->mapWithKeys(fn ($b) => [$b->key->value => $b->tr('label')]);
   $cabin = $booking->cabinCategory;
+  $several = $booking->cabins->count() > 1;
+  // [heading or null, travellers] per cabin: "Cabin 2 · Balcony Cabin (2 adults)"
+  $groups = $several
+      ? $booking->cabins->map(fn ($c) => [
+          __('ui.details.cabin_n', ['n' => $c->position]).' · '.$c->name().' ('.collect($c->guestCounts())->filter()->map(fn ($n, $band) => trans_choice("site.guests.$band", $n, ['count' => $n]))->join(__('site.guests.join')).')',
+          $c->travellers,
+      ])->all()
+      : [[null, $booking->travellers]];
   $cancelled = $booking->status === \App\Enums\BookingStatus::Cancelled;
 @endphp
 
@@ -60,7 +68,10 @@
                 __('site.booking.departs') => $date($sailing->departure_date).(app()->getLocale() === 'ar' ? '، ' : ', ').Bi::port($cruise->departure_port),
                 __('site.booking.returns') => $date($sailing->return_date).(app()->getLocale() === 'ar' ? '، ' : ', ').Bi::port($cruise->arrival_port),
                 __('site.booking.duration') => trans_choice('site.nights', $cruise->nights, ['count' => $cruise->nights]),
-                __('site.booking.cabin') => app()->getLocale() === 'ar' ? ($cabin->name_ar ?: $cabin->name_en) : $cabin->name_en,
+                // one cabin: its name; several (step 15): how many, each listed below
+                ($several ? __('site.booking.cabins') : __('site.booking.cabin')) => $several
+                    ? trans_choice('ui.details.cabins_count', $booking->cabins->count(), ['count' => $booking->cabins->count()])
+                    : (app()->getLocale() === 'ar' ? ($cabin->name_ar ?: $cabin->name_en) : $cabin->name_en),
                 __('site.booking.guests') => $guestText,
             ] as $label => $value)
               <div><dt class="text-xs font-semibold text-muted">{{ $label }}</dt><dd class="font-bold mt-0.5">{{ $value }}</dd></div>
@@ -70,14 +81,18 @@
         <div class="perf-x"></div>
         <div class="p-6 sm:p-7">
           <h3 class="font-bold mb-3">{{ __('site.booking.travellers') }}</h3>
-          <ul class="grid sm:grid-cols-2 gap-3">
-            @foreach ($booking->travellers as $t)
-              <li class="rounded-xl bg-page p-3 flex items-center justify-between gap-3">
-                <span><span class="block font-bold">{{ $t->first_name }} {{ $t->last_name }}</span><span class="text-xs text-muted">{{ Bi::value('nationalities', $t->nationality) }}</span></span>
-                <span class="tag tag-ocean">{{ $bandLabels[$t->band->value] ?? ucfirst($t->band->value) }}</span>
-              </li>
-            @endforeach
-          </ul>
+          {{-- One group per cabin when the booking has several (step 15) --}}
+          @foreach ($groups as [$heading, $travellers])
+            @if ($heading)<p class="text-sm font-bold text-muted {{ $loop->first ? '' : 'mt-5' }} mb-2">{{ $heading }}</p>@endif
+            <ul class="grid sm:grid-cols-2 gap-3">
+              @foreach ($travellers as $t)
+                <li class="rounded-xl bg-page p-3 flex items-center justify-between gap-3">
+                  <span><span class="block font-bold">{{ $t->first_name }} {{ $t->last_name }}</span><span class="text-xs text-muted">{{ Bi::value('nationalities', $t->nationality) }}</span></span>
+                  <span class="tag tag-ocean">{{ $bandLabels[$t->band->value] ?? ucfirst($t->band->value) }}</span>
+                </li>
+              @endforeach
+            </ul>
+          @endforeach
         </div>
       </article>
 

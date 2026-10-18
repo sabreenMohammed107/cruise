@@ -41,6 +41,8 @@ class ScDataPresenter
             'ageBands' => $this->ageBands(),
             // Guests per cabin, infants included (cabins[].maxGuests is each cabin's own limit, never above this)
             'maxCabinGuests' => (int) config('cruise.max_cabin_guests'),
+            // Cabins in one booking (step 15)
+            'maxCabinsPerBooking' => (int) config('cruise.max_cabins_per_booking'),
             'fees' => ['perGuestPerNight' => $this->fees()],
             // Promo codes are checked on the server (POST /booking/promo), never published here.
             'promos' => (object) [],
@@ -105,7 +107,7 @@ class ScDataPresenter
                 ],
             ],
             'bookings' => $user->bookings()
-                ->with(['sailing.cruise.ship', 'cabinCategory', 'travellers'])
+                ->with(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'travellers.cabin'])
                 ->latest()
                 ->get()
                 ->map(fn (Booking $booking) => $this->booking($booking))
@@ -137,6 +139,10 @@ class ScDataPresenter
             'arrivalPort' => $cruise->arrival_port,
             'cabinId' => $booking->cabinCategory->slug,
             'guests' => $booking->guestCounts(),
+            // Every cabin of the booking (step 15); travellers below carry the position of their cabin
+            'cabins' => $booking->cabins->map(fn ($c) => [
+                'position' => $c->position, 'cabinId' => $c->cabinCategory->slug, 'guests' => $c->guestCounts(), 'fare' => (float) $c->fare_total,
+            ])->values()->all(),
             'amountDue' => (float) $booking->grand_total,
             'amountPaid' => (float) $booking->amount_paid,
             'quote' => $booking->price_snapshot,
@@ -147,6 +153,7 @@ class ScDataPresenter
                     'dob' => $t->date_of_birth->toDateString(),
                     'gender' => ucfirst($t->gender->value),
                     'nationality' => $t->nationality,
+                    'cabin' => $t->cabin?->position ?? 1,
                 ],
             ])->all(),
             'voucherUrl' => route('booking.confirmation', $booking),

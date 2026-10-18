@@ -233,9 +233,25 @@
     const fare = lines.reduce((s, l) => s + l.total, 0);
     const fees = bands.reduce((s, b) => s + (guests[b] || 0) * D.fees.perGuestPerNight[b] * cruise.nights, 0);
     const promo = promoCode && D.promos[promoCode.toUpperCase()];
-    const discount = promo ? r5(fare * promo.value / 100) : 0;
+    const discount = SC.promoDiscount(promo, fare);
     return { prices, lines, fare, fees, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
   };
+  // Laravel: percent codes are rounded to $5; fixed codes take at most the fare (PricingService::discount)
+  SC.promoDiscount = (promo, fare) => (!promo ? 0 : promo.type === 'fixed' ? Math.min(promo.value, fare) : r5(fare * promo.value / 100));
+  /* Several cabins in one booking (step 15; PricingService::quoteBooking): every cabin priced on its own
+     (tiers + fees), the promo once on the total fare. rooms = [{ cabinId, guests }, …] */
+  SC.quoteRooms = ({ cruise, sailing, rooms, promoCode }) => {
+    const parts = rooms.map((r, i) => ({ position: i + 1, cabinId: r.cabinId, guests: r.guests, ...SC.quote({ cruise, sailing, cabinId: r.cabinId, guests: r.guests }) }));
+    const fare = parts.reduce((s, p) => s + p.fare, 0);
+    const fees = parts.reduce((s, p) => s + p.fees, 0);
+    const promo = promoCode && D.promos[promoCode.toUpperCase()];
+    const discount = SC.promoDiscount(promo, fare);
+    return {
+      rooms: parts, lines: parts.flatMap((p) => p.lines.map((l) => ({ ...l, cabin: p.position }))), fare, fees, discount,
+      promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, total: fare + fees - discount, count: parts.reduce((s, p) => s + p.count, 0)
+    };
+  };
+  SC.maxRooms = () => D.maxCabinsPerBooking || 5;
   /* Guest rules (same as App\Http\Requests\ConfirmBookingRequest):
      - adults + children + infants together ≤ cap (the cabin's maxGuests, at most SC_DATA.maxCabinGuests = 3)
      - at least one adult; every infant travels with an adult

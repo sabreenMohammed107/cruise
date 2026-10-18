@@ -25,6 +25,13 @@ document.addEventListener('sc:ready', () => {
   const STATUS = { upcoming: ['tag-lagoon', t('status_confirmed')], past: ['tag-ocean', t('status_completed')], cancelled: ['tag-sun', t('status_cancelled')] };
   const PAYMENT = { unpaid: ['tag-sun', t('payment_unpaid')], partial: ['tag-sun', t('payment_partial')], paid: ['tag-lagoon', t('payment_paid')], refunded: ['tag-ocean', t('payment_refunded')] };
   const paymentTag = (b) => (PAYMENT[b.paymentStatus] ? `<span class="tag ${PAYMENT[b.paymentStatus][0]}">${PAYMENT[b.paymentStatus][1]}</span>` : '');
+  /* Cabins of a booking (step 15): "Balcony Cabin", or "2 × Balcony Cabin, Interior Cabin" */
+  const roomsOf = (b) => (b.cabins && b.cabins.length ? b.cabins : [{ position: 1, cabinId: b.cabinId, guests: b.guests }]);
+  const cabinNames = (b) => {
+    const counts = {};
+    roomsOf(b).forEach((r) => { counts[r.cabinId] = (counts[r.cabinId] || 0) + 1; });
+    return Object.entries(counts).map(([id, n]) => `${n > 1 ? `${n} × ` : ''}${SC.esc(SC.getCabin(id)?.nameEn || id)}`).join(SC.lang() === 'ar' ? '، ' : ', ');
+  };
   const bookingCard = (b) => {
     const g = group(b); const cab = SC.getCabin(b.cabinId); const days = SC.daysUntil(b.departure);
     return `<article class="card overflow-hidden flex flex-col md:flex-row ${g === 'cancelled' ? 'opacity-80' : ''}">
@@ -35,7 +42,7 @@ document.addEventListener('sc:ready', () => {
         <p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}${SC.lang() === 'ar' ? '، ' : ', '}${SC.esc(SC.port(b.departurePort))}</p>
         <dl class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           <div><dt class="text-xs text-muted font-semibold">${t('reference')}</dt><dd class="font-bold tabular" dir="ltr">${b.ref}</dd></div>
-          <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.cabin')}</dt><dd class="font-bold">${cab ? cab.nameEn : ''}</dd></div>
+          <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.cabin')}</dt><dd class="font-bold">${cabinNames(b)}</dd></div>
           <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.guests')}</dt><dd class="font-bold">${SC.guestText(b.guests)}</dd></div>
           <div><dt class="text-xs text-muted font-semibold">${t('total')}</dt><dd class="font-bold tabular">${SC.money(b.amountDue)}</dd></div>
         </dl>
@@ -69,14 +76,15 @@ document.addEventListener('sc:ready', () => {
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-booking]'); if (!btn) return;
     const b = bookings.find((x) => x.ref === btn.dataset.booking); const cab = SC.getCabin(b.cabinId); const q = b.quote;
+    const several = roomsOf(b).length > 1;
     const body = SC.ensureModal('booking-modal', { title: t('booking_title', { ref: b.ref }), width: '720px' });
     body.innerHTML = `
-      <div class="flex gap-4 items-center"><img src="${cab ? cab.images[0] : imgFor(b)}" alt="" class="w-24 h-20 rounded-xl object-cover"><div><p class="font-display font-semibold text-lg">${SC.esc(b.cruiseName)}</p><p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}</p><p class="text-sm text-muted">${cab ? cab.nameEn : ''}${SC.lang() === 'ar' ? '، ' : ', '}${SC.esc(SC.t('booking.route', { from: SC.port(b.departurePort), to: SC.port(b.arrivalPort) }))}</p></div></div>
+      <div class="flex gap-4 items-center"><img src="${cab ? cab.images[0] : imgFor(b)}" alt="" class="w-24 h-20 rounded-xl object-cover"><div><p class="font-display font-semibold text-lg">${SC.esc(b.cruiseName)}</p><p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}</p><p class="text-sm text-muted">${cabinNames(b)}${SC.lang() === 'ar' ? '، ' : ', '}${SC.esc(SC.t('booking.route', { from: SC.port(b.departurePort), to: SC.port(b.arrivalPort) }))}</p></div></div>
       <h3 class="font-bold mt-6 mb-2">${SC.t('booking.travellers')}</h3>
-      <ul class="grid gap-2 text-sm">${Object.entries(b.travellers).map(([k, t]) => `<li class="flex justify-between rounded-xl bg-page px-3 py-2"><span class="font-semibold">${SC.esc(t.first)} ${SC.esc(t.last)}</span><span class="text-muted">${D.ageBands[k.split('-')[0]].label}</span></li>`).join('')}</ul>
+      <ul class="grid gap-2 text-sm">${Object.entries(b.travellers).sort(([, x], [, y]) => (x.cabin || 1) - (y.cabin || 1)).map(([k, t], i, all) => `${several && (all[i - 1]?.[1].cabin || 1) !== (t.cabin || 1) ? `<li class="pt-2 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: t.cabin || 1 })} · ${SC.esc(SC.getCabin(roomsOf(b)[(t.cabin || 1) - 1]?.cabinId)?.nameEn || '')}</li>` : ''}<li class="flex justify-between rounded-xl bg-page px-3 py-2"><span class="font-semibold">${SC.esc(t.first)} ${SC.esc(t.last)}</span><span class="text-muted">${D.ageBands[k.split('-')[0]].label}</span></li>`).join('')}</ul>
       <h3 class="font-bold mt-6 mb-2">${t('price')}</h3>
       <dl class="grid gap-1.5 text-sm tabular">
-        ${q.lines.map((l) => `<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
+        ${q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
         <div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>
         ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
         <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}</dt><dd>${SC.money(q.total)}</dd></div>

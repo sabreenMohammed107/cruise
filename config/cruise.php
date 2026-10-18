@@ -19,6 +19,9 @@ return [
     // Every infant needs at least one adult in the booking. Infants are free (tiered pricing, step 9).
     'max_cabin_guests' => 10,
 
+    // Cabins in one booking (step 15): each with its own guests and tiered price, all on the same sailing.
+    'max_cabins_per_booking' => 5,
+
     // No online payment: confirming creates the booking and the team arranges payment offline.
     'payment_contact_hours' => 24,
 

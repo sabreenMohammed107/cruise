@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Mail\BookingConfirmed;
 use App\Mail\NewBookingForTeam;
 use App\Models\Booking;
+use App\Models\BookingCabin;
 use App\Models\PromoCode;
 use App\Models\SailingCabinPrice;
 use App\Models\User;
@@ -24,36 +25,41 @@ class BookingService
     public function __construct(private PricingService $pricing) {}
 
     /**
-     * @param  array{adult: int, child: int, infant: int}  $guests
-     * @param  array<string, array{first: string, last: string, dob: string, gender: string, nationality: string}>  $travellers  keyed "adult-1", "child-2", …
+     * A booking of one or more cabins on the same sailing (step 15).
+     *
+     * @param  list<array{price: SailingCabinPrice, guests: array{adult: int, child: int, infant: int}, travellers: array<string, array>}>  $cabins
+     *         travellers of each cabin keyed "adult-1", "child-2", … within that cabin
      * @param  array{email: string, dial: string, phone: string}  $contact
      */
-    public function confirm(
-        SailingCabinPrice $price,
-        array $guests,
-        array $travellers,
-        array $contact,
-        ?PromoCode $promo = null,
-        ?User $user = null,
-    ): Booking {
-        $booking = DB::transaction(function () use ($price, $guests, $travellers, $contact, $promo, $user) {
-            // Lock the sailing × cabin row so two guests can't take the last cabin at the same time.
-            $price = SailingCabinPrice::with('sailing.cruise')->lockForUpdate()->findOrFail($price->id);
-            $this->ensureAvailable($price);
+    public function confirm(array $cabins, array $contact, ?PromoCode $promo = null, ?User $user = null): Booking
+    {
+        $booking = DB::transaction(function () use ($cabins, $contact, $promo, $user) {
+            // Lock the sailing × cabin rows so two guests can't take the last cabin at the same time.
+            $ids = array_values(array_unique(array_map(fn ($c) => $c['price']->id, $cabins)));
+            $locked = SailingCabinPrice::with(['sailing.cruise', 'cabinCategory'])->lockForUpdate()->findMany($ids)->keyBy('id');
+            $cabins = array_map(fn ($c) => ['price' => $locked[$c['price']->id]] + $c, array_values($cabins));
 
-            $quote = $this->pricing->quote($price, $guests, $promo);
+            // The same cabin type may be booked more than once in one go
+            foreach (array_count_values(array_map(fn ($c) => $c['price']->id, $cabins)) as $priceId => $wanted) {
+                $this->ensureAvailable($locked[$priceId], $wanted);
+            }
+
+            $quote = $this->pricing->quoteBooking($cabins, $promo);
+            $first = $cabins[0]['price'];
+            $sum = fn (string $band) => array_sum(array_map(fn ($c) => $c['guests'][$band], $cabins));
 
             $booking = Booking::create([
-                'reference' => Booking::generateReference($price->sailing->departure_date),
+                'reference' => Booking::generateReference($first->sailing->departure_date),
                 'user_id' => $user?->id,
-                'sailing_id' => $price->sailing_id,
-                'cabin_category_id' => $price->cabin_category_id,
+                'sailing_id' => $first->sailing_id,
+                // first cabin and guest totals, for lists and exports
+                'cabin_category_id' => $first->cabin_category_id,
                 'promo_code_id' => $promo?->id,
                 'status' => BookingStatus::Confirmed,
                 'payment_status' => PaymentStatus::Unpaid,
-                'adults' => $guests['adult'],
-                'children' => $guests['child'],
-                'infants' => $guests['infant'],
+                'adults' => $sum('adult'),
+                'children' => $sum('child'),
+                'infants' => $sum('infant'),
                 'contact_email' => strtolower($contact['email']),
                 'contact_dial' => $contact['dial'],
                 'contact_phone' => $contact['phone'],
@@ -66,18 +72,35 @@ class BookingService
                 'confirmed_at' => now(),
             ]);
 
-            foreach ($travellers as $key => $t) {
-                [$band, $slot] = explode('-', $key);
-                $booking->travellers()->create([
-                    'band' => $band,
-                    'slot' => (int) $slot,
-                    'is_primary' => $key === 'adult-1',
-                    'first_name' => trim($t['first']),
-                    'last_name' => trim($t['last']),
-                    'date_of_birth' => $t['dob'],
-                    'gender' => strtolower($t['gender']),
-                    'nationality' => $t['nationality'],
+            // Traveller slots run on across cabins (adult-1, adult-2 in cabin 1, adult-3 in cabin 2, …)
+            $next = ['adult' => 0, 'child' => 0, 'infant' => 0];
+            foreach ($cabins as $i => $cabin) {
+                $part = $quote['cabins'][$i];
+                $row = $booking->cabins()->create([
+                    'position' => $i + 1,
+                    'cabin_category_id' => $cabin['price']->cabin_category_id,
+                    'adults' => $cabin['guests']['adult'],
+                    'children' => $cabin['guests']['child'],
+                    'infants' => $cabin['guests']['infant'],
+                    'fare_total' => $part['fare'],
+                    'fees_total' => $part['fees'],
+                    'price_snapshot' => $part,
                 ]);
+
+                foreach ($this->inSlotOrder($cabin['travellers']) as $key => $t) {
+                    [$band] = explode('-', $key);
+                    $booking->travellers()->create([
+                        'booking_cabin_id' => $row->id,
+                        'band' => $band,
+                        'slot' => ++$next[$band],
+                        'is_primary' => $i === 0 && $key === 'adult-1',
+                        'first_name' => trim($t['first']),
+                        'last_name' => trim($t['last']),
+                        'date_of_birth' => $t['dob'],
+                        'gender' => strtolower($t['gender']),
+                        'nationality' => $t['nationality'],
+                    ]);
+                }
             }
 
             $promo?->increment('used_count');
@@ -90,19 +113,33 @@ class BookingService
         return $booking;
     }
 
-    /**
-     * Sold-out flag and, when the admin set one, the number of cabins left for this sailing.
-     */
-    private function ensureAvailable(SailingCabinPrice $price): void
+    /** adult-1, adult-2, child-1, infant-1 … whatever order the browser sent them in. */
+    private function inSlotOrder(array $travellers): array
     {
-        $taken = $price->capacity === null ? 0 : Booking::where('sailing_id', $price->sailing_id)
-            ->where('cabin_category_id', $price->cabin_category_id)
-            ->where('status', BookingStatus::Confirmed)
+        $order = ['adult' => 1, 'child' => 2, 'infant' => 3];
+        uksort($travellers, function ($a, $b) use ($order) {
+            [$ba, $na] = explode('-', $a);
+            [$bb, $nb] = explode('-', $b);
+
+            return [$order[$ba] ?? 9, (int) $na] <=> [$order[$bb] ?? 9, (int) $nb];
+        });
+
+        return $travellers;
+    }
+
+    /**
+     * Sold-out flag and, when the admin set one, the number of cabins left for this sailing:
+     * cabins of this type already booked (confirmed) + the ones wanted now must fit.
+     */
+    private function ensureAvailable(SailingCabinPrice $price, int $wanted = 1): void
+    {
+        $taken = $price->capacity === null ? 0 : BookingCabin::where('cabin_category_id', $price->cabin_category_id)
+            ->whereHas('booking', fn ($q) => $q->where('sailing_id', $price->sailing_id)->where('status', BookingStatus::Confirmed))
             ->count();
 
-        if ($price->is_sold_out || ($price->capacity !== null && $taken >= $price->capacity)) {
+        if ($price->is_sold_out || ($price->capacity !== null && $taken + $wanted > $price->capacity)) {
             throw ValidationException::withMessages([
-                'cabin' => __('site.booking.errors.cabin_just_sold_out'),
+                'cabins' => __('site.booking.errors.cabin_just_sold_out'),
             ]);
         }
     }

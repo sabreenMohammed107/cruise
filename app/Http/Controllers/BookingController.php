@@ -50,9 +50,7 @@ class BookingController extends Controller
     public function confirm(ConfirmBookingRequest $request, BookingService $bookings): JsonResponse
     {
         $booking = $bookings->confirm(
-            price: $request->price,
-            guests: $request->guests(),
-            travellers: $request->input('travellers'),
+            cabins: $request->cabins,
             contact: [
                 'email' => $request->input('contact.email'),
                 'dial' => $request->input('contact.dial'),
@@ -76,7 +74,7 @@ class BookingController extends Controller
         abort_unless($this->canView($request, $booking), 404);
 
         return view('booking.confirmation', [
-            'booking' => $booking->load(['sailing.cruise.ship', 'cabinCategory', 'travellers']),
+            'booking' => $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers']),
         ]);
     }
 

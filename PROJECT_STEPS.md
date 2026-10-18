@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 116 tests
+C:\xampp\php\php.exe artisan test                     # 122 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -222,9 +222,16 @@ cruise routes**), `name_ar`, `country`, `image_slot`, `blurb`, `description`, `h
 `contact_phone`, `fare_total`, `fees_total`, `discount_total`, `grand_total` (= amount due), `amount_paid`
 (net of refunds), `currency` (default `USD`), `price_snapshot` (json), `confirmed_at`, `paid_at`, `cancelled_at`,
 `admin_notes`. Index `(status, payment_status)`. Removed in v2: `held_until`, pending/expired statuses.
+Since step 15 a booking can hold several cabins: `cabin_category_id` is the **first** cabin and `adults` / `children`
+/ `infants` / `fare_total` / `fees_total` are **totals** of all cabins.
 
-**booking_travellers**: `booking_id`, `band`, `slot` (1..n within band), `is_primary`, `first_name`, `last_name`,
-`date_of_birth`, `gender` (`male|female`), `nationality`. Unique `(booking_id, band, slot)`.
+**booking_cabins** *(step 15)*: `booking_id` (cascade), `position` (1, 2, … = "Cabin 1", "Cabin 2"),
+`cabin_category_id` (restrict), `adults`, `children`, `infants`, `fare_total`, `fees_total` (this cabin's tiered fare
+and fees), `price_snapshot` (json, this cabin's part of the quote). Unique `(booking_id, position)`.
+
+**booking_travellers**: `booking_id`, `booking_cabin_id` *(step 15, the cabin they sleep in)*, `band`, `slot` (1..n
+within band, numbered across the whole booking), `is_primary`, `first_name`, `last_name`, `date_of_birth`, `gender`
+(`male|female`), `nationality`. Unique `(booking_id, band, slot)`.
 
 **payments** *(rewritten in v2)*: offline money movements recorded by staff. `booking_id`, `type` (`payment|refund`),
 `method` (`bank_transfer|cash|card|payment_link`), `amount`, `currency`, `reference` (transfer/receipt number),
@@ -1305,6 +1312,74 @@ code change was needed for the check itself.
   `db-backups\safer_cruise_db-2026-10-18-before-adults-18.sql`, migration run) and checked in a headless browser in
   English and Arabic: counter and form hints, date-picker limits, the 17-year-old-adult message.
 - **Deploy:** upload the files above, run `php artisan migrate` (back up first) and `php artisan view:clear`.
+
+### Step 15: Several cabins in one booking (2026-10-18)
+
+A guest can book **up to 5 cabins on the same sailing in one booking** (`config('cruise.max_cabins_per_booking')`),
+each with its own cabin type, guests and price. One reference, one contact, one voucher, one payment follow-up.
+
+**Rules** (same in the browser and on the server):
+
+| Rule | Detail |
+| --- | --- |
+| Cabins per booking | 1 to 5, same sailing; the same cabin type may be chosen more than once |
+| Each cabin | its own limit (adults + children + infants ≤ its "Maximum guests"), **at least one adult in every cabin** (so every infant has an adult in their cabin) |
+| Price | each cabin priced on its own with the tiers (single / double / double + extra, infants free) and its own fees; the promo applies once, to the **total fare** |
+| Availability | sold-out flag per cabin type; "Cabins available" counts confirmed booked cabins of that type **plus** the ones in this booking |
+| Contact | once, given by cabin 1's first adult (the primary guest) |
+
+Example (RSD-261213): balcony 2 adults + 1 child (7,280 + 1,680, fees 735) and interior 1 adult + 1 infant
+(3,465, fees 245): fare 12,425, fees 980, SAFER10 −1,245, total **12,160**.
+
+**Database** (migration `2026_10_18_000003_create_booking_cabins_table`, reversible): new `booking_cabins` table and
+`booking_travellers.booking_cabin_id` (see section 3). `bookings` keeps the first cabin and the totals, so lists,
+exports, the dashboard and sellers' screens work unchanged. **Every existing booking was converted to one cabin** and
+its travellers linked to it.
+
+**Backend:**
+- `BookingCabin` model; `Booking::cabins()`, `Booking::cabinSummary()` ("2 × Balcony Cabin, Interior Cabin");
+  `BookingTraveller::cabin()`. Travellers are ordered by cabin.
+- `PricingService::quoteBooking($cabins, $promo)`: per-cabin quotes plus totals. The snapshot has the earlier keys
+  (`lines` now tagged with `cabin`, `fare`, `fees`, `discount`, `total`, `promo`) plus `cabins[]`.
+- `ConfirmBookingRequest`: payload `cabins: [{cabin, guests, travellers}]`; checks each cabin (on the ship and priced,
+  not sold out, adult, limit, exact traveller slots, ages). Errors are keyed `cabins.N.…` and, with several cabins,
+  start with "Cabin 2: …" / "الكابينة 2: …". The **old one-cabin payload** (`cabin`, `guests`, `travellers`) is still
+  accepted as a booking with one cabin, so a browser running a cached old `booking.js` can still book.
+- `BookingService::confirm($cabins, …)`: locks every cabin type row, checks availability per type with the number
+  wanted, saves the booking, its cabins and travellers (slots numbered across the booking).
+- New messages in `lang/{en,ar}/site.php` → `booking.errors`: `adult_per_cabin`, `in_cabin`, `too_many_cabins`;
+  `booking.cabins`.
+
+**Front end:**
+- `core.js`: `SC.quoteRooms({cruise, sailing, rooms, promoCode})` (same as `quoteBooking`), `SC.promoDiscount()`
+  (percent and fixed codes), `SC.maxRooms()` (`SC_DATA.maxCabinsPerBooking`).
+- Cruise page (`details.js`): a cabin switcher above the guest counters on every screen size ("Cabin 1 · Interior
+  Cabin · 2", "+ Add another cabin", remove ×). The counters and cabin cards edit the selected cabin; a banner says
+  "Choosing guests and cabin type for cabin 2 of 3". The summary lists every cabin with its fare, edit and remove, then
+  guests, fees and the total; "Continue" needs a cabin type for every cabin. The booking session holds
+  `rooms: [{cabinId, guests}]` (plus the first cabin and totals in the old keys).
+- Booking page (`booking.js`): traveller forms grouped per cabin ("Cabin 2 · Balcony Cabin (1 adult + 1 infant)"),
+  fields keyed `r2-adult-1`; review lists every cabin, travellers per cabin and the price per cabin; the summary shows
+  each cabin's fare. A session saved before step 15 is converted to one room.
+- New words in `lang/{en,ar}/ui.php` → `details`: `cabin_n`, `your_cabins`, `add_cabin`, `remove_cabin`,
+  `cabin_added`, `editing_cabin`, `cabins_count`, `choose_cabin_n`.
+
+**Voucher, account, admin, emails:** the voucher shows "Cabins: 2 cabins" and the travellers under each cabin; My
+account cards show the cabin names (e.g. "2 × Balcony Cabin") and the details modal groups travellers and prices by
+cabin (`SC_DATA.account.bookings[].cabins`, `travellers[].cabin`); Admin → Bookings list shows all cabin names, the
+booking page shows "Cabins (2)", travellers under each cabin and the price split per cabin with its fees; the guest and
+team emails list the cabins.
+
+- Tests: **122 passed**. New `MultiCabinBookingTest`: two cabins with SAFER10 (totals, cabin rows, slots, one primary
+  guest, snapshot), the same type twice against "Cabins available", an adult in every cabin, a cabin over its limit,
+  an age error in cabin 2 in Arabic, a sold-out type in cabin 2, at most 5 cabins, voucher / account / admin, and
+  existing bookings having one cabin. Existing booking tests now send the old payload and check the `cabins.0.…` keys.
+  Migration checked down and up on SQLite; applied locally (backup
+  `db-backups\safer_cruise_db-2026-10-18-before-multi-cabin.sql`: 4 bookings → 4 cabins, 11 travellers linked).
+  Checked in a headless browser: two cabins (2 adults; 1 adult + 1 infant) chosen, travellers entered, confirmed;
+  the server total equals the page total and the voucher lists both cabins (the test booking was removed afterwards).
+- **Deploy:** upload the changed files, back up, `php artisan migrate`, `php artisan view:clear` and
+  `php artisan config:clear`.
 
 **Open items (next):**
 

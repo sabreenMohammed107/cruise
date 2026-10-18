@@ -18,10 +18,18 @@ document.addEventListener('sc:ready', () => {
   /* ---------- Guard: nothing in the session ---------- */
   const demoBooking = () => {
     const c = D.cruises[0]; const s = c.sailings.find((x) => SC.daysUntil(x.departure) > 0) || c.sailings[0]; const v = SC.sailingView(c, s);
+    // Laravel: the first cabin type on sale on that date (cabin ids come from the admin, e.g. "balcony" or "BC")
+    const rooms = [{ cabinId: v.availableCabins[0], guests: { adult: 2, child: 1, infant: 0 } }];
     return { cruiseId: c.id, sailingId: s.id, cruiseName: c.name, ship: v.ship, departure: v.departure, returnDate: v.returnDate, nights: c.nights,
-      departurePort: c.departurePort, arrivalPort: c.arrivalPort, currency: D.currency, fromPrice: v.fromPrice, cabinId: 'balcony', guests: { adult: 2, child: 1, infant: 0 } };
+      departurePort: c.departurePort, arrivalPort: c.arrivalPort, currency: D.currency, fromPrice: v.fromPrice, rooms, cabinId: rooms[0].cabinId, guests: rooms[0].guests };
   };
-  if (!b || !b.cabinId || !SC.findSailing(b.sailingId)) {
+  /* Laravel (step 15): b.rooms = [{ cabinId, guests }, …] — one entry per cabin. A session saved before (one cabin,
+     travellers keyed "adult-1") becomes one room with travellers keyed "r1-adult-1". */
+  if (b && !b.rooms && b.cabinId) {
+    b.rooms = [{ cabinId: b.cabinId, guests: b.guests }];
+    b.travellers = Object.fromEntries(Object.entries(b.travellers || {}).map(([k, v]) => [/^r\d+-/.test(k) ? k : `r1-${k}`, v]));
+  }
+  if (!b || !b.rooms || !b.rooms.length || !SC.findSailing(b.sailingId) || b.rooms.some((r) => !SC.getCabin(r.cabinId))) {
     $('#no-booking').classList.remove('hidden');
     $('#stepper').classList.add('invisible');
     $('#back-to-details').href = SC.route('catalog');
@@ -32,7 +40,10 @@ document.addEventListener('sc:ready', () => {
   $('#flow').classList.remove('hidden');
 
   const { cruise, sailing } = SC.findSailing(b.sailingId);
-  const cabin = SC.getCabin(b.cabinId);
+  const rooms = b.rooms.map((r, i) => ({ ...r, i, cabin: SC.getCabin(r.cabinId), label: SC.t('ui.details.cabin_n', { n: i + 1 }) }));
+  const several = rooms.length > 1;
+  const cabin = rooms[0].cabin;
+  const guestsTotal = rooms.reduce((t, r) => ({ adult: t.adult + r.guests.adult, child: t.child + r.guests.child, infant: t.infant + r.guests.infant }), { adult: 0, child: 0, infant: 0 });
   const detailsUrl = SC.detailsUrl({ cruiseId: cruise.id, sailingId: sailing.id }) + '#cabins';
   $('#back-to-details').href = detailsUrl;
   $$('[data-back-details]').forEach((a) => (a.href = detailsUrl));
@@ -44,16 +55,20 @@ document.addEventListener('sc:ready', () => {
   b.contact = b.contact || { email: '', dial: '+966', phone: '' };
   const save = () => SC.booking.set(b);
   D.promos = D.promos || {};
-  const quote = () => SC.quote({ cruise, sailing, cabinId: cabin.id, guests: b.guests, promoCode: D.promos[b.promoCode] ? b.promoCode : null });
+  const quote = () => SC.quoteRooms({ cruise, sailing, rooms: b.rooms, promoCode: D.promos[b.promoCode] ? b.promoCode : null });
   const checkPromo = async (code) => {
     const r = await SC.api('POST', SC.route('bookingPromo'), { code, sailing: b.sailingId });
     if (r.ok) D.promos[r.data.code] = r.data;
     return r.ok;
   };
 
-  /* ---------- Traveller slots: Adult 1, Adult 2, Child 1, Infant 1 ... ---------- */
+  /* ---------- Traveller slots per cabin: Adult 1, Adult 2, Child 1, Infant 1 ... ---------- */
+  // key "r2-adult-1" = cabin 2, adult 1 (the server receives "adult-1" inside cabin 2). The primary guest is
+  // cabin 1's first adult, who also gives the contact details.
   const slots = [];
-  ['adult', 'child', 'infant'].forEach((band) => { for (let i = 1; i <= b.guests[band]; i++) slots.push({ band, n: i, key: `${band}-${i}`, primary: band === 'adult' && i === 1 }); });
+  rooms.forEach((r) => ['adult', 'child', 'infant'].forEach((band) => {
+    for (let n = 1; n <= r.guests[band]; n++) slots.push({ room: r.i, band, n, key: `r${r.i + 1}-${band}-${n}`, primary: r.i === 0 && band === 'adult' && n === 1 });
+  }));
 
   // Date-picker bounds per band, relative to the departure date
   const shift = (iso, { y = 0, m = 0, d = 0 }) => { const t = SC.parseDate(iso); t.setFullYear(t.getFullYear() + y, t.getMonth() + m, t.getDate() + d); return SC.toISO(t); };
@@ -70,9 +85,12 @@ document.addEventListener('sc:ready', () => {
   /* ---------- Step 1: render traveller forms ---------- */
   const field = (id, label, control, errText = '', span = '') => `<div class="${span}"><label class="label" for="${id}">${label}</label>${control}<p class="err" id="${id}-err">${errText}</p></div>`;
   const val = (key, f) => SC.esc(b.travellers[key]?.[f] || '');
-  $('#traveller-forms').innerHTML = slots.map((s) => {
+  $('#traveller-forms').innerHTML = slots.map((s, idx) => {
     const B = D.ageBands[s.band]; const k = s.key; const tr = b.travellers[k] || {};
-    return `<fieldset class="card p-5 sm:p-6" data-traveller="${k}">
+    const r = rooms[s.room];
+    const roomHead = several && slots[idx - 1]?.room !== s.room
+      ? `<h2 class="font-display font-semibold text-xl ${idx ? 'mt-4' : ''}">${r.label} · ${SC.esc(r.cabin.nameEn)} <span class="text-sm font-normal text-muted">(${SC.guestText(r.guests)})</span></h2>` : '';
+    return `${roomHead}<fieldset class="card p-5 sm:p-6" data-traveller="${k}">
       <legend class="sr-only">${B.label} ${s.n}</legend>
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div class="flex items-center gap-3">
@@ -133,8 +151,16 @@ document.addEventListener('sc:ready', () => {
     const box = $(`#${el.id}-err`);
     if (box) { if (msg) box.textContent = msg; box.classList.toggle('show', !!msg); el.setAttribute('aria-describedby', box.id); }
   };
-  // Guest mix from the details page: every infant with an adult, everyone (infants included) within the cabin limit
-  const guestErr = () => SC.guestError(b.guests, cabin.maxGuests);
+  // Guest mix from the details page, cabin by cabin: an adult in every cabin (with any infant), everyone (infants
+  // included) within that cabin's limit, and no more cabins than allowed
+  const guestErr = () => {
+    if (rooms.length > SC.maxRooms()) return err('too_many_cabins', { max: SC.maxRooms() });
+    for (const r of rooms) {
+      const e = SC.guestError(r.guests, r.cabin.maxGuests);
+      if (e) return several ? err('in_cabin', { n: r.i + 1, error: e }) : e;
+    }
+    return null;
+  };
   const validateAll = (ui = true) => {
     const inputs = $$('#guests-form [data-rule]');
     let firstBad = null, bad = 0;
@@ -193,21 +219,26 @@ document.addEventListener('sc:ready', () => {
       </section>
 
       <section class="card p-5 sm:p-6">
-        ${sectionHead(t('cabin'))}
-        <div class="flex flex-col sm:flex-row gap-5">
-          <img src="${cabin.images[0]}" alt="${cabin.nameEn}" class="w-full sm:w-44 aspect-[4/3] object-cover rounded-xl">
-          <dl class="flex-1 grid grid-cols-2 gap-4">
-            ${row(t('cabin_type'), cabin.nameEn)}${row(t('category'), `${cabin.nameAr} (${CAT_CODE[cabin.id] || cabin.id})`)}
-            ${row(t('guests_in_cabin'), t('guests_of', { count: SC.guestTotal(b.guests), max: cabin.maxGuests }))}${row(t('size'), cabin.size + (cabin.balcony ? ` + ${SC.t('ui.balcony_size', { size: cabin.balcony })}` : ''))}
-            <div class="col-span-2"><button class="text-sm font-bold text-ocean-600 hover:underline" data-cabin-info>${t('cabin_info')}</button></div>
-          </dl>
+        ${sectionHead(several ? `${t('cabins')} (${rooms.length})` : t('cabin'))}
+        <div class="grid gap-5">
+          ${rooms.map((r) => { const c = r.cabin; return `
+          <div class="flex flex-col sm:flex-row gap-5 ${r.i ? 'pt-5 border-t border-line' : ''}">
+            <img src="${c.images[0]}" alt="${c.nameEn}" class="w-full sm:w-44 aspect-[4/3] object-cover rounded-xl">
+            <dl class="flex-1 grid grid-cols-2 gap-4">
+              ${several ? `<p class="col-span-2 font-display font-semibold">${r.label}</p>` : ''}
+              ${row(t('cabin_type'), c.nameEn)}${row(t('category'), `${c.nameAr} (${CAT_CODE[c.id] || c.id})`)}
+              ${row(t('guests_in_cabin'), t('guests_of', { count: SC.guestTotal(r.guests), max: c.maxGuests }))}${row(t('size'), c.size + (c.balcony ? ` + ${SC.t('ui.balcony_size', { size: c.balcony })}` : ''))}
+              <div class="col-span-2"><button class="text-sm font-bold text-ocean-600 hover:underline" data-cabin-info="${c.id}">${t('cabin_info')}</button></div>
+            </dl>
+          </div>`; }).join('')}
         </div>
       </section>
 
       <section class="card p-5 sm:p-6">
         ${sectionHead(t('travellers'), 'guests')}
         <ul class="divide-y divide-line">
-          ${slots.map((s) => { const tr = b.travellers[s.key] || {}; return `
+          ${slots.map((s, idx) => { const tr = b.travellers[s.key] || {}; return `
+            ${several && slots[idx - 1]?.room !== s.room ? `<li class="pt-4 first:pt-0 pb-1 text-xs font-bold text-muted">${rooms[s.room].label} · ${SC.esc(rooms[s.room].cabin.nameEn)}</li>` : ''}
             <li class="py-4 first:pt-0 last:pb-0 flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p class="font-bold">${SC.esc(tr.first)} ${SC.esc(tr.last)} ${s.primary ? `<span class="text-xs font-semibold text-lagoon-600 ms-1">${t('primary_guest')}</span>` : ''}</p>
@@ -225,8 +256,10 @@ document.addEventListener('sc:ready', () => {
           <table class="w-full text-sm">
             <thead><tr class="text-muted text-xs"><th class="text-start font-semibold pb-2">${t('item')}</th><th class="text-end font-semibold pb-2">${t('price')}</th><th class="text-end font-semibold pb-2">${t('qty')}</th><th class="text-end font-semibold pb-2">${t('total')}</th></tr></thead>
             <tbody class="tabular">
-              ${q.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
-              <tr class="border-t border-line"><td class="py-2.5">${t('cabin_line', { cabin: cabin.nameEn })}</td><td class="text-end text-muted" colspan="2">${t('included')}</td><td class="text-end font-bold">${SC.money(0)}</td></tr>
+              ${q.rooms.map((p) => `
+                ${several ? `<tr class="border-t border-line bg-page"><td class="py-2 font-bold" colspan="4">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)} <span class="font-normal text-muted">(${SC.guestText(p.guests)})</span></td></tr>` : ''}
+                ${p.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
+                <tr class="border-t border-line"><td class="py-2.5">${t('cabin_line', { cabin: rooms[p.position - 1].cabin.nameEn })}</td><td class="text-end text-muted" colspan="2">${t('included')}</td><td class="text-end font-bold">${SC.money(0)}</td></tr>`).join('')}
               <tr class="border-t border-line"><td class="py-2.5">${t('fees')}</td><td></td><td></td><td class="text-end font-bold">${SC.money(q.fees)}</td></tr>
               ${q.discount ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${t('discount', { code: q.promo.code })}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(q.discount)}</td></tr>` : ''}
             </tbody>
@@ -241,7 +274,7 @@ document.addEventListener('sc:ready', () => {
         <p class="err" id="promo-err">${t('promo_error')}</p>
 
         <div class="mt-6 rounded-2xl bg-ocean-50 p-5 flex flex-wrap items-end justify-between gap-3">
-          <div><p class="font-bold">${t('total')}</p><p class="text-xs text-muted">${t('total_note', { guests: SC.guestText(b.guests) })}</p></div>
+          <div><p class="font-bold">${t('total')}</p><p class="text-xs text-muted">${t('total_note', { guests: several ? `${SC.tc('ui.details.cabins_count', rooms.length)}${comma}${SC.guestText(guestsTotal)}` : SC.guestText(guestsTotal) })}</p></div>
           <p class="font-display font-bold text-3xl sm:text-4xl text-ocean-800 tabular">${SC.money(q.total)}</p>
         </div>
       </section>`;
@@ -255,7 +288,7 @@ document.addEventListener('sc:ready', () => {
       b.promoCode = code; save(); renderReview(); renderSummary(); SC.toast(t('promo_applied', { code, label: D.promos[code].label }));
     });
     $('#promo-remove')?.addEventListener('click', () => { delete b.promoCode; save(); renderReview(); renderSummary(); SC.toast(t('promo_removed')); });
-    $('[data-cabin-info]', $('#review')).addEventListener('click', () => SC.ui.openCabin(cabin.id));
+    $$('[data-cabin-info]', $('#review')).forEach((btn) => btn.addEventListener('click', () => SC.ui.openCabin(btn.dataset.cabinInfo)));
   };
 
   // Terms open in a modal, so nothing typed is lost
@@ -267,9 +300,13 @@ document.addEventListener('sc:ready', () => {
     if (!$('#agree').checked) { $('#agree-err').classList.add('show'); $('#agree').focus(); return; }
     const btn = e.currentTarget; btn.disabled = true; $('span', btn).textContent = t('confirming');
     // Laravel: the server re-checks prices, ages and availability, creates the booking and returns its page
+    // Step 15: one entry per cabin, each with its guests and its travellers keyed "adult-1", "child-1", …
+    const cabins = rooms.map((r) => ({
+      cabin: r.cabinId, guests: r.guests,
+      travellers: Object.fromEntries(slots.filter((s) => s.room === r.i).map((s) => [`${s.band}-${s.n}`, b.travellers[s.key] || {}]))
+    }));
     const r = await SC.api('POST', SC.route('bookingConfirm'), {
-      sailing: b.sailingId, cabin: b.cabinId, guests: b.guests, travellers: b.travellers,
-      contact: b.contact, promoCode: b.promoCode || null, agreed: true
+      sailing: b.sailingId, cabins, contact: b.contact, promoCode: b.promoCode || null, agreed: true
     });
     if (!r.ok) {
       btn.disabled = false; $('span', btn).textContent = t('confirm');
@@ -289,13 +326,15 @@ document.addEventListener('sc:ready', () => {
         <div class="min-w-0">
           <p class="font-display font-semibold leading-snug">${SC.esc(cruiseName)}</p>
           <p class="text-sm text-muted">${SC.fmtDate(b.departure, { day: 'numeric', month: 'short' })} – ${SC.fmtDate(b.returnDate)}</p>
-          <p class="text-sm text-muted">${cabin.nameEn}</p>
+          <p class="text-sm text-muted">${several ? SC.tc('ui.details.cabins_count', rooms.length) : cabin.nameEn}</p>
         </div>
       </div>
-      <div class="px-5 pb-4 text-sm flex justify-between gap-3"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(b.guests)}</span></div>
+      <div class="px-5 pb-4 text-sm flex justify-between gap-3"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(guestsTotal)}</span></div>
       <div class="perf-x"></div>
       <dl class="p-5 grid gap-2 text-sm tabular">
-        ${q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
+        ${several
+          ? q.rooms.map((p) => `<div class="flex justify-between gap-3"><dt class="text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd>${SC.money(p.fare)}</dd></div>`).join('')
+          : q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
         <div class="flex justify-between gap-3"><dt class="text-muted">${t('fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>
         ${q.discount ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${t('discount', { code: q.promo.code })}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
         <div class="flex items-end justify-between pt-3 mt-1 border-t border-line"><dt class="font-bold text-base">${t('total')}</dt><dd class="font-display font-bold text-2xl text-ocean-800">${SC.money(q.total)}</dd></div>

@@ -102,6 +102,62 @@ class PricingService
     }
 
     /**
+     * Quote for a booking of one or more cabins on the same sailing (step 15). Each cabin is priced on its own
+     * (tiered: single / double / double + extra, infants free) with its own fees; the promo applies once, to the
+     * total fare. Same shape as quote() plus "cabins", so a one-cabin booking gives the same numbers.
+     *
+     *   fare     = Σ cabin fares          fees = Σ cabin fees
+     *   discount = promo on the total fare
+     *   total    = fare + fees − discount
+     *
+     * @param  list<array{price: SailingCabinPrice, guests: array{adult?: int, child?: int, infant?: int}}>  $cabins
+     */
+    public function quoteBooking(array $cabins, ?PromoCode $promo = null): array
+    {
+        $parts = [];
+        foreach (array_values($cabins) as $i => $cabin) {
+            $price = $cabin['price']->loadMissing('cabinCategory');
+            $quote = $this->quote($price, $cabin['guests']);
+            $parts[] = [
+                'position' => $i + 1,
+                'cabin' => $price->cabinCategory->slug,
+                'name' => $price->cabinCategory->name_en,
+                'guests' => array_map('intval', array_merge(['adult' => 0, 'child' => 0, 'infant' => 0], $cabin['guests'])),
+                'prices' => $quote['prices'],
+                'lines' => $quote['lines'],
+                'fare' => $quote['fare'],
+                'fees' => $quote['fees'],
+                'total' => $quote['fare'] + $quote['fees'],
+                'count' => $quote['count'],
+            ];
+        }
+
+        $fare = (float) array_sum(array_column($parts, 'fare'));
+        $fees = (float) array_sum(array_column($parts, 'fees'));
+        $discount = $promo ? $this->discount($promo, $fare) : 0.0;
+
+        // Every fare line, tagged with its cabin, for screens made before step 15
+        $lines = [];
+        foreach ($parts as $part) {
+            foreach ($part['lines'] as $line) {
+                $lines[] = $line + ['cabin' => $part['position']];
+            }
+        }
+
+        return [
+            'prices' => $parts[0]['prices'] ?? [],
+            'lines' => $lines,
+            'cabins' => $parts,
+            'fare' => $fare,
+            'fees' => $fees,
+            'discount' => $discount,
+            'promo' => $promo ? ['code' => $promo->code, 'type' => $promo->type->value, 'value' => (float) $promo->value, 'label' => $promo->label] : null,
+            'total' => $fare + $fees - $discount,
+            'count' => (int) array_sum(array_column($parts, 'count')),
+        ];
+    }
+
+    /**
      * Starting prices for a new sailing: the price rows of the cruise's latest sailing that has them,
      * keyed by cabin_category_id. Empty when the cruise has no priced sailing yet.
      *

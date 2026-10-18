@@ -17,14 +17,29 @@ document.addEventListener('sc:ready', () => {
   // Restore previous choices if the guest comes back to the same sailing
   const saved = SC.booking.get();
   const same = saved && saved.cruiseId === cruise.id;
+  /* Laravel (step 15): a booking can hold several cabins. state.rooms = [{ cabinId, guests }, …]; the counters and
+     cabin cards edit the active one (state.active). state.guests / state.cabinId are that room, so the code below
+     reads like the one-cabin template. */
+  const keepCabin = same && saved.sailingId === sailing.id;
+  const savedRooms = same && saved.rooms ? saved.rooms : same ? [{ cabinId: saved.cabinId, guests: saved.guests }] : [{ cabinId: null, guests: SC.guestsPref.get() }];
   const state = {
-    guests: same ? { ...saved.guests } : SC.guestsPref.get(),
-    cabinId: same && saved.sailingId === sailing.id ? saved.cabinId : null
+    rooms: savedRooms.map((r) => ({ cabinId: keepCabin ? r.cabinId || null : null, guests: { ...r.guests } })),
+    active: 0,
+    get room() { return this.rooms[this.active]; },
+    get guests() { return this.room.guests; },
+    get cabinId() { return this.room.cabinId; },
+    set cabinId(v) { this.room.cabinId = v; }
   };
   const maxCapacity = () => Math.max(...SC.cabinsSorted().filter((c) => !(sailing.soldOut || []).includes(c.id)).map((c) => c.maxGuests));
   // Laravel: adults, children and infants all count towards the cabin limit (SC.guestLimits in core.js)
   const totalGuests = () => SC.guestTotal(state.guests);
-  SC.fitGuests(state.guests, maxCapacity()); // counts saved under older rules
+  state.rooms.forEach((r) => SC.fitGuests(r.guests, maxCapacity())); // counts saved under older rules
+  // The counters keep one object; it reads and writes whichever cabin is active
+  const activeGuests = new Proxy({}, {
+    get: (_, k) => state.guests[k],
+    set: (_, k, v) => { state.guests[k] = v; return true; }
+  });
+  const cabinLabel = (i) => SC.t('ui.details.cabin_n', { n: i + 1 });
 
 
   document.title = `${cruise.name} | Safer Cruise`;
@@ -111,10 +126,12 @@ document.addEventListener('sc:ready', () => {
   $('#d-dates').addEventListener('click', (e) => {
     const b = e.target.closest('[data-sailing]'); if (!b || b.dataset.sailing === sailing.id) return;
     sailing = cruise.sailings.find((s) => s.id === b.dataset.sailing);
-    if (state.cabinId && (sailing.soldOut || []).includes(state.cabinId)) {
-      SC.toast(SC.t('ui.details.sold_out_change', { cabin: SC.getCabin(state.cabinId).nameEn }), 'error');
-      state.cabinId = null;
-    }
+    state.rooms.forEach((r) => {
+      if (r.cabinId && (sailing.soldOut || []).includes(r.cabinId)) {
+        SC.toast(SC.t('ui.details.sold_out_change', { cabin: SC.getCabin(r.cabinId).nameEn }), 'error');
+        r.cabinId = null;
+      }
+    });
     history.replaceState(null, '', SC.detailsUrl({ cruiseId: cruise.id, sailingId: sailing.id }));
     renderAllDynamic();
   });
@@ -150,10 +167,10 @@ document.addEventListener('sc:ready', () => {
   $('#d-counters').innerHTML = ['adult', 'child', 'infant'].map((b) => SC.ui.counterRow(b, state.guests[b])).join('');
   // Up to the largest cabin still available on this date; infants need an adult
   const limits = (band, g) => SC.guestLimits(band, g, maxCapacity());
-  const repaintCounters = SC.ui.bindCounters($('#d-counters'), state.guests, () => {
-    SC.guestsPref.set(state.guests);
+  const repaintCounters = SC.ui.bindCounters($('#d-counters'), activeGuests, () => {
+    if (state.active === 0) SC.guestsPref.set({ ...state.guests });
     checkCapacity(true);
-    renderCabins(); renderSummary(); repaintCounters();
+    renderCabins(); renderSummary(); repaintCounters(); renderRoomBanner();
   }, limits);
 
   // If the chosen cabin can't hold the group, warn and list cabins that fit (doc 3)
@@ -217,9 +234,49 @@ document.addEventListener('sc:ready', () => {
   const selectCabin = (id) => {
     state.cabinId = id;
     checkCapacity(false);
-    renderCabins(); renderSummary();
+    renderCabins(); renderSummary(); renderRoomBanner();
     SC.toast(SC.t('ui.details.cabin_selected', { cabin: SC.getCabin(id).nameEn }));
   };
+
+  /* ---------- Several cabins: which one the counters and cards are editing ---------- */
+  // Cabin switcher above the guest counters (all screen sizes): one chip per cabin + "Add another cabin"
+  $('#d-counters').parentElement.insertAdjacentHTML('beforebegin', '<div id="room-bar" class="mt-4 flex flex-wrap items-center gap-2" aria-label="' + SC.esc(SC.t('ui.details.your_cabins')) + '"></div>');
+  $('#d-cabins').insertAdjacentHTML('beforebegin', '<p id="room-banner" class="hidden mt-4 rounded-2xl border border-ocean-100 bg-ocean-50 px-4 py-3 text-sm font-semibold text-ocean-800"></p>');
+  const renderRoomBanner = () => {
+    const several = state.rooms.length > 1;
+    $('#room-bar').innerHTML = state.rooms.map((r, i) => {
+      const cab = r.cabinId && SC.getCabin(r.cabinId);
+      const on = i === state.active;
+      return `<span class="inline-flex items-center rounded-full border-2 ${on ? 'border-ocean-600 bg-ocean-50' : 'border-line bg-white'}">
+        <button type="button" class="ps-3 ${several ? 'pe-1' : 'pe-3'} py-1.5 text-sm font-bold" data-room-edit="${i}" aria-pressed="${on}">${cabinLabel(i)}<span class="font-normal text-muted"> · ${cab ? SC.esc(cab.nameEn) : SC.t('ui.details.not_chosen')} · ${SC.guestTotal(r.guests)}</span></button>
+        ${several ? `<button type="button" class="pe-2 ps-1 py-1.5 text-muted hover:text-[#C42F2F]" data-room-remove="${i}" aria-label="${SC.esc(SC.t('ui.details.remove_cabin', { n: i + 1 }))}">${SC.icon('x', 'w-4 h-4')}</button>` : ''}
+      </span>`;
+    }).join('') + (state.rooms.length < SC.maxRooms() ? `<button type="button" class="btn btn-ghost btn-sm" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : '');
+    $('#room-banner').classList.toggle('hidden', !several);
+    $('#room-banner').textContent = several ? SC.t('ui.details.editing_cabin', { n: state.active + 1, total: state.rooms.length }) : '';
+  };
+  const editRoom = (i) => {
+    state.active = i;
+    checkCapacity(false); renderCabins(); renderSummary(); repaintCounters(); renderRoomBanner();
+  };
+  const addRoom = () => {
+    if (state.rooms.length >= SC.maxRooms()) return SC.toast(SC.t('booking.errors.too_many_cabins', { max: SC.maxRooms() }), 'error');
+    state.rooms.push({ cabinId: null, guests: { adult: 1, child: 0, infant: 0 } });
+    editRoom(state.rooms.length - 1);
+    SC.toast(SC.t('ui.details.cabin_added', { n: state.rooms.length }));
+  };
+  const removeRoom = (i) => {
+    if (state.rooms.length < 2) return;
+    state.rooms.splice(i, 1);
+    editRoom(Math.min(state.active > i ? state.active - 1 : state.active, state.rooms.length - 1));
+  };
+  // Switcher and summary both carry these buttons
+  document.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-room-edit], [data-room-remove], [data-room-add]'); if (!t) return;
+    if (t.dataset.roomAdd !== undefined) addRoom();
+    else if (t.dataset.roomRemove !== undefined) removeRoom(Number(t.dataset.roomRemove));
+    else { editRoom(Number(t.dataset.roomEdit)); if (t.closest('#summary')) $('#cabins').scrollIntoView({ behavior: 'smooth' }); }
+  });
   $('#d-cabins').addEventListener('click', (e) => {
     const sel = e.target.closest('[data-select-cabin]'); if (sel) return selectCabin(sel.dataset.selectCabin);
     const info = e.target.closest('[data-cabin-info]');
@@ -231,7 +288,10 @@ document.addEventListener('sc:ready', () => {
   });
 
   /* ---------- Booking summary (sidebar + mobile bar) ---------- */
+  const allGuests = () => state.rooms.reduce((t, r) => ({ adult: t.adult + r.guests.adult, child: t.child + r.guests.child, infant: t.infant + r.guests.infant }), { adult: 0, child: 0, infant: 0 });
+  const missingRoom = () => state.rooms.findIndex((r) => !r.cabinId);
   const renderSummary = () => {
+    if (state.rooms.length > 1) return renderRoomsSummary();
     const g = state.guests;
     const ret = SC.addDays(sailing.departure, cruise.nights);
     const cab = state.cabinId && SC.getCabin(state.cabinId);
@@ -260,20 +320,72 @@ document.addEventListener('sc:ready', () => {
             <span class="font-bold">${SC.t('ui.details.total')}</span><span class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(q.total)}</span>
           </div>` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
+        ${q ? `<button type="button" class="btn btn-ghost btn-sm w-full mt-2" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : ''}
       </div>`;
     $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');
     $('#m-sub').textContent = q ? `${SC.guestText(g)}${SC.lang() === 'ar' ? '، ' : ', '}${cab.nameEn}` : SC.guestText(g);
   };
 
+  /* Summary with several cabins: each cabin (type, guests, price, edit / remove), then fees and the total */
+  const renderRoomsSummary = () => {
+    const ret = SC.addDays(sailing.departure, cruise.nights);
+    const ready = missingRoom() < 0;
+    const q = ready && SC.quoteRooms({ cruise, sailing, rooms: state.rooms });
+    $('#summary').innerHTML = `
+      <div class="bg-ocean-700 text-white p-5">
+        <p class="text-xs text-ocean-200 font-semibold">${SC.t('ui.details.your_sailing')}</p>
+        <p class="font-display font-semibold text-lg mt-0.5">${cruise.name}</p>
+        <p class="text-sm text-ocean-200 mt-1">${SC.fmtDate(sailing.departure, { day: 'numeric', month: 'short' })} – ${SC.fmtDate(ret, { day: 'numeric', month: 'short' })} · ${SC.tc('ui.details.cabins_count', state.rooms.length)}</p>
+      </div>
+      <ul class="divide-y divide-line">
+        ${state.rooms.map((r, i) => {
+          const cab = r.cabinId && SC.getCabin(r.cabinId);
+          const rq = cab && SC.quote({ cruise, sailing, cabinId: cab.id, guests: r.guests });
+          return `<li class="p-4 text-sm ${i === state.active ? 'bg-ocean-50/60' : ''}">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0"><p class="font-bold">${cabinLabel(i)} · ${cab ? SC.esc(cab.nameEn) : `<span class="text-[#C42F2F]">${SC.t('ui.details.not_chosen')}</span>`}</p><p class="text-muted">${SC.guestText(r.guests)}</p></div>
+              <div class="flex shrink-0 gap-1">
+                <button type="button" class="text-ocean-600 font-bold hover:underline" data-room-edit="${i}">${SC.t('booking.edit')}</button>
+                <button type="button" class="text-muted hover:text-[#C42F2F] ms-2" data-room-remove="${i}" aria-label="${SC.esc(SC.t('ui.details.remove_cabin', { n: i + 1 }))}">${SC.icon('x', 'w-4 h-4')}</button>
+              </div>
+            </div>
+            ${rq ? `<p class="mt-1 flex justify-between"><span class="text-muted">${rq.lines.map((l) => l.label).join(' + ')}</span><span class="tabular font-bold">${SC.money(rq.fare)}</span></p>` : ''}
+          </li>`;
+        }).join('')}
+      </ul>
+      <div class="px-4 pb-2">${state.rooms.length < SC.maxRooms() ? `<button type="button" class="btn btn-ghost btn-sm w-full" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : `<p class="text-xs text-muted text-center py-2">${SC.t('booking.errors.too_many_cabins', { max: SC.maxRooms() })}</p>`}</div>
+      <div class="perf-x"></div>
+      <div class="p-5">
+        ${q ? `<dl class="grid gap-2 text-sm">
+            <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.guests')}</dt><dd class="font-bold text-end">${SC.guestText(allGuests())}</dd></div>
+            <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.fees')}</dt><dd class="tabular">${SC.money(q.fees)}</dd></div>
+          </dl>
+          <div class="flex items-end justify-between mt-4 pt-4 border-t border-line">
+            <span class="font-bold">${SC.t('ui.details.total')}</span><span class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(q.total)}</span>
+          </div>` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
+        <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
+      </div>`;
+    $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');
+    $('#m-sub').textContent = `${SC.tc('ui.details.cabins_count', state.rooms.length)}${SC.lang() === 'ar' ? '، ' : ', '}${SC.guestText(allGuests())}`;
+  };
+
   const proceed = () => {
-    if (!state.cabinId) { $('#cabins').scrollIntoView({ behavior: 'smooth' }); SC.toast(SC.t('ui.details.choose_to_continue'), 'error'); return; }
+    const missing = missingRoom();
+    if (missing >= 0) {
+      if (missing !== state.active) editRoom(missing);
+      $('#cabins').scrollIntoView({ behavior: 'smooth' });
+      SC.toast(state.rooms.length > 1 ? SC.t('ui.details.choose_cabin_n', { n: missing + 1 }) : SC.t('ui.details.choose_to_continue'), 'error');
+      return;
+    }
     const v = SC.sailingView(cruise, sailing);
-    // Booking session payload (doc 2): cruise + sailing identifiers and key facts
+    const rooms = state.rooms.map((r) => ({ cabinId: r.cabinId, guests: { ...r.guests } }));
+    // Booking session payload (doc 2): cruise + sailing identifiers and key facts. rooms (step 15) holds every
+    // cabin; cabinId / guests keep the first cabin and the guest totals for anything that reads the old shape.
     SC.booking.set({
       cruiseId: cruise.id, sailingId: sailing.id, cruiseName: cruise.name, ship: v.ship,
       departure: v.departure, returnDate: v.returnDate, nights: cruise.nights,
       departurePort: cruise.departurePort, arrivalPort: cruise.arrivalPort, currency: D.currency,
-      fromPrice: v.fromPrice, cabinId: state.cabinId, guests: { ...state.guests },
+      fromPrice: v.fromPrice, rooms, cabinId: rooms[0].cabinId, guests: allGuests(),
       travellers: same ? saved.travellers : undefined, contact: same ? saved.contact : undefined
     });
     location.href = SC.route('booking');
@@ -297,6 +409,6 @@ document.addEventListener('sc:ready', () => {
     </li>`).join('');
 
   /* ---------- Initial render ---------- */
-  const renderAllDynamic = () => { renderFacts(); renderDates(); renderItinerary(); checkCapacity(false); renderCabins(); renderSummary(); repaintCounters(); };
+  const renderAllDynamic = () => { renderFacts(); renderDates(); renderItinerary(); checkCapacity(false); renderCabins(); renderSummary(); repaintCounters(); renderRoomBanner(); };
   renderAllDynamic();
 });

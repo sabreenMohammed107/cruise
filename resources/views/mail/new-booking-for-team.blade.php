@@ -11,7 +11,7 @@ Contact the guest within {{ config('cruise.payment_contact_hours') }} hours to a
 | | |
 |:--|:--|
 | Sailing | {{ $sailing->cruise->name }} ({{ $sailing->code }}), {{ $sailing->departure_date->format('j M Y') }} |
-| Cabin | {{ $booking->cabinCategory->name_en }} |
+| {{ $booking->cabins->count() > 1 ? 'Cabins' : 'Cabin' }} | {{ $booking->cabinSummary() }} |
 | Guests | {{ $booking->adults }} adults, {{ $booking->children }} children, {{ $booking->infants }} infants |
 | Contact | {{ $booking->contact_email }}, {{ $booking->contact_dial }} {{ $booking->contact_phone }} |
 </x-mail::table>
