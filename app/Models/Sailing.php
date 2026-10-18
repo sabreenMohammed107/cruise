@@ -22,9 +22,10 @@ class Sailing extends Model
         ];
     }
 
+    /** Includes soft-deleted cruises so existing bookings keep their cruise; bookable paths check trashed(). */
     public function cruise(): BelongsTo
     {
-        return $this->belongsTo(Cruise::class);
+        return $this->belongsTo(Cruise::class)->withTrashed();
     }
 
     public function cabinPrices(): HasMany

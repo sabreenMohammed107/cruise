@@ -83,7 +83,7 @@ class ConfirmBookingRequest extends FormRequest
         }
 
         $this->sailing = Sailing::upcoming()->with('cruise')->where('code', $this->input('sailing'))->first();
-        if (! $this->sailing || ! $this->sailing->cruise->is_active) {
+        if (! $this->sailing || ! $this->sailing->cruise->is_active || $this->sailing->cruise->trashed()) {
             $validator->errors()->add('sailing', 'This sailing is no longer available. Choose another date.');
 
             return;

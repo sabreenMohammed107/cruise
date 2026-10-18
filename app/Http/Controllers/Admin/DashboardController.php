@@ -31,6 +31,7 @@ class DashboardController extends Controller
             'recent' => $bookings()->with(['sailing.cruise', 'cabinCategory', 'seller'])->latest('confirmed_at')->limit(8)->get(),
             // Sailings (and their price screens) are for admins
             'sailings' => $user->isAdmin() ? Sailing::upcoming()->with('cruise')
+                ->whereHas('cruise', fn ($q) => $q->withoutTrashed())
                 ->withCount(['bookings as booked_count' => fn ($q) => $q->where('status', BookingStatus::Confirmed)])
                 ->withSum(['bookings as adults_sum' => fn ($q) => $q->where('status', BookingStatus::Confirmed)], 'adults')
                 ->withSum(['bookings as children_sum' => fn ($q) => $q->where('status', BookingStatus::Confirmed)], 'children')
