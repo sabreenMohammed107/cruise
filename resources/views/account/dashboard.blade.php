@@ -6,12 +6,14 @@
 
 @section('content')
 
-  <main class="flex-1 max-w-site w-full mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[260px_1fr] gap-8 items-start">
+  {{-- grid-cols-1 = minmax(0, 1fr) and min-w-0 on the sidebar: on phones the tab bar scrolls inside its own strip
+       instead of stretching the column (and the whole page) to its full width --}}
+  <main class="flex-1 max-w-site w-full mx-auto px-4 sm:px-6 py-8 grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-8 items-start">
 
     <!-- =========================================================
          SIDEBAR — column on desktop, scrollable tab bar on mobile
          ========================================================= -->
-    <aside class="lg:sticky lg:top-24">
+    <aside class="min-w-0 lg:sticky lg:top-24">
       <div class="hidden lg:flex items-center gap-3 card p-4 mb-4">
         <span class="grid place-items-center w-12 h-12 rounded-full bg-ocean-600 text-white font-display font-bold" id="u-initials">{{ mb_substr($user->first_name ?? '', 0, 1) }}{{ mb_substr($user->last_name ?? '', 0, 1) }}</span>
         <div class="min-w-0"><p class="font-bold truncate" id="u-name">{{ $user->name }}</p><p class="text-sm text-muted truncate" id="u-email" dir="ltr">{{ $user->email }}</p></div>
