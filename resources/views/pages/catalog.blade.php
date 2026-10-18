@@ -135,5 +135,5 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/js/pages/catalog.js') }}"></script>
+  <script src="@asset('assets/js/pages/catalog.js')"></script>
 @endpush

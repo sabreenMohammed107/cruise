@@ -57,7 +57,7 @@ document.addEventListener('sc:ready', () => {
           ${c.balcony ? `<li class="flex items-center gap-1.5">${SC.icon('sun', 'w-4 h-4')} ${SC.t('ui.balcony_size', { size: c.balcony })}</li>` : ''}
         </ul>
         <div class="mt-auto pt-5 flex items-center justify-between gap-3">
-          <p class="text-sm text-muted">${SC.t('ui.from')} <span class="font-bold text-ink">${SC.money(SC.prices(first.cruise, first.sailing, c.id).adult)}</span> ${SC.t('ui.per_person_short')}</p>
+          <p class="text-sm text-muted">${SC.t('ui.from')} <span class="font-bold text-ink">${SC.money(SC.prices(first.cruise, first.sailing, c.id).perPerson)}</span> ${SC.t('ui.per_person_short')}</p>
           <button class="btn btn-ghost btn-sm" data-cabin-info="${c.id}">${SC.t('ui.cabin.view_details')}</button>
         </div>
       </div>

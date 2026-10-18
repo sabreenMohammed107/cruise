@@ -8,8 +8,8 @@
   <meta name="robots" content="noindex">
   <title>Admin sign in | Safer Cruise</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="{{ asset('assets/js/tailwind.config.js') }}"></script>
-  <link rel="stylesheet" href="{{ asset('assets/css/theme.css') }}">
+  <script src="@asset('assets/js/tailwind.config.js')"></script>
+  <link rel="stylesheet" href="@asset('assets/css/theme.css')">
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center px-4 py-12">
   <div class="w-full max-w-md">
@@ -31,6 +31,6 @@
   </div>
 
   <script>window.SC_DATA = @json(app(\App\Support\ScDataPresenter::class)->minimal());</script>
-  <script src="{{ asset('assets/js/core.js') }}"></script>
+  <script src="@asset('assets/js/core.js')"></script>
 </body>
 </html>

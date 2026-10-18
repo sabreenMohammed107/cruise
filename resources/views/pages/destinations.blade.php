@@ -45,5 +45,5 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/js/pages/destinations.js') }}"></script>
+  <script src="@asset('assets/js/pages/destinations.js')"></script>
 @endpush

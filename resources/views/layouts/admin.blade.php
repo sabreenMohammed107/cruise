@@ -13,8 +13,8 @@
   <meta name="robots" content="noindex">
   <title>@yield('title') | Safer Cruise admin</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="{{ asset('assets/js/tailwind.config.js') }}"></script>
-  <link rel="stylesheet" href="{{ asset('assets/css/theme.css') }}">
+  <script src="@asset('assets/js/tailwind.config.js')"></script>
+  <link rel="stylesheet" href="@asset('assets/css/theme.css')">
   <style>
     /* Sidebar menu: visible thin scrollbar so it's clear the list scrolls */
     .admin-scroll { scrollbar-width: thin; scrollbar-color: #B9CBDD transparent; }
@@ -61,7 +61,7 @@
   </div>
 
   <script>window.SC_DATA = @json(app(\App\Support\ScDataPresenter::class)->minimal($user));</script>
-  <script src="{{ asset('assets/js/core.js') }}"></script>
+  <script src="@asset('assets/js/core.js')"></script>
   <script>
     // Keep the current page's menu link in view when the sidebar is taller than the screen
     (() => {

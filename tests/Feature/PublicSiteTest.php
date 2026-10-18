@@ -24,6 +24,16 @@ class PublicSiteTest extends TestCase
         }
     }
 
+    public function test_scripts_and_styles_are_versioned_so_browsers_drop_old_copies(): void
+    {
+        $html = $this->get('/cruises')->assertOk()->getContent();
+        $v = filemtime(public_path('assets/js/core.js'));
+
+        $this->assertStringContainsString('assets/js/core.js?v='.$v.'"', $html);
+        $this->assertMatchesRegularExpression('#assets/js/pages/catalog\.js\?v=\d+"#', $html);
+        $this->assertMatchesRegularExpression('#assets/css/theme\.css\?v=\d+"#', $html);
+    }
+
     public function test_unknown_or_hidden_cruise_is_404(): void
     {
         $this->get('/cruises/no-such-cruise')->assertNotFound();

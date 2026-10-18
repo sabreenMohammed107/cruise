@@ -11,8 +11,8 @@
   @stack('head')
   <!-- Tailwind (CDN) + brand theme, as in the template. Moves to a Vite build in phase 7. -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="{{ asset('assets/js/tailwind.config.js') }}"></script>
-  <link rel="stylesheet" href="{{ asset('assets/css/theme.css') }}">
+  <script src="@asset('assets/js/tailwind.config.js')"></script>
+  <link rel="stylesheet" href="@asset('assets/css/theme.css')">
 </head>
 <body class="min-h-screen flex flex-col @yield('body_class')">
 
@@ -30,7 +30,7 @@
 
   <!-- Data for the template scripts, built from the database (App\Support\ScDataPresenter) -->
   <script>window.SC_DATA = @json($scData);</script>
-  <script src="{{ asset('assets/js/core.js') }}"></script>
+  <script src="@asset('assets/js/core.js')"></script>
   @stack('scripts')
 </body>
 </html>

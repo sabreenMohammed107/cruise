@@ -96,5 +96,5 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/js/pages/booking.js') }}"></script>
+  <script src="@asset('assets/js/pages/booking.js')"></script>
 @endpush

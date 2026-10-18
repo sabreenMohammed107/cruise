@@ -111,5 +111,5 @@
 @endsection
 
 @push('scripts')
-  <script src="{{ asset('assets/js/pages/ship.js') }}"></script>
+  <script src="@asset('assets/js/pages/ship.js')"></script>
 @endpush

@@ -1216,6 +1216,25 @@ need an adult.
   saved 2A+1C+4I party is trimmed to 2A+1C, counters stop at 3 people, infant "+" is only enabled with an adult and
   room, adults never go below 1. No console errors.
 
+### Step 12: Fix empty cruise list and $NaN prices after the tiered-pricing deploy (2026-10-18)
+
+Reported on `cruise.safer.travel`: the cruise list showed "0 sailings", and the cruise page showed `$NaN` and raw keys
+(`ui.details.adult`).
+
+- **Empty list (bug from step 9):** `catalog.js` `priceFor()` still read `SC.prices(…).adult`, which tiered pricing
+  removed. Every price became `NaN`, so the "price ≤ maximum" filter dropped every sailing. Now uses `.perPerson`
+  (cheapest double ÷ 2), like the cards. The same leftover in `ship.js` ("from $… pp" on cabins) is fixed too.
+- **`$NaN` and `ui.details.adult` on the cruise page:** the server was already sending the new files, but the browser
+  ran its cached copy of the old `details.js` / `core.js` against the new data and words. IIS sends no
+  `Cache-Control` for static files and the script URLs never changed. New `App\Support\Asset::url()` and Blade
+  `@asset('assets/js/core.js')` add `?v=<file modification time>` to every script and stylesheet in
+  `layouts/app`, `layouts/admin`, `admin/login` and the page views, so each deploy forces a fresh download.
+- Checked in a headless browser: every public page in English and Arabic has no `NaN` and no raw keys, and the local
+  catalog lists its sailings. The live catalog with the fixed `catalog.js` substituted lists its sailings again.
+  Tests: **113 passed** (new: versioned script and style URLs).
+- **Deploy:** upload `public/assets/js/pages/catalog.js`, `public/assets/js/pages/ship.js`, `app/Support/Asset.php`,
+  `app/Providers/AppServiceProvider.php` and the views above, then run `php artisan view:clear` on the server.
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.

@@ -50,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
 
         // @bi('site.search.guests') → the fixed word in English and Arabic (App\Support\Bi, lang/{en,ar})
         Blade::directive('bi', fn (string $expression) => "<?php echo \\App\\Support\\Bi::trans({$expression}); ?>");
+        // @asset('assets/js/core.js') → versioned URL, so browsers don't keep running an old script after a deploy
+        Blade::directive('asset', fn (string $expression) => "<?php echo e(\\App\\Support\\Asset::url({$expression})); ?>");
 
         Paginator::useTailwind();
     }
