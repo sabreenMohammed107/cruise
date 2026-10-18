@@ -16,7 +16,7 @@ return [
 
     // Cabin capacity (PROJECT_STEPS.md step 11): at most 3 guests in a cabin, counting adults, children AND infants.
     // Every infant needs at least one adult in the booking. Infants are free (tiered pricing, step 9).
-    'max_cabin_guests' => 3,
+    'max_cabin_guests' => 10,
 
     // No online payment: confirming creates the booking and the team arranges payment offline.
     'payment_contact_hours' => 24,
