@@ -57,7 +57,7 @@ class ShipSeeder extends Seeder
         $essentials = [
             ['utensils', 'Halal dining', 'All food served on board is halal.'],
             ['home', 'Prayer rooms', 'Prayer rooms on several decks, with prayer times announced daily.'],
-            ['smile', 'Family first', 'Kids clubs by age group and family cabins for up to four guests.'],
+            ['smile', 'Family first', 'Kids clubs by age group and family cabins for up to three guests.'],
             ['card', 'Cashless on board', 'Link a card at check-in and pay with your cruise card.'],
             ['globe', 'Wi-Fi packages', 'Internet packages can be bought on board.'],
             ['pulse', 'Medical centre', 'Doctors and nurses on call 24 hours a day.'],

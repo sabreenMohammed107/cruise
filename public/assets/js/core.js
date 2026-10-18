@@ -178,8 +178,8 @@
   };
   /* Flattened "view model" for one departure — what cards and filters use. */
   SC.sailingView = (c, s) => {
-    const available = SC.cabinsSorted().filter((cab) => !(s.soldOut || []).includes(cab.id));
-    const fromPrice = Math.min(...available.map((cab) => SC.prices(c, s, cab.id).adult));
+    const available = SC.cabinsSorted().filter((cab) => !(s.soldOut || []).includes(cab.id) && (s.prices || {})[cab.id]);
+    const fromPrice = Math.min(...available.map((cab) => SC.prices(c, s, cab.id).perPerson));
     return {
       key: s.id, cruiseId: c.id, sailingId: s.id, name: c.name, ship: SC.getShip(c.shipId).name,
       nights: c.nights, days: c.nights + 1, departure: s.departure, returnDate: SC.addDays(s.departure, c.nights),
@@ -194,24 +194,34 @@
   SC.allPorts = () => [...new Set(D.cruises.flatMap((c) => c.route.map((p) => p.split(',')[0])))].filter((p) => p !== 'At sea');
 
   /* ------------------------------------------------------------------
-     4. PRICING ENGINE
-     Each Sailing × Cabin has its own Adult / Child / Infant price.
-     Total = Σ(price × qty) + fees − discount. Swap prices() for an API call.
+     4. PRICING ENGINE — tiered occupancy (same rules as App\Services\PricingService)
+     Each Sailing × Cabin has three cabin prices for the whole cruise, set in Admin → Sailings:
+       single = 1 paying guest · double = 2 paying guests · extra = the 3rd guest (adult or child)
+     Adults + children fill the cabin (cabin.maxGuests, at most 3). Infants are free and don't count:
+     every cabin also takes up to SC_DATA.maxInfants (4) of them.
+     Total = fare lines + fees − discount. The server recalculates it when the booking is confirmed.
      ------------------------------------------------------------------ */
   const r5 = (n) => Math.round(n / 5) * 5;
   SC.prices = (cruise, sailing, cabinId) => {
-    // Laravel: prices stored per sailing × cabin (admins can override them) win over the rate-card formula
-    if (sailing.prices && sailing.prices[cabinId]) return { ...sailing.prices[cabinId] };
-    const cab = SC.getCabin(cabinId);
-    const k = cruise.nights * cruise.priceFactor * (sailing.factor || 1);
-    return { adult: r5(cab.rates.adult * k), child: r5(cab.rates.child * k), infant: r5(cab.rates.infant * cruise.nights) };
+    const p = (sailing.prices || {})[cabinId] || { single: 0, double: 0, extra: 0 };
+    // perPerson: the "From, per person" figure on cards, for two guests sharing
+    return { single: p.single, double: p.double, extra: p.extra, infant: 0, perPerson: p.double / 2 };
+  };
+  /* 1 paying guest → single; 2 → double; 3 → double + extra; infants free */
+  SC.fareLines = (prices, guests) => {
+    const paying = (guests.adult || 0) + (guests.child || 0);
+    const line = (band, unit, qty) => ({ band, label: SC.t(`pricing.${band}`), unit, qty, total: unit * qty });
+    return [
+      paying === 1 && line('single', prices.single, 1),
+      paying >= 2 && line('double', prices.double, 1),
+      paying > 2 && line('extra', prices.extra, paying - 2),
+      guests.infant > 0 && line('infant', 0, guests.infant)
+    ].filter(Boolean);
   };
   SC.quote = ({ cruise, sailing, cabinId, guests, promoCode }) => {
     const prices = SC.prices(cruise, sailing, cabinId);
     const bands = ['adult', 'child', 'infant'];
-    const lines = bands.filter((b) => guests[b] > 0).map((b) => ({
-      band: b, label: D.ageBands[b].label, unit: prices[b], qty: guests[b], total: prices[b] * guests[b]
-    }));
+    const lines = SC.fareLines(prices, guests);
     const fare = lines.reduce((s, l) => s + l.total, 0);
     const fees = bands.reduce((s, b) => s + (guests[b] || 0) * D.fees.perGuestPerNight[b] * cruise.nights, 0);
     const promo = promoCode && D.promos[promoCode.toUpperCase()];

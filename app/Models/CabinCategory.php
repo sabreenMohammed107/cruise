@@ -16,8 +16,7 @@ class CabinCategory extends Model
 
     protected $fillable = [
         'ship_id', 'slug', 'name_en', 'name_ar', 'badge', 'short_description', 'description', 'max_guests',
-        'size', 'balcony_size', 'beds', 'bedroom', 'features', 'images',
-        'base_rate_adult', 'base_rate_child', 'base_rate_infant', 'sort_order',
+        'size', 'balcony_size', 'beds', 'bedroom', 'features', 'images', 'sort_order',
     ];
 
     protected function casts(): array
@@ -25,10 +24,16 @@ class CabinCategory extends Model
         return [
             'features' => 'array',
             'images' => 'array',
-            'base_rate_adult' => 'decimal:2',
-            'base_rate_child' => 'decimal:2',
-            'base_rate_infant' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Paying guests (adults + children) this cabin takes: its own limit, never more than cruise.max_cabin_guests (3).
+     * Infants don't count; every cabin also takes up to cruise.max_infants_per_cabin (4) of them.
+     */
+    public function capacity(): int
+    {
+        return min((int) $this->max_guests, (int) config('cruise.max_cabin_guests'));
     }
 
     public function ship(): BelongsTo

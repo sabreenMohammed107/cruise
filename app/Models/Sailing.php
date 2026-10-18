@@ -10,14 +10,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sailing extends Model
 {
-    protected $fillable = ['cruise_id', 'code', 'departure_date', 'return_date', 'price_factor', 'status'];
+    protected $fillable = ['cruise_id', 'code', 'departure_date', 'return_date', 'status'];
 
     protected function casts(): array
     {
         return [
             'departure_date' => 'date',
             'return_date' => 'date',
-            'price_factor' => 'decimal:2',
             'status' => SailingStatus::class,
         ];
     }
@@ -48,12 +47,13 @@ class Sailing extends Model
     }
 
     /**
-     * Lowest adult price among cabins that aren't sold out ("from" price on cards).
+     * "From, per person" on cards: the lowest double price among cabins that aren't sold out,
+     * shown per person for two sharing (same as SC.sailingView in core.js).
      */
     public function fromPrice(): ?float
     {
-        $min = $this->cabinPrices->where('is_sold_out', false)->min('price_adult');
+        $min = $this->cabinPrices->where('is_sold_out', false)->min('price_double');
 
-        return $min === null ? null : (float) $min;
+        return $min === null ? null : (float) $min / 2;
     }
 }

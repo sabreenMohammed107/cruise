@@ -16,11 +16,11 @@ document.addEventListener('sc:ready', () => {
   [...new Set(sailings.map((s) => s.nights))].sort((a, b) => a - b).forEach((n) => nightSel.add(new Option(n, n)));
 
   const guests = SC.guestsPref.get();
-  const limits = (band, g) => ({ min: band === 'adult' ? 1 : 0, max: band === 'infant' ? Math.max(0, Math.min(2, g.adult)) : 6 });
+  // Laravel: infants don't take a paid place; up to SC_DATA.maxInfants (4) per cabin
+  const limits = (band, g) => ({ min: band === 'adult' ? 1 : 0, max: band === 'infant' ? (D.maxInfants ?? 4) : 6 });
   const counters = () => { $('#s-counters').innerHTML = ['adult', 'child', 'infant'].map((b) => SC.ui.counterRow(b, guests[b], limits(b, guests))).join(''); };
   counters();
   SC.ui.bindCounters($('#s-counters'), guests, (g) => {
-    if (g.infant > g.adult) g.infant = g.adult; // one infant per adult
     $('#s-guests-text').textContent = SC.guestText(g); SC.guestsPref.set(g);
   }, limits);
 
@@ -97,7 +97,7 @@ document.addEventListener('sc:ready', () => {
     $$('#cs-thumbs button').forEach((b, i) => { b.classList.toggle('ring-2', i === photo); b.classList.toggle('opacity-60', i !== photo); });
   };
   const renderCabin = () => {
-    const from = SC.prices(firstSailing.cruise, firstSailing.sailing, cab.id).adult;
+    const from = SC.prices(firstSailing.cruise, firstSailing.sailing, cab.id).perPerson;
     const badge = $('#cs-badge'); badge.textContent = cab.badge; badge.classList.toggle('hidden', !cab.badge);
     $('#cs-thumbs').innerHTML = cab.images.map((src, i) => `<button class="shrink-0 w-20 h-14 sm:w-24 sm:h-16 rounded-xl overflow-hidden ring-white transition" data-cs-thumb="${i}" aria-label="${SC.t('ui.cabin.show_photo', { n: i + 1 })}"><img src="${src}" alt="" class="w-full h-full object-cover"></button>`).join('');
     const spec = (icon, label, val) => `<div class="flex gap-3"><span class="grid place-items-center w-10 h-10 rounded-xl bg-ocean-50 text-ocean-600 shrink-0">${SC.icon(icon)}</span><div><p class="text-xs font-semibold text-muted">${label}</p><p class="font-bold text-sm">${val}</p></div></div>`;

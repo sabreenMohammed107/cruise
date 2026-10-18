@@ -37,7 +37,7 @@ class MediaLibraryTest extends TestCase
 
     private function cruiseForm(Cruise $cruise, array $changes = []): array
     {
-        return array_merge($cruise->only(['name', 'name_ar', 'slug', 'ship_id', 'nights', 'departure_port', 'arrival_port', 'price_factor', 'summary', 'summary_ar', 'image']), [
+        return array_merge($cruise->only(['name', 'name_ar', 'slug', 'ship_id', 'nights', 'departure_port', 'arrival_port', 'summary', 'summary_ar', 'image']), [
             'route' => implode("\n", $cruise->route), 'tags' => $cruise->tags, 'is_active' => 1,
             'gallery' => $cruise->gallery,
             'itinerary' => $cruise->itinerary->map(fn ($d) => ['port' => $d->port, 'time' => $d->time_label, 'text' => $d->description])->all(),

@@ -6,18 +6,18 @@ use App\Enums\SailingStatus;
 use App\Models\Cruise;
 use App\Models\Sailing;
 use App\Models\Ship;
-use App\Services\PricingService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
 /**
  * SC_DATA.cruises: cruises, day-by-day itineraries and sailings (departures).
- * Images are stock photo names (see StockPhotos). Each sailing gets a price row per cabin category from the rate card; `soldOut` in the
- * template becomes is_sold_out on that row.
+ * Images are stock photo names (see StockPhotos). Each sailing gets a price row per cabin category with the
+ * cruise's tiered prices ([single, double, 3rd guest] for the whole cabin and cruise; infants are free);
+ * `soldOut` in the template becomes is_sold_out on that row.
  */
 class CruiseSeeder extends Seeder
 {
-    public function run(PricingService $pricing): void
+    public function run(): void
     {
         $ship = Ship::where('slug', 'aroya')->firstOrFail();
         $cabinIds = $ship->cabinCategories()->pluck('id', 'slug');
@@ -36,7 +36,6 @@ class CruiseSeeder extends Seeder
                 'rating' => $data['rating'],
                 'reviews_count' => $data['reviews_count'],
                 'popularity' => $data['popularity'],
-                'price_factor' => $data['price_factor'],
                 'image' => StockPhotos::url($data['image']),
                 'gallery' => StockPhotos::urls($data['gallery']),
                 'summary' => $data['summary'],
@@ -49,22 +48,21 @@ class CruiseSeeder extends Seeder
                 ]);
             }
 
-            foreach ($data['sailings'] as [$code, $departure, $factor, $soldOut]) {
+            foreach ($data['sailings'] as [$code, $departure, $soldOut]) {
                 $sailing = Sailing::updateOrCreate(['code' => $code], [
                     'cruise_id' => $cruise->id,
                     'departure_date' => $departure,
                     'return_date' => Carbon::parse($departure)->addDays($cruise->nights),
-                    'price_factor' => $factor,
                     'status' => SailingStatus::Open,
                 ]);
 
-                $pricing->syncSailingPrices($sailing);
-
-                $sailing->cabinPrices()->update(['is_sold_out' => false]);
-                if ($soldOut) {
-                    $sailing->cabinPrices()
-                        ->whereIn('cabin_category_id', $cabinIds->only($soldOut)->values())
-                        ->update(['is_sold_out' => true]);
+                foreach ($data['prices'] as $slug => [$single, $double, $extra]) {
+                    $sailing->cabinPrices()->updateOrCreate(['cabin_category_id' => $cabinIds[$slug]], [
+                        'price_single' => $single,
+                        'price_double' => $double,
+                        'price_extra' => $extra,
+                        'is_sold_out' => in_array($slug, $soldOut, true),
+                    ]);
                 }
             }
         }
@@ -77,8 +75,10 @@ class CruiseSeeder extends Seeder
                 'slug' => 'red-sea-discovery', 'name' => 'Red Sea Discovery', 'name_ar' => 'اكتشاف البحر الأحمر',
                 'nights' => 7, 'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah',
                 'route' => ['Jeddah', 'Safaga', 'Sokhna', 'Al Wajh', 'Yanbu', 'Jeddah'],
-                'tags' => ['family', 'excursions'], 'visa_free' => false, 'rating' => 4.8, 'reviews_count' => 412, 'popularity' => 96, 'price_factor' => 1.0,
+                'tags' => ['family', 'excursions'], 'visa_free' => false, 'rating' => 4.8, 'reviews_count' => 412, 'popularity' => 96,
                 'image' => 'hero', 'gallery' => ['hero', 'pool', 'dest-sokhna', 'sundeck', 'sunset'],
+                // Cabin prices for the whole cruise: [single, double, 3rd guest]; infants free
+                'prices' => ['interior' => [3465, 4620, 1190], 'balcony' => [5460, 7280, 1680], 'suite' => [12075, 16100, 2660]],
                 'summary' => 'A full week across both shores of the Red Sea, with day trips to Luxor and Cairo from the Egyptian ports and two Saudi coastal stops on the way home.',
                 'itinerary' => [
                     ['Jeddah', 'Departs 20:00', 'Check in at Jeddah Islamic Port from 14:00. Settle into your cabin and join the sail-away on the pool deck.'],
@@ -91,18 +91,19 @@ class CruiseSeeder extends Seeder
                     ['Jeddah', 'Arrives 07:00', 'Disembarkation from 08:00, by deck in a scheduled order.'],
                 ],
                 'sailings' => [
-                    ['RSD-261115', '2026-11-15', 1.0, []],
-                    ['RSD-261213', '2026-12-13', 1.1, []],
-                    ['RSD-270117', '2027-01-17', 1.0, ['suite']],
-                    ['RSD-270214', '2027-02-14', 1.05, []],
+                    ['RSD-261115', '2026-11-15', []],
+                    ['RSD-261213', '2026-12-13', []],
+                    ['RSD-270117', '2027-01-17', ['suite']],
+                    ['RSD-270214', '2027-02-14', []],
                 ],
             ],
             [
                 'slug' => 'saudi-coast-weekend', 'name' => 'Saudi Coast Weekend', 'name_ar' => 'عطلة الساحل السعودي',
                 'nights' => 3, 'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah',
                 'route' => ['Jeddah', 'Yanbu', 'Jeddah'],
-                'tags' => ['weekend', 'family'], 'visa_free' => true, 'rating' => 4.6, 'reviews_count' => 288, 'popularity' => 92, 'price_factor' => 1.0,
+                'tags' => ['weekend', 'family'], 'visa_free' => true, 'rating' => 4.6, 'reviews_count' => 288, 'popularity' => 92,
                 'image' => 'aerial', 'gallery' => ['aerial', 'sundeck', 'lounge', 'exterior'],
+                'prices' => ['interior' => [1485, 1980, 510], 'balcony' => [2340, 3120, 720], 'suite' => [5175, 6900, 1140]],
                 'summary' => 'A short Thursday-to-Sunday escape with one port day in Yanbu. No visa needed for Saudi residents and GCC citizens.',
                 'itinerary' => [
                     ['Jeddah', 'Departs 20:00', 'Embark from 14:00 and welcome dinner on board.'],
@@ -111,19 +112,20 @@ class CruiseSeeder extends Seeder
                     ['Jeddah', 'Arrives 07:00', 'Disembarkation from 08:00.'],
                 ],
                 'sailings' => [
-                    ['SCW-261029', '2026-10-29', 0.95, ['suite']],
-                    ['SCW-261105', '2026-11-05', 1.0, []],
-                    ['SCW-261126', '2026-11-26', 1.0, []],
-                    ['SCW-261203', '2026-12-03', 1.05, []],
-                    ['SCW-270107', '2027-01-07', 0.95, []],
+                    ['SCW-261029', '2026-10-29', ['suite']],
+                    ['SCW-261105', '2026-11-05', []],
+                    ['SCW-261126', '2026-11-26', []],
+                    ['SCW-261203', '2026-12-03', []],
+                    ['SCW-270107', '2027-01-07', []],
                 ],
             ],
             [
                 'slug' => 'egypt-jordan-voyage', 'name' => 'Egypt & Jordan Voyage', 'name_ar' => 'رحلة مصر والأردن',
                 'nights' => 5, 'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah',
                 'route' => ['Jeddah', 'Aqaba', 'Safaga', 'Jeddah'],
-                'tags' => ['excursions'], 'visa_free' => false, 'rating' => 4.7, 'reviews_count' => 196, 'popularity' => 84, 'price_factor' => 1.08,
+                'tags' => ['excursions'], 'visa_free' => false, 'rating' => 4.7, 'reviews_count' => 196, 'popularity' => 84,
                 'image' => 'dest-aqaba', 'gallery' => ['dest-aqaba', 'dest-sokhna', 'sunset', 'pool'],
+                'prices' => ['interior' => [2675, 3565, 920], 'balcony' => [4210, 5615, 1295], 'suite' => [9315, 12420, 2050]],
                 'summary' => 'Petra and Wadi Rum from Aqaba, then Luxor or the reefs from Safaga. Two countries in five nights.',
                 'itinerary' => [
                     ['Jeddah', 'Departs 20:00', 'Embark from 14:00.'],
@@ -134,17 +136,18 @@ class CruiseSeeder extends Seeder
                     ['Jeddah', 'Arrives 07:00', 'Disembarkation from 08:00.'],
                 ],
                 'sailings' => [
-                    ['EJV-261120', '2026-11-20', 1.0, []],
-                    ['EJV-261218', '2026-12-18', 1.12, []],
-                    ['EJV-270129', '2027-01-29', 1.0, []],
+                    ['EJV-261120', '2026-11-20', []],
+                    ['EJV-261218', '2026-12-18', []],
+                    ['EJV-270129', '2027-01-29', []],
                 ],
             ],
             [
                 'slug' => 'aroya-repositioning', 'name' => 'AROYA – Repositioning', 'name_ar' => 'أرويا – رحلة إعادة التموضع',
                 'nights' => 5, 'departure_port' => 'Jeddah', 'arrival_port' => 'Sokhna',
                 'route' => ['Jeddah', 'Safaga', 'Sokhna'],
-                'tags' => ['excursions'], 'visa_free' => false, 'rating' => 4.5, 'reviews_count' => 74, 'popularity' => 61, 'price_factor' => 0.82,
+                'tags' => ['excursions'], 'visa_free' => false, 'rating' => 4.5, 'reviews_count' => 74, 'popularity' => 61,
                 'image' => 'exterior', 'gallery' => ['exterior', 'night', 'dest-sokhna'],
+                'prices' => ['interior' => [2030, 2705, 695], 'balcony' => [3200, 4265, 985], 'suite' => [7075, 9430, 1560]],
                 'summary' => 'A one-way sailing as AROYA moves north for the season. Lower fares and quieter decks; ends in Sokhna, 90 minutes from Cairo.',
                 'itinerary' => [
                     ['Jeddah', 'Departs 19:00', 'Embark from 13:00.'],
@@ -155,15 +158,16 @@ class CruiseSeeder extends Seeder
                     ['Sokhna, Egypt', 'Arrives 07:00', 'Disembarkation from 08:00. Transfers to Cairo can be arranged.'],
                 ],
                 'sailings' => [
-                    ['ARP-270404', '2027-04-04', 1.0, []],
+                    ['ARP-270404', '2027-04-04', []],
                 ],
             ],
             [
                 'slug' => 'yanbu-winter-escape', 'name' => 'Winter Escape from Yanbu', 'name_ar' => 'هروب الشتاء من ينبع',
                 'nights' => 4, 'departure_port' => 'Yanbu', 'arrival_port' => 'Yanbu',
                 'route' => ['Yanbu', 'Al Wajh', 'Jeddah', 'Yanbu'],
-                'tags' => ['family'], 'visa_free' => true, 'rating' => 4.6, 'reviews_count' => 131, 'popularity' => 74, 'price_factor' => 0.95,
+                'tags' => ['family'], 'visa_free' => true, 'rating' => 4.6, 'reviews_count' => 131, 'popularity' => 74,
                 'image' => 'dest-yanbu', 'gallery' => ['dest-yanbu', 'dest-al-wajh', 'pool', 'lounge'],
+                'prices' => ['interior' => [1880, 2510, 645], 'balcony' => [2965, 3950, 910], 'suite' => [6555, 8740, 1445]],
                 'summary' => "Start from Yanbu instead of Jeddah, with a lagoon day in Al Wajh and an evening in Jeddah's Al-Balad.",
                 'itinerary' => [
                     ['Yanbu', 'Departs 19:00', 'Embark from 13:00.'],
@@ -173,17 +177,18 @@ class CruiseSeeder extends Seeder
                     ['Yanbu', 'Arrives 08:00', 'Disembarkation from 09:00.'],
                 ],
                 'sailings' => [
-                    ['YWE-261210', '2026-12-10', 1.0, []],
-                    ['YWE-270121', '2027-01-21', 0.95, []],
-                    ['YWE-270225', '2027-02-25', 1.0, []],
+                    ['YWE-261210', '2026-12-10', []],
+                    ['YWE-270121', '2027-01-21', []],
+                    ['YWE-270225', '2027-02-25', []],
                 ],
             ],
             [
                 'slug' => 'new-year-at-sea', 'name' => 'New Year at Sea', 'name_ar' => 'رأس السنة في البحر',
                 'nights' => 4, 'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah',
                 'route' => ['Jeddah', 'Yanbu', 'Al Wajh', 'Jeddah'],
-                'tags' => ['festive', 'family'], 'visa_free' => true, 'rating' => 4.9, 'reviews_count' => 158, 'popularity' => 99, 'price_factor' => 1.35,
+                'tags' => ['festive', 'family'], 'visa_free' => true, 'rating' => 4.9, 'reviews_count' => 158, 'popularity' => 99,
                 'image' => 'night', 'gallery' => ['night', 'sunset', 'pool', 'sundeck'],
+                'prices' => ['interior' => [2675, 3565, 920], 'balcony' => [4210, 5615, 1295], 'suite' => [9315, 12420, 2050]],
                 'summary' => 'Count down to 2027 on the open deck, with a gala dinner, fireworks and a late-night show.',
                 'itinerary' => [
                     ['Jeddah', 'Departs 20:00', 'Embark from 14:00.'],
@@ -193,7 +198,7 @@ class CruiseSeeder extends Seeder
                     ['Jeddah', 'Arrives 07:00', 'Disembarkation from 08:00.'],
                 ],
                 'sailings' => [
-                    ['NYS-261229', '2026-12-29', 1.0, ['balcony']],
+                    ['NYS-261229', '2026-12-29', ['balcony']],
                 ],
             ],
         ];

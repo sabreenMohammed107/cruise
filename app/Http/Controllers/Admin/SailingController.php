@@ -12,11 +12,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Departures of a cruise and their price grid (one row per cabin category).
+ * Departures of a cruise and their price grid: per cabin category, the tiered occupancy
+ * prices (single, double, 3rd guest) for the whole cruise. Infants are always free.
  */
 class SailingController extends Controller
 {
@@ -34,22 +36,24 @@ class SailingController extends Controller
 
     public function create(Cruise $cruise): View
     {
-        return view('admin.sailings.form', ['cruise' => $cruise, 'sailing' => null, 'prices' => collect()]);
+        $cruise->load('ship.cabinCategories');
+
+        // Start from the prices of the cruise's latest sailing, so a new date only needs the changes
+        return view('admin.sailings.form', ['cruise' => $cruise, 'sailing' => null, 'prices' => $this->pricing->latestPrices($cruise)]);
     }
 
     public function store(Request $request, Cruise $cruise): RedirectResponse
     {
-        $data = $this->validated($request, null);
+        $data = $this->validated($request, $cruise, null);
 
         $sailing = DB::transaction(function () use ($cruise, $data) {
             $sailing = $cruise->sailings()->create($this->attributes($cruise, $data));
-            $this->pricing->syncSailingPrices($sailing);
+            $this->savePrices($sailing, $data['prices']);
 
             return $sailing;
         });
 
-        return redirect()->route('admin.sailings.edit', $sailing)
-            ->with('status', "Sailing {$sailing->code} created with rate-card prices. Adjust them below if needed.");
+        return redirect()->route('admin.sailings.edit', $sailing)->with('status', "Sailing {$sailing->code} created.");
     }
 
     public function edit(Sailing $sailing): View
@@ -62,34 +66,15 @@ class SailingController extends Controller
 
     public function update(Request $request, Sailing $sailing): RedirectResponse
     {
-        $data = $this->validated($request, $sailing);
         $cruise = $sailing->cruise;
+        $data = $this->validated($request, $cruise, $sailing);
 
         DB::transaction(function () use ($sailing, $cruise, $data) {
             $sailing->update($this->attributes($cruise, $data));
-
-            foreach ($data['prices'] ?? [] as $cabinId => $row) {
-                $sailing->cabinPrices()->updateOrCreate(['cabin_category_id' => $cabinId], [
-                    'price_adult' => $row['adult'],
-                    'price_child' => $row['child'],
-                    'price_infant' => $row['infant'],
-                    'capacity' => $row['capacity'] ?? null,
-                    'is_sold_out' => (bool) ($row['sold_out'] ?? false),
-                ]);
-            }
+            $this->savePrices($sailing, $data['prices']);
         });
 
         return back()->with('status', "Sailing {$sailing->code} saved.");
-    }
-
-    /**
-     * Overwrite this sailing's prices with the rate card (cabin rates × nights × factors).
-     */
-    public function recalculate(Sailing $sailing): RedirectResponse
-    {
-        $this->pricing->syncSailingPrices($sailing);
-
-        return back()->with('status', "Prices for {$sailing->code} recalculated from the rate card.");
     }
 
     public function destroy(Sailing $sailing): RedirectResponse
@@ -105,23 +90,27 @@ class SailingController extends Controller
         return redirect()->route('admin.cruises.sailings.index', $cruise)->with('status', "Sailing {$sailing->code} deleted.");
     }
 
-    private function validated(Request $request, ?Sailing $sailing): array
+    private function validated(Request $request, Cruise $cruise, ?Sailing $sailing): array
     {
         $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $cabinIds = $cruise->ship->cabinCategories()->pluck('id')->all();
 
         return $request->validate([
             'code' => ['required', 'string', 'max:20', 'regex:/^[A-Z0-9\-]+$/', Rule::unique('sailings', 'code')->ignore($sailing?->id)],
             'departure_date' => ['required', 'date_format:Y-m-d'],
-            'price_factor' => ['required', 'numeric', 'min:0.1', 'max:5'],
             'status' => ['required', Rule::enum(SailingStatus::class)],
-            'prices' => ['nullable', 'array'],
-            'prices.*.adult' => ['required', 'numeric', 'min:0'],
-            'prices.*.child' => ['required', 'numeric', 'min:0'],
-            'prices.*.infant' => ['required', 'numeric', 'min:0'],
+            'prices' => ['required', 'array'],
+            // keys must be cabin categories of this cruise's ship
+            'prices.*' => ['array', fn ($attribute, $value, $fail) => in_array((int) Str::after($attribute, 'prices.'), $cabinIds, true) || $fail('Unknown cabin category.')],
+            'prices.*.single' => ['required', 'numeric', 'min:0'],
+            'prices.*.double' => ['required', 'numeric', 'min:0'],
+            'prices.*.extra' => ['required', 'numeric', 'min:0'],
             'prices.*.capacity' => ['nullable', 'integer', 'min:0'],
             'prices.*.sold_out' => ['nullable', 'boolean'],
         ], [
             'code.regex' => 'Use capital letters, numbers and dashes, e.g. RSD-261115.',
+            'prices.required' => 'Enter the prices of every cabin.',
+            'prices.*.*.required' => 'Enter a price (0 or more).',
         ]);
     }
 
@@ -133,8 +122,21 @@ class SailingController extends Controller
             'code' => $data['code'],
             'departure_date' => $departure,
             'return_date' => $departure->copy()->addDays($cruise->nights),
-            'price_factor' => $data['price_factor'],
             'status' => $data['status'],
         ];
+    }
+
+    /** @param  array<int, array{single: string, double: string, extra: string, capacity?: ?string, sold_out?: ?string}>  $rows */
+    private function savePrices(Sailing $sailing, array $rows): void
+    {
+        foreach ($rows as $cabinId => $row) {
+            $sailing->cabinPrices()->updateOrCreate(['cabin_category_id' => $cabinId], [
+                'price_single' => $row['single'],
+                'price_double' => $row['double'],
+                'price_extra' => $row['extra'],
+                'capacity' => $row['capacity'] ?? null,
+                'is_sold_out' => (bool) ($row['sold_out'] ?? false),
+            ]);
+        }
     }
 }

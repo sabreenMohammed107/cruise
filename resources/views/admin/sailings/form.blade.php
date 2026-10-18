@@ -19,9 +19,6 @@
     @if ($sailing)
       <div class="flex flex-wrap gap-2">
         <a href="{{ route('cruises.show', $cruise) }}?sailing={{ $sailing->code }}" target="_blank" class="btn btn-ghost btn-sm"><i data-icon="external" class="w-4 h-4"></i> View on site</a>
-        <form method="POST" action="{{ route('admin.sailings.recalculate', $sailing) }}" onsubmit="return confirm('Replace all prices below with the rate card? Manual changes are lost.')">
-          @csrf<button class="btn btn-outline btn-sm">Recalculate prices</button>
-        </form>
         <form method="POST" action="{{ route('admin.sailings.destroy', $sailing) }}" onsubmit="return confirm('Delete sailing {{ $sailing->code }}?')">
           @csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Delete</button>
         </form>
@@ -33,7 +30,7 @@
     @csrf
     @if ($sailing) @method('PUT') @endif
 
-    <section class="card p-5 sm:p-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <section class="card p-5 sm:p-6 grid sm:grid-cols-3 gap-5">
       <div>
         <label class="label" for="code">Code</label>
         <input id="code" name="code" class="field tabular uppercase" value="{{ old('code', $sailing?->code) }}" placeholder="e.g. RSD-270320">
@@ -43,11 +40,6 @@
         <label class="label" for="departure_date">Departure date</label>
         <input id="departure_date" name="departure_date" type="date" class="field" value="{{ old('departure_date', $sailing?->departure_date?->toDateString()) }}">
         <p class="text-xs text-muted mt-1.5">Returns {{ $cruise->nights }} nights later.</p>
-      </div>
-      <div>
-        <label class="label" for="price_factor">Price factor</label>
-        <input id="price_factor" name="price_factor" type="number" step="0.01" class="field tabular" value="{{ old('price_factor', $sailing?->price_factor ?? '1.00') }}">
-        <p class="text-xs text-muted mt-1.5">Season multiplier, e.g. 1.10 for peak dates.</p>
       </div>
       <div>
         <label class="label" for="status">Status</label>
@@ -60,47 +52,59 @@
       </div>
     </section>
 
-    @if ($sailing)
-      <section class="card overflow-x-auto">
-        <div class="p-5 sm:p-6 pb-0">
-          <h2 class="font-display font-semibold text-lg">Prices</h2>
-          <p class="text-sm text-muted">Per person, for the whole cruise, in US dollars. Rate card = cabin rate × {{ $cruise->nights }} nights × cruise factor × sailing factor (infants: rate × nights).</p>
-        </div>
-        <table class="w-full text-sm mt-4">
-          <thead class="bg-ocean-50 text-ocean-800">
-            <tr>
-              <th class="text-start font-semibold p-3">Cabin</th>
-              <th class="text-start font-semibold p-3">Adult</th>
-              <th class="text-start font-semibold p-3">Child</th>
-              <th class="text-start font-semibold p-3">Infant</th>
-              <th class="text-start font-semibold p-3">Cabins available</th>
-              <th class="text-start font-semibold p-3">Sold out</th>
-            </tr>
-          </thead>
-          <tbody>
-            @foreach ($cabins as $cabin)
-              @php($p = $prices->get($cabin->id))
-              <tr class="border-t border-line">
-                <td class="p-3 font-bold">{{ $cabin->name_en }}<p class="text-xs text-muted font-normal">Up to {{ $cabin->max_guests }} guests</p></td>
-                @foreach (['adult', 'child', 'infant'] as $band)
-                  <td class="p-3"><input name="prices[{{ $cabin->id }}][{{ $band }}]" type="number" step="0.01" min="0" class="field !py-2 tabular !w-28" aria-label="{{ $cabin->name_en }} {{ $band }} price"
-                        value="{{ old("prices.{$cabin->id}.{$band}", $p ? (float) $p->{'price_'.$band} : '') }}"></td>
-                @endforeach
-                <td class="p-3"><input name="prices[{{ $cabin->id }}][capacity]" type="number" min="0" class="field !py-2 tabular !w-28" placeholder="No limit" aria-label="{{ $cabin->name_en }} cabins available"
-                      value="{{ old("prices.{$cabin->id}.capacity", $p?->capacity) }}"></td>
+    <section class="card overflow-x-auto">
+      <div class="p-5 sm:p-6 pb-0">
+        <h2 class="font-display font-semibold text-lg">Cabin prices</h2>
+        <p class="text-sm text-muted max-w-[80ch]">
+          Price of the whole cabin for the {{ $cruise->nights }}-night cruise, in US dollars, by the number of paying guests (adults and children):
+          <b>Single</b> = 1 guest, <b>Double</b> = 2 guests, <b>3rd guest</b> = added to the double price for a third adult or child.
+          A cabin takes at most {{ config('cruise.max_cabin_guests') }} adults and children; infants travel free and don't count, up to {{ config('cruise.max_infants_per_cabin') }} per cabin.
+          Taxes and port fees per guest come from Age bands.
+        </p>
+        @if (! $sailing && $prices->isNotEmpty())
+          <p class="text-sm text-muted mt-2">Filled in from this cruise's latest sailing. Change them as needed.</p>
+        @endif
+      </div>
+      <table class="w-full text-sm mt-4">
+        <thead class="bg-ocean-50 text-ocean-800">
+          <tr>
+            <th class="text-start font-semibold p-3">Cabin</th>
+            <th class="text-start font-semibold p-3">Single <span class="font-normal text-muted">(1 guest)</span></th>
+            <th class="text-start font-semibold p-3">Double <span class="font-normal text-muted">(2 guests)</span></th>
+            <th class="text-start font-semibold p-3">3rd guest <span class="font-normal text-muted">(adult or child)</span></th>
+            <th class="text-start font-semibold p-3">Infant</th>
+            <th class="text-start font-semibold p-3">Cabins available</th>
+            <th class="text-start font-semibold p-3">Sold out</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach ($cabins as $cabin)
+            @php($p = $prices->get($cabin->id))
+            <tr class="border-t border-line align-top">
+              <td class="p-3 font-bold">{{ $cabin->name_en }}<p class="text-xs text-muted font-normal">Up to {{ $cabin->capacity() }} guests + {{ config('cruise.max_infants_per_cabin') }} infants</p></td>
+              @foreach (['single' => 'single', 'double' => 'double', 'extra' => '3rd guest'] as $tier => $label)
                 <td class="p-3">
-                  <input type="hidden" name="prices[{{ $cabin->id }}][sold_out]" value="0">
-                  <input type="checkbox" name="prices[{{ $cabin->id }}][sold_out]" value="1" class="check" aria-label="{{ $cabin->name_en }} sold out" @checked(old("prices.{$cabin->id}.sold_out", $p?->is_sold_out))>
+                  <input name="prices[{{ $cabin->id }}][{{ $tier }}]" type="number" step="0.01" min="0" class="field !py-2 tabular !w-28 @error("prices.{$cabin->id}.{$tier}") is-invalid @enderror" aria-label="{{ $cabin->name_en }} {{ $label }} price"
+                         value="{{ old("prices.{$cabin->id}.{$tier}", $p ? (float) $p->{'price_'.$tier} : '') }}" required>
+                  @error("prices.{$cabin->id}.{$tier}")<p class="text-xs text-[#C42F2F] mt-1">{{ $message }}</p>@enderror
                 </td>
-              </tr>
-            @endforeach
-          </tbody>
-        </table>
-        <p class="p-5 text-xs text-muted">"Cabins available" stops online bookings once that many confirmed bookings exist for the cabin on this date. Leave empty for no limit.</p>
-      </section>
-    @else
-      <p class="text-sm text-muted">Prices are filled from the cabin rate card when you create the sailing. You can adjust them on the next screen.</p>
-    @endif
+              @endforeach
+              <td class="p-3 pt-5 text-muted">Free</td>
+              <td class="p-3"><input name="prices[{{ $cabin->id }}][capacity]" type="number" min="0" class="field !py-2 tabular !w-28" placeholder="No limit" aria-label="{{ $cabin->name_en }} cabins available"
+                    value="{{ old("prices.{$cabin->id}.capacity", $p?->capacity) }}"></td>
+              <td class="p-3">
+                <input type="hidden" name="prices[{{ $cabin->id }}][sold_out]" value="0">
+                <input type="checkbox" name="prices[{{ $cabin->id }}][sold_out]" value="1" class="check" aria-label="{{ $cabin->name_en }} sold out" @checked(old("prices.{$cabin->id}.sold_out", $p?->is_sold_out))>
+              </td>
+            </tr>
+          @endforeach
+        </tbody>
+      </table>
+      <p class="p-5 text-xs text-muted">
+        Example: 2 adults + 1 child pay Double + 3rd guest; 1 adult + 2 infants pay Single.
+        "Cabins available" stops online bookings once that many confirmed bookings exist for the cabin on this date. Leave empty for no limit.
+      </p>
+    </section>
 
     <div class="flex flex-wrap justify-between gap-3">
       <a href="{{ route('admin.cruises.sailings.index', $cruise) }}" class="btn btn-outline">Back to sailings</a>

@@ -78,7 +78,7 @@
         <table class="w-full text-sm tabular">
           <tbody>
             @foreach ($quote['lines'] ?? [] as $line)
-              <tr class="border-b border-line"><td class="py-2">{{ $line['label'] ?? ucfirst($line['band']) }} cruise fare</td><td class="text-end">{{ Format::money($line['unit']) }} × {{ $line['qty'] }}</td><td class="text-end font-bold">{{ Format::money($line['total']) }}</td></tr>
+              <tr class="border-b border-line"><td class="py-2">{{ $line['label'] ?? ucfirst($line['band']) }}</td><td class="text-end">{{ Format::money($line['unit']) }} × {{ $line['qty'] }}</td><td class="text-end font-bold">{{ Format::money($line['total']) }}</td></tr>
             @endforeach
             <tr class="border-b border-line"><td class="py-2">Taxes, port charges & fees</td><td></td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>
             @if ((float) $booking->discount_total)

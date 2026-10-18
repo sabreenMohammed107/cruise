@@ -39,6 +39,9 @@ class ScDataPresenter
             // Broken images fall back to core.js's placeholder drawing
             'imageFallbacks' => (object) [],
             'ageBands' => $this->ageBands(),
+            // Tiered occupancy pricing: paying guests per cabin (cabins[].maxGuests) and free infants per cabin
+            'maxCabinGuests' => (int) config('cruise.max_cabin_guests'),
+            'maxInfants' => (int) config('cruise.max_infants_per_cabin'),
             'fees' => ['perGuestPerNight' => $this->fees()],
             // Promo codes are checked on the server (POST /booking/promo), never published here.
             'promos' => (object) [],
@@ -233,18 +236,13 @@ class ScDataPresenter
             'nameAr' => Bi::isArabic() ? $cabin->name_en : $cabin->name_ar,
             'short' => $cabin->tr('short_description'),
             'description' => $cabin->tr('description'),
-            'maxGuests' => $cabin->max_guests,
+            'maxGuests' => $cabin->capacity(),
             'size' => $cabin->tr('size'),
             'balcony' => $cabin->tr('balcony_size'),
             'beds' => $cabin->tr('beds'),
             'bedroom' => $cabin->tr('bedroom'),
             'features' => $cabin->tr('features') ?? [],
             'images' => MediaLibrary::urls($cabin->images),
-            'rates' => [
-                'adult' => (float) $cabin->base_rate_adult,
-                'child' => (float) $cabin->base_rate_child,
-                'infant' => (float) $cabin->base_rate_infant,
-            ],
         ])->all();
     }
 
@@ -275,7 +273,6 @@ class ScDataPresenter
                 'rating' => (float) $cruise->rating,
                 'reviews' => $cruise->reviews_count,
                 'popularity' => $cruise->popularity,
-                'priceFactor' => (float) $cruise->price_factor,
                 'image' => MediaLibrary::url($cruise->image),
                 'gallery' => MediaLibrary::urls($cruise->gallery),
                 'summary' => $cruise->tr('summary'),
@@ -285,12 +282,12 @@ class ScDataPresenter
                 'sailings' => $cruise->sailings->map(fn (Sailing $sailing) => [
                     'id' => $sailing->code,
                     'departure' => $sailing->departure_date->toDateString(),
-                    'factor' => (float) $sailing->price_factor,
                     'soldOut' => $sailing->cabinPrices->where('is_sold_out', true)->map(fn ($p) => $p->cabinCategory->slug)->values()->all(),
+                    // Tiered cabin prices for the whole cruise (SC.prices / SC.quote in core.js)
                     'prices' => $sailing->cabinPrices->mapWithKeys(fn ($p) => [$p->cabinCategory->slug => [
-                        'adult' => (float) $p->price_adult,
-                        'child' => (float) $p->price_child,
-                        'infant' => (float) $p->price_infant,
+                        'single' => (float) $p->price_single,
+                        'double' => (float) $p->price_double,
+                        'extra' => (float) $p->price_extra,
                     ]])->all(),
                 ])->all(),
             ])

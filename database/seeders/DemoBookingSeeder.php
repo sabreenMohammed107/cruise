@@ -63,11 +63,13 @@ class DemoBookingSeeder extends Seeder
                 'cruise_id' => $cruise->id,
                 'departure_date' => $departure,
                 'return_date' => $departure->copy()->addDays($cruise->nights),
-                'price_factor' => 1.0,
                 'status' => $departure->isPast() ? SailingStatus::Closed : SailingStatus::Open,
             ]);
             if ($sailing->wasRecentlyCreated) {
-                $pricing->syncSailingPrices($sailing);
+                // Same tiered prices as the cruise's scheduled sailings (CruiseSeeder)
+                foreach ($pricing->latestPrices($cruise, $sailing) as $cabinId => $row) {
+                    $sailing->cabinPrices()->create($row->only(['price_single', 'price_double', 'price_extra']) + ['cabin_category_id' => $cabinId]);
+                }
             }
 
             $cabin = CabinCategory::where('ship_id', $cruise->ship_id)->where('slug', $trip['cabin'])->firstOrFail();

@@ -19,7 +19,7 @@ class Cruise extends Model
 
     protected $fillable = [
         'ship_id', 'slug', 'name', 'name_ar', 'nights', 'departure_port', 'arrival_port', 'route', 'tags',
-        'visa_free', 'rating', 'reviews_count', 'popularity', 'price_factor', 'image', 'gallery', 'summary', 'is_active',
+        'visa_free', 'rating', 'reviews_count', 'popularity', 'image', 'gallery', 'summary', 'is_active',
     ];
 
     protected function casts(): array
@@ -31,7 +31,6 @@ class Cruise extends Model
             'visa_free' => 'boolean',
             'is_active' => 'boolean',
             'rating' => 'decimal:1',
-            'price_factor' => 'decimal:2',
         ];
     }
 

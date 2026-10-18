@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 96 tests
+C:\xampp\php\php.exe artisan test                     # 106 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -97,19 +97,26 @@ Shared JS (`legacy-html/assets/js/`):
 - `pages/*.js`: one script per page, now including `ship.js` and `destinations.js`.
 - `assets/img/`: local SVG illustrations (fallbacks for every slot), `hero-home.jpg`, and `aroya/` for official photos.
 
-### Pricing rules in `core.js` (unchanged in v2; reproduced server-side)
+### Pricing rules (tiered occupancy since step 9; same in `core.js` and `PricingService`)
+
+The template's rate card (cabin rate × nights × cruise factor × sailing factor, per person) was **replaced in step 9**.
+Each Sailing × Cabin now has three admin-set prices for the **whole cabin and the whole cruise**:
 
 ```
-k              = cruise.nights Ã— cruise.price_factor Ã— sailing.price_factor
-adult / child  = round5(cabin.base_rate[band] Ã— k)
-infant         = round5(cabin.base_rate.infant Ã— cruise.nights)      // no factors
-fare           = Î£ price[band] Ã— qty[band]
-fees           = Î£ qty[band] Ã— fee_per_night[band] Ã— nights           // adult 35, child 35, infant 0
-discount       = round5(fare Ã— promo.percent / 100)                   // applies to fare only
-total          = fare + fees âˆ’ discount                               // = amount due
+paying guests  = adults + children            // infants are free and don't take a place
+1 paying guest  → fare = single
+2 paying guests → fare = double
+3 paying guests → fare = double + extra       // "3rd guest", adult or child
+infants         → $0
+cabin limit    = 3 adults + children           // config cruise.max_cabin_guests
+infant limit   = 4 per cabin, on top           // config cruise.max_infants_per_cabin
+fees           = Σ qty[band] × fee_per_night[band] × nights   // Age bands: adult 35, child 35, infant 0
+discount       = round5(fare × promo.percent / 100)           // applies to fare only (fixed codes: min(value, fare))
+total          = fare + fees − discount                       // = amount due
+from price     = cheapest double ÷ 2 ("From, per person" on cards, two sharing; display only)
 ```
 
-`round5(n) = round(n / 5) Ã— 5`. **Currency is USD** (`$`). The rate-card numbers did not change; only the currency did.
+`round5(n) = round(n / 5) × 5`. **Currency is USD** (`$`).
 
 ### Age bands (checked against the departure date)
 
@@ -172,20 +179,23 @@ home_sections 1â”€* home_section_items   (homepage copy, step 5)
 
 **cabin_categories**: `ship_id`, `slug` (unique per ship), `name_en`, `name_ar`, `badge`, `short_description`,
 `description`, `max_guests`, `size`, `balcony_size`, `beds`, `bedroom`, `features` (json), `image_slots` (json, ordered
-slot keys), `base_rate_adult|child|infant` (decimal 10,2, USD per night), `sort_order`.
+slot keys), `sort_order`. `max_guests` (adults + children) is at most **3**; infants don't count (up to 4 per cabin); the per-night `base_rate_adult|child|infant`
+columns were dropped in step 9.
 
 **cruises**: `ship_id` (restrict), `slug` (unique), `name`, `name_ar`, `nights`, `departure_port`, `arrival_port`,
-`route` (json), `tags` (json), `visa_free`, `rating`, `reviews_count`, `popularity`, `price_factor`, `image_slot`,
+`route` (json), `tags` (json), `visa_free`, `rating`, `reviews_count`, `popularity`, `image_slot`,
 `gallery_slots` (json), `summary`, `is_active`, timestamps, soft deletes.
 
 **itinerary_days**: `cruise_id`, `day_number`, `port`, `time_label`, `description`. Unique `(cruise_id, day_number)`.
 
 **sailings**: `cruise_id`, `code` (unique, e.g. `RSD-261115`), `departure_date`, `return_date` (stored),
-`price_factor`, `status` (`open|closed|cancelled`). Index `(departure_date, status)`.
+`status` (`open|closed|cancelled`). Index `(departure_date, status)`. (`price_factor` dropped in step 9; so was the
+cruises one.)
 
-**sailing_cabin_prices**: `sailing_id`, `cabin_category_id`, `price_adult|child|infant` (per person, whole cruise),
-`capacity` (null = unlimited), `is_sold_out`. Unique pair. Prices are **stored** so admins can override them;
-`PricingService::syncSailingPrices()` fills them from the rate card.
+**sailing_cabin_prices**: `sailing_id`, `cabin_category_id`, `price_single`, `price_double`, `price_extra`
+(decimal 10,2, USD, **whole cabin, whole cruise**: 1 paying guest / 2 paying guests / the 3rd guest), `capacity`
+(null = unlimited), `is_sold_out`. Unique pair. Infants have no column: they are always free. Admins enter the prices
+per sailing (step 9); there is no rate card any more.
 
 **age_bands**: `key` (`adult|child|infant`), `label`, `label_ar`, `hint`, `min_months`, `max_months_exclusive`,
 `fee_per_night`, `sort_order`.
@@ -245,8 +255,8 @@ Key behaviour:
 - `Sailing::upcoming()` scope and `fromPrice()`.
 - `Booking` scopes `upcoming()`, `past()`, `cancelled()` (dashboard tabs) and `awaitingPayment()` (admin follow-up);
   `amountDue()`; `syncPaymentTotals()` recomputes `amount_paid`, `payment_status` and `paid_at` from payments.
-- `App\Services\PricingService` and `App\Services\AgeBandValidator`: server-side ports of `SC.prices` / `SC.quote` and
-  `SC.checkBand`.
+- `App\Services\PricingService` and `App\Services\AgeBandValidator`: server side of `SC.prices` / `SC.fareLines` /
+  `SC.quote` (tiered occupancy, step 9) and `SC.checkBand`.
 - Enums (`app/Enums`): `TravellerBand`, `BookingStatus`, `PaymentStatus`, `PaymentMethod`, `PaymentType`,
   `SailingStatus`, `UserRole`, `PromoType`, `Gender`.
 
@@ -290,8 +300,8 @@ Pages that don't run a template script get `ScDataPresenter::minimal()` through 
 "Laravel:" edits (see step 4). Phase 7 moves Tailwind from the CDN to a Vite build.
 
 **D3. Server owns prices and bookings.** `POST /booking/confirm` (`ConfirmBookingRequest` + `BookingService`)
-re-checks the sailing (upcoming, open), cabin (on the ship, not sold out, capacity), guest limits (â‰¥ 1 adult, infants â‰¤
-adults, â‰¤ cabin max), the exact traveller slots, names, every date of birth against its age band on the departure
+re-checks the sailing (upcoming, open), cabin (on the ship, not sold out, capacity), guest limits (at least 1 adult,
+adults + children ≤ cabin max, at most 4 infants: step 9), the exact traveller slots, names, every date of birth against its age band on the departure
 date, contact email/dial/phone (same rules as `booking.js`), the promo code and the terms box; then prices the
 booking with `PricingService` inside a transaction that locks the sailing Ã— cabin price row.
 
@@ -336,7 +346,7 @@ symlink, which on Windows/XAMPP requires admin rights. `image_slots.path` is rel
 **D9. Generic admin CRUD.** Simple entities are described by a small class (`App\Admin\Resources\*`: fields, rules,
 index columns, optional hooks) and served by one `Admin\ResourceController` + one set of views. The list is in
 `config/admin.php`; routes are generated in `routes/admin.php`. Screens with their own workflow have dedicated
-controllers: dashboard, bookings (payments, cancel, notes), sailings (price grid, recalculate) and photo slots.
+controllers: dashboard, bookings (payments, cancel, notes), sailings (tiered price grid) and photo slots.
 Field types: text, email, number, textarea, select, checkbox, checkboxes, date, lines (JSON list, one per line),
 image_slot, image_slots (ordered gallery), password.
 
@@ -416,7 +426,7 @@ browser, and stored prices reach the page in `SC_DATA` (D4).
 | --- | --- | --- |
 | Dashboard | `GET /admin` | New bookings (7 days), awaiting payment count and list, amount outstanding, fully paid this month, next departures with bookings and guests, latest bookings |
 | Bookings | `GET bookings`, `GET/PATCH bookings/{reference}`, `POST â€¦/cancel`, `POST â€¦/payments`, `DELETE â€¦/payments/{payment}` | Search (reference, email, phone, traveller name), filter by booking and payment status; full booking view; record payment or refund; remove an entry; cancel; team notes; cancellation-policy line that applies today; WhatsApp and voucher links |
-| Sailings | `cruises/{cruise}/sailings` (index, create, store), `sailings/{sailing}` (edit, update, recalculate, destroy) | Departures of a cruise; price grid per cabin (adult/child/infant, cabins available, sold out); "Recalculate prices" from the rate card; delete blocked when bookings exist |
+| Sailings | `cruises/{cruise}/sailings` (index, create, store), `sailings/{sailing}` (edit, update, destroy) | Departures of a cruise; price grid per cabin on create and edit (Single, Double, 3rd guest, infant free, cabins available, sold out), prefilled on create from the cruise's latest sailing; delete blocked when bookings exist |
 | Homepage *(step 5)* | `GET home-sections`, `GET home-sections/{key}/edit`, `PUT home-sections/{key}` | Text, buttons, photo and visibility of each homepage section; add/edit/delete the "Why Safer Cruise" cards |
 | Photo slots | `GET image-slots`, `POST/DELETE image-slots/{key}` | The 22 slots with filled / fallback state; upload (jpg/png/webp â‰¤ 5 MB) or remove |
 | Generic CRUD | `{slug}` index, create, store, `{id}/edit`, update, destroy | Cruises (with itinerary editor and links to sailings), Cabin categories, Destinations, Ships, Ship facts, Life on board, Good to know, Ship FAQs, Facilities, Promo codes, Age bands & fees (edit only), Testimonials, Newsletter (list/delete), Users |
@@ -1043,6 +1053,75 @@ slot dropdowns; then remove photo slots completely. **This supersedes D7 and Ste
   screens, CSV export incl. BOM / Arabic / formula guard / filters, creating sellers and seller sign-in,
   assign / reassign / unassign / filter / seller deleted, seller limited to own bookings). Local MySQL migrated
   (backup first), Apache smoke test as seller and admin.
+
+### Step 9: Tiered cabin pricing, factors removed, next sailing on the cruises list (2026-10-18)
+
+New business rules: a cabin is priced by how many people share it, not by multiplying a per-person rate.
+
+**Pricing rules** (section 2 has the full formula; `PricingService::fareLines()` and `SC.fareLines()` are the same):
+
+| Party (adults + children, infants) | Fare |
+| --- | --- |
+| 1 paying guest (± infants) | Single |
+| 2 paying guests (± infant) | Double |
+| 3 paying guests | Double + 3rd guest (extra) |
+| Infants | Free ($0); don't count towards the cabin limit; up to 4 per cabin |
+
+- A cabin holds **at most 3 adults and children** (`config('cruise.max_cabin_guests')`, `CabinCategory::capacity()`),
+  plus **up to 4 infants in every cabin** (`config('cruise.max_infants_per_cabin')`), who are free and take no paid
+  place. The old "one infant per adult" rule was removed so the 4 infants are reachable; at least 1 adult is still
+  required. A child as 2nd guest shares the double price; the extra price is for the 3rd guest, adult or child.
+- Fees (Age bands, per guest per night), promo codes and the booking total are unchanged.
+- Quote lines are now `single` / `double` / `extra` / `infant` (labels in `lang/{en,ar}/site.php` → `pricing`), stored in
+  `bookings.price_snapshot` as before. Old bookings keep their old adult/child lines and still display.
+- "From, per person" on cards and date chips = cheapest double price ÷ 2 (two sharing), display only.
+
+**Database** (migration `2026_10_18_000001_switch_to_tiered_cabin_pricing`, reversible):
+
+| Table | Change |
+| --- | --- |
+| `sailing_cabin_prices` | + `price_single`, `price_double`, `price_extra` (decimal 10,2, whole cabin, whole cruise); − `price_adult`, `price_child`, `price_infant`. Existing rows backfilled: single = old adult, double = 2 × old adult, extra = old child, so 1–2 adult bookings cost the same as before |
+| `sailings` | − `price_factor` |
+| `cruises` | − `price_factor` |
+| `cabin_categories` | − `base_rate_adult`, `base_rate_child`, `base_rate_infant` (the rate card); `max_guests` above 3 set to 3 |
+
+**Backend:** `PricingService` lost `rateCardPrices()` / `syncSailingPrices()`; it has `fareLines()`, `quote()` and
+`latestPrices($cruise)` (starting prices for a new sailing). `SailingCabinPrice::tiers()`. `Sailing::fromPrice()` uses
+the double price. `ConfirmBookingRequest` checks adults + children against the cabin (max 3) and infants against 4. `ScDataPresenter`
+sends `prices: {single, double, extra}` per sailing and cabin plus `maxCabinGuests` and `maxInfants`; `rates`, `priceFactor` and `factor` are
+gone.
+
+**Front end:** `SC.prices()` reads the stored tiers only (no formula fallback); new `SC.fareLines()`; `SC.quote()`
+builds its lines from it. Details page cabin cards show "Cabin price for the whole cruise: 1 guest / 2 guests /
+3rd guest / Infant Free"; summary, review and catalog follow. A cabin with no prices on a sailing can't be chosen.
+
+**Admin panel:**
+
+- **Sailing form** (create and edit): price grid per cabin with **Single (1 guest)**, **Double (2 guests)**,
+  **3rd guest (adult or child)**, Infant "Free", cabins available, sold out. All three prices are required. On create
+  the grid is filled from the cruise's latest sailing. The note explains the tiers and the 3-guest limit.
+- **Removed:** the cruise "Price factor" field, the sailing "Price factor" field, the "Recalculate prices" button and
+  its route (`POST sailings/{sailing}/recalculate`), the cabin per-night rates, the "Factor" column and the
+  "price factor ×" subtitle on the sailings list, and the old note "Rate card = cabin rate × nights × cruise factor ×
+  sailing factor…".
+- **Sailings list:** "Cabin prices (single / double / 3rd guest)" per cabin.
+- **Cabin categories:** "Maximum guests" defaults to 3 and accepts 1–3.
+- **Cruises list:** new **Next sailing** column: the closest departure from today that isn't cancelled
+  (`withMin` on `sailings.departure_date`), with "In N days", or "None scheduled". Generic index views now format
+  index-only date fields.
+
+**Seed data:** cruises carry explicit `[single, double, extra]` prices per cabin, used for all their sailings; all
+cabins hold 3; "up to four guests" copy changed to three (English and Arabic). Demo past sailings copy the cruise's
+prices.
+
+- Tests: **106 passed**. `PricingServiceTest` rewritten (single, double, child as 2nd guest, 3rd guest, infants free,
+  family with promo, from price, latest prices); `AdminPanelTest` (tier grid required and saved, prefilled create
+  form, no factor / recalculation, cabins of another ship rejected, next sailing column skips cancelled, cabin
+  limit 3); `BookingFlowTest` (server total 8,800 for 2 adults + 1 child with SAFER10; full cabin + 4 free infants
+  accepted, 5 infants rejected); `PublicSiteTest` (tier prices, limits 3 and 4 in `SC_DATA`). Migration checked up
+  and down on SQLite.
+- **To apply locally:** `C:\xampp\php\php.exe artisan migrate` (back up `safer_cruise_db` first), then review the
+  prices of each sailing in Admin → Cruises → Sailings.
 
 **Open items (next):**
 

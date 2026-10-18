@@ -2,22 +2,25 @@
 
 namespace App\Models;
 
-use App\Enums\TravellerBand;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Tiered occupancy prices of one cabin category on one sailing, for the whole cruise:
+ * single (1 paying guest), double (2 paying guests) and extra (the 3rd guest). Infants are free.
+ */
 class SailingCabinPrice extends Model
 {
     protected $fillable = [
-        'sailing_id', 'cabin_category_id', 'price_adult', 'price_child', 'price_infant', 'capacity', 'is_sold_out',
+        'sailing_id', 'cabin_category_id', 'price_single', 'price_double', 'price_extra', 'capacity', 'is_sold_out',
     ];
 
     protected function casts(): array
     {
         return [
-            'price_adult' => 'decimal:2',
-            'price_child' => 'decimal:2',
-            'price_infant' => 'decimal:2',
+            'price_single' => 'decimal:2',
+            'price_double' => 'decimal:2',
+            'price_extra' => 'decimal:2',
             'is_sold_out' => 'boolean',
         ];
     }
@@ -32,8 +35,14 @@ class SailingCabinPrice extends Model
         return $this->belongsTo(CabinCategory::class);
     }
 
-    public function priceFor(TravellerBand $band): float
+    /** @return array{single: float, double: float, extra: float, infant: float} */
+    public function tiers(): array
     {
-        return (float) $this->{'price_'.$band->value};
+        return [
+            'single' => (float) $this->price_single,
+            'double' => (float) $this->price_double,
+            'extra' => (float) $this->price_extra,
+            'infant' => 0.0,
+        ];
     }
 }

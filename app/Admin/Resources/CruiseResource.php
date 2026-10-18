@@ -5,6 +5,7 @@ namespace App\Admin\Resources;
 use App\Admin\Field;
 use App\Admin\Options;
 use App\Admin\Resource;
+use App\Enums\SailingStatus;
 use App\Models\Cruise;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +26,13 @@ class CruiseResource extends Resource
 
     public static function query(): Builder
     {
-        return Cruise::query()->withCount('sailings')->orderBy('name');
+        return Cruise::query()
+            ->withCount('sailings')
+            // Closest departure from today on that isn't cancelled (index column "Next sailing")
+            ->withMin(['sailings as next_sailing' => fn (Builder $q) => $q
+                ->whereDate('departure_date', '>=', today())
+                ->where('status', '!=', SailingStatus::Cancelled)], 'departure_date')
+            ->orderBy('name');
     }
 
     public static function fields(): array
@@ -38,13 +45,12 @@ class CruiseResource extends Resource
             Field::select('ship_id', 'Ship', Options::ships())->rules(['required', 'exists:ships,id']),
             Field::number('nights', 'Nights')->rules(['required', 'integer', 'min:1', 'max:60'])->index(),
             Field::text('departure_port', 'Departure port')->rules(['required', 'string', 'max:255'])->index(),
+            Field::date('next_sailing', 'Next sailing')->indexOnly(),
             Field::text('arrival_port', 'Arrival port')->rules(['required', 'string', 'max:255']),
             Field::lines('route', 'Route')->rules(['required', 'string'])
                 ->help('One port per line, in order. Use the same port names as Destinations, e.g. "Al Wajh".'),
             Field::checkboxes('tags', 'Highlights', ['family' => 'Family friendly', 'excursions' => 'Excursions', 'weekend' => 'Weekend', 'festive' => 'Festive sailing']),
             Field::checkbox('visa_free', 'No visa needed'),
-            Field::number('price_factor', 'Price factor', '0.01')->default(1)->rules(['required', 'numeric', 'min:0.1', 'max:5'])
-                ->help('Multiplies the cabin rate card for every sailing of this cruise (1 = no change).'),
             Field::number('rating', 'Guest rating', '0.1')->rules(['nullable', 'numeric', 'min:0', 'max:5']),
             Field::number('reviews_count', 'Number of reviews')->rules(['nullable', 'integer', 'min:0']),
             Field::number('popularity', 'Popularity (0–100)')->rules(['nullable', 'integer', 'min:0', 'max:100'])->help('Used for "Most popular" sorting.'),

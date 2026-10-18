@@ -37,9 +37,9 @@ class ConfirmBookingRequest extends FormRequest
             'sailing' => ['required', 'string', 'max:20'],
             'cabin' => ['required', 'string', 'max:40'],
             'guests' => ['required', 'array'],
-            'guests.adult' => ['required', 'integer', 'min:1', 'max:9'],
-            'guests.child' => ['required', 'integer', 'min:0', 'max:9'],
-            'guests.infant' => ['required', 'integer', 'min:0', 'max:9'],
+            'guests.adult' => ['required', 'integer', 'min:1', 'max:'.config('cruise.max_cabin_guests')],
+            'guests.child' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_cabin_guests')],
+            'guests.infant' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_infants_per_cabin')],
             'travellers' => ['required', 'array'],
             'travellers.*.first' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
             'travellers.*.last' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
@@ -103,12 +103,14 @@ class ConfirmBookingRequest extends FormRequest
         }
 
         $guests = $this->guests();
-        $total = array_sum($guests);
-        if ($guests['infant'] > $guests['adult']) {
-            $validator->errors()->add('guests', 'Each infant must travel with an adult in the same cabin.');
+        // Adults and children fill the cabin (at most 3); infants are free and limited separately (at most 4)
+        $paying = $guests['adult'] + $guests['child'];
+        if ($paying > $cabin->capacity()) {
+            $validator->errors()->add('guests', "{$cabin->name_en} fits up to {$cabin->capacity()} adults and children, and you've added {$paying}.");
         }
-        if ($total > $cabin->max_guests) {
-            $validator->errors()->add('guests', "{$cabin->name_en} fits up to {$cabin->max_guests} guests, and you've added {$total}.");
+        $maxInfants = (int) config('cruise.max_infants_per_cabin');
+        if ($guests['infant'] > $maxInfants) {
+            $validator->errors()->add('guests', "A cabin takes up to {$maxInfants} infants.");
         }
 
         $this->checkTravellers($validator, $guests);

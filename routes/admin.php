@@ -35,13 +35,12 @@ Route::middleware('can:admin')->group(function () {
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
     Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show')->whereNumber('customer');
 
-    // Sailings of a cruise, with their price grid
+    // Sailings of a cruise, with their tiered price grid (single / double / 3rd guest per cabin)
     Route::get('cruises/{cruise}/sailings', [SailingController::class, 'index'])->name('cruises.sailings.index');
     Route::get('cruises/{cruise}/sailings/create', [SailingController::class, 'create'])->name('cruises.sailings.create');
     Route::post('cruises/{cruise}/sailings', [SailingController::class, 'store'])->name('cruises.sailings.store');
     Route::get('sailings/{sailing}/edit', [SailingController::class, 'edit'])->name('sailings.edit');
     Route::put('sailings/{sailing}', [SailingController::class, 'update'])->name('sailings.update');
-    Route::post('sailings/{sailing}/recalculate', [SailingController::class, 'recalculate'])->name('sailings.recalculate');
     Route::delete('sailings/{sailing}', [SailingController::class, 'destroy'])->name('sailings.destroy');
 
     // Homepage content: hero and the sections below it (config/home.php)

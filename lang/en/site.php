@@ -70,6 +70,14 @@ return [
     ],
 
     // Guest counter rows (label and hint of each age band)
+    // Fare lines of a quote (tiered occupancy pricing: PricingService::fareLines() and SC.fareLines())
+    'pricing' => [
+        'single' => 'Single occupancy (1 guest)',
+        'double' => 'Double occupancy (2 guests)',
+        'extra' => '3rd guest (adult or child)',
+        'infant' => 'Infant (free)',
+    ],
+
     'bands' => [
         'adult' => ['label' => 'Adult', 'hint' => '12 years and over'],
         'child' => ['label' => 'Child', 'hint' => '2 to 11 years'],

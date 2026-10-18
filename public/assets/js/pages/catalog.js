@@ -11,7 +11,7 @@ document.addEventListener('sc:ready', () => {
   const HIGHLIGHTS = ['visaFree', 'family', 'excursions', 'weekend', 'festive'].map((k) => [k, SC.t(`ui.catalog.highlights.${k}`)]);
   const priceMin = Math.floor(Math.min(...ALL.map((s) => s.fromPrice)) / 50) * 50;
   // Laravel: top of the price slider from the cabins each sailing really has (a fixed 'suite' id crashed the page when that cabin was renamed or removed)
-  const topPrice = (s) => Math.max(s.fromPrice, ...Object.values(s.sailing.prices || {}).map((p) => p.adult));
+  const topPrice = (s) => Math.max(s.fromPrice, ...Object.keys(s.sailing.prices || {}).map((id) => SC.prices(s.cruise, s.sailing, id).perPerson));
   const priceMax = Math.ceil(Math.max(...ALL.map(topPrice)) / 50) * 50;
 
   /* ---------- State (initialised from URL) ---------- */

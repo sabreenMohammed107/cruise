@@ -173,7 +173,7 @@ document.addEventListener('sc:ready', () => {
           <img src="${cabin.images[0]}" alt="${cabin.nameEn}" class="w-full sm:w-44 aspect-[4/3] object-cover rounded-xl">
           <dl class="flex-1 grid grid-cols-2 gap-4">
             ${row('Cabin type', cabin.nameEn)}${row('Category', `${cabin.nameAr} (${CAT_CODE[cabin.id]})`)}
-            ${row('Guests in cabin', `${q.count} of ${cabin.maxGuests}`)}${row('Size', cabin.size + (cabin.balcony ? ` + ${cabin.balcony} balcony` : ''))}
+            ${row('Guests in cabin', `${b.guests.adult + b.guests.child} of ${cabin.maxGuests}${b.guests.infant ? ` + ${SC.tc('guests.infant', b.guests.infant)}` : ''}`)}${row('Size', cabin.size + (cabin.balcony ? ` + ${cabin.balcony} balcony` : ''))}
             <div class="col-span-2"><button class="text-sm font-bold text-ocean-600 hover:underline" data-cabin-info>View cabin details and photos</button></div>
           </dl>
         </div>
@@ -200,7 +200,7 @@ document.addEventListener('sc:ready', () => {
           <table class="w-full text-sm">
             <thead><tr class="text-muted text-xs"><th class="text-start font-semibold pb-2">Item</th><th class="text-end font-semibold pb-2">Price</th><th class="text-end font-semibold pb-2">Qty</th><th class="text-end font-semibold pb-2">Total</th></tr></thead>
             <tbody class="tabular">
-              ${q.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label} cruise fare</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
+              ${q.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
               <tr class="border-t border-line"><td class="py-2.5">Cabin (${cabin.nameEn})</td><td class="text-end text-muted" colspan="2">Included in fares</td><td class="text-end font-bold">${SC.money(0)}</td></tr>
               <tr class="border-t border-line"><td class="py-2.5">Taxes, port charges & fees</td><td></td><td></td><td class="text-end font-bold">${SC.money(q.fees)}</td></tr>
               ${q.discount ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">Discount (${q.promo.code})</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(q.discount)}</td></tr>` : ''}

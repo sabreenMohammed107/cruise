@@ -22,7 +22,9 @@ document.addEventListener('sc:ready', () => {
     cabinId: same && saved.sailingId === sailing.id ? saved.cabinId : null
   };
   const maxCapacity = () => Math.max(...SC.cabinsSorted().filter((c) => !(sailing.soldOut || []).includes(c.id)).map((c) => c.maxGuests));
-  const totalGuests = () => state.guests.adult + state.guests.child + state.guests.infant;
+  // Laravel: tiered pricing — adults + children fill the cabin; infants are free and limited separately (SC_DATA.maxInfants)
+  const totalGuests = () => state.guests.adult + state.guests.child;
+  const maxInfants = D.maxInfants ?? 4;
 
   document.title = `${cruise.name} | Safer Cruise`;
   $('#wa-fab')?.classList.replace('bottom-5', 'bottom-24');
@@ -146,9 +148,9 @@ document.addEventListener('sc:ready', () => {
   /* ---------- Travellers (Who's travelling?) ---------- */
   $('#d-counters').innerHTML = ['adult', 'child', 'infant'].map((b) => SC.ui.counterRow(b, state.guests[b])).join('');
   const limits = (band, g) => {
+    if (band === 'infant') return { min: 0, max: maxInfants };
     const cap = maxCapacity(); const others = totalGuests() - g[band];
-    if (band === 'adult') return { min: Math.max(1, g.infant), max: cap - (others) };
-    if (band === 'infant') return { min: 0, max: Math.min(g.adult, cap - others) };
+    if (band === 'adult') return { min: 1, max: cap - others };
     return { min: 0, max: cap - others };
   };
   const repaintCounters = SC.ui.bindCounters($('#d-counters'), state.guests, () => {
@@ -177,10 +179,11 @@ document.addEventListener('sc:ready', () => {
     const n = totalGuests();
     $('#d-cabins').innerHTML = SC.cabinsSorted().map((c) => {
       const p = SC.prices(cruise, sailing, c.id);
-      const soldOut = (sailing.soldOut || []).includes(c.id);
+      // Laravel: a cabin without prices on this sailing can't be booked
+      const soldOut = (sailing.soldOut || []).includes(c.id) || !(sailing.prices || {})[c.id];
       const tooSmall = c.maxGuests < n;
       const selected = state.cabinId === c.id;
-      const priceRow = (label, val) => `<div class="flex justify-between"><dt class="text-muted">${label}</dt><dd class="font-bold tabular">${SC.money(val)}</dd></div>`;
+      const priceRow = (label, val) => `<div class="flex justify-between gap-3"><dt class="text-muted">${label}</dt><dd class="font-bold tabular">${val}</dd></div>`;
       return `<article class="card overflow-hidden flex flex-col transition ${selected ? 'card-selected' : ''} ${soldOut || tooSmall ? 'opacity-70' : ''}" data-cabin-card="${c.id}">
         <div class="relative aspect-[4/3] img-zoom">
           <img src="${c.images[0]}" alt="${c.nameEn}" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
@@ -199,11 +202,13 @@ document.addEventListener('sc:ready', () => {
           </ul>
           <button class="self-start mt-3 text-sm font-bold text-ocean-600 hover:underline" data-cabin-info="${c.id}">${SC.t('ui.cabin.details_photos')}</button>
           <dl class="mt-4 pt-4 border-t border-line grid gap-1.5 text-sm">
-            ${priceRow(SC.t('ui.details.adult'), p.adult)}${priceRow(SC.t('ui.details.child'), p.child)}${priceRow(SC.t('ui.details.infant'), p.infant)}
+            <p class="text-xs text-muted">${SC.t('ui.details.per_cabin')}</p>
+            ${priceRow(SC.t('ui.details.single'), SC.money(p.single))}${priceRow(SC.t('ui.details.double'), SC.money(p.double))}
+            ${c.maxGuests > 2 ? priceRow(SC.t('ui.details.extra'), `+ ${SC.money(p.extra)}`) : ''}${priceRow(SC.t('ui.details.infant'), SC.t('ui.details.free'))}
           </dl>
           <div class="mt-auto pt-5">
             <p class="text-xs text-muted">${SC.t('ui.from_per_person')}</p>
-            <p class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(p.adult)}</p>
+            <p class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(p.perPerson)}</p>
             <button class="btn ${selected ? 'btn-primary' : 'btn-accent'} w-full mt-3" data-select-cabin="${c.id}" ${soldOut || tooSmall ? 'disabled' : ''} aria-pressed="${selected}">
               ${soldOut ? SC.t('ui.details.sold_out') : tooSmall ? SC.t('ui.details.fits_up_to', { count: c.maxGuests }) : selected ? `${SC.icon('check', 'w-4 h-4')} ${SC.t('ui.details.selected')}` : SC.t(c.id === 'suite' ? 'ui.cabin.choose_suite' : 'ui.cabin.choose')}
             </button>
@@ -251,7 +256,7 @@ document.addEventListener('sc:ready', () => {
       <div class="perf-x"></div>
       <div class="p-5">
         ${q ? `<dl class="grid gap-2 text-sm">
-            ${q.lines.map((l) => `<div class="flex justify-between"><dt class="text-muted">${l.label} × ${l.qty}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
+            ${q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
             <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.fees')}</dt><dd class="tabular">${SC.money(q.fees)}</dd></div>
           </dl>
           <div class="flex items-end justify-between mt-4 pt-4 border-t border-line">

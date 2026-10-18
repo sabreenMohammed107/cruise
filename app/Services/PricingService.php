@@ -5,61 +5,66 @@ namespace App\Services;
 use App\Enums\PromoType;
 use App\Enums\TravellerBand;
 use App\Models\AgeBand;
-use App\Models\CabinCategory;
+use App\Models\Cruise;
 use App\Models\PromoCode;
 use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
+use Illuminate\Support\Collection;
 
 /**
- * Server-side port of the template's pricing engine (SC.prices / SC.quote in core.js).
+ * Tiered occupancy pricing, the server side of SC.prices / SC.quote in public/assets/js/core.js.
  * The client-side quote is display-only; this class is the source of truth for totals.
+ *
+ * Every Sailing × Cabin has three cabin prices for the whole cruise, set in the admin panel:
+ *   single  the cabin with 1 paying guest
+ *   double  the cabin with 2 paying guests
+ *   extra   the 3rd guest (adult or child)
+ * Infants are free but take a place: a cabin holds at most 3 guests (config cruise.max_cabin_guests).
  */
 class PricingService
 {
     /**
-     * Rate-card prices for one Sailing × Cabin, per person for the whole cruise.
+     * Fare lines for a party in one cabin. Adults and children are paying guests:
      *
-     *   adult/child = round5(base_rate × nights × cruise.price_factor × sailing.price_factor)
-     *   infant      = round5(base_rate × nights)            (no factors)
+     *   1 paying guest   → single
+     *   2 paying guests  → double
+     *   3 paying guests  → double + extra
+     *   infants          → free
      *
-     * @return array{adult: float, child: float, infant: float}
+     * @param  array{adult?: int, child?: int, infant?: int}  $guests
+     * @return list<array{band: string, label: string, unit: float, qty: int, total: float}>
      */
-    public function rateCardPrices(Sailing $sailing, CabinCategory $cabin): array
+    public function fareLines(SailingCabinPrice $price, array $guests): array
     {
-        $cruise = $sailing->cruise;
-        // Same operand order as the JS so floating-point results match exactly.
-        $k = $cruise->nights * (float) $cruise->price_factor * (float) $sailing->price_factor;
-
-        return [
-            'adult' => $this->round5((float) $cabin->base_rate_adult * $k),
-            'child' => $this->round5((float) $cabin->base_rate_child * $k),
-            'infant' => $this->round5((float) $cabin->base_rate_infant * $cruise->nights),
+        $tiers = $price->tiers();
+        $paying = (int) ($guests['adult'] ?? 0) + (int) ($guests['child'] ?? 0);
+        $infants = (int) ($guests['infant'] ?? 0);
+        $line = fn (string $tier, float $unit, int $qty) => [
+            'band' => $tier, 'label' => __("site.pricing.{$tier}"), 'unit' => $unit, 'qty' => $qty, 'total' => $unit * $qty,
         ];
-    }
 
-    /**
-     * Write rate-card prices for every cabin category on the sailing's ship.
-     * Sold-out flags and capacity on existing rows are left alone.
-     */
-    public function syncSailingPrices(Sailing $sailing): void
-    {
-        $sailing->loadMissing('cruise.ship.cabinCategories');
-
-        foreach ($sailing->cruise->ship->cabinCategories as $cabin) {
-            $prices = $this->rateCardPrices($sailing, $cabin);
-
-            SailingCabinPrice::updateOrCreate(
-                ['sailing_id' => $sailing->id, 'cabin_category_id' => $cabin->id],
-                ['price_adult' => $prices['adult'], 'price_child' => $prices['child'], 'price_infant' => $prices['infant']],
-            );
+        $lines = [];
+        if ($paying === 1) {
+            $lines[] = $line('single', $tiers['single'], 1);
         }
+        if ($paying >= 2) {
+            $lines[] = $line('double', $tiers['double'], 1);
+        }
+        if ($paying > 2) {
+            $lines[] = $line('extra', $tiers['extra'], $paying - 2);
+        }
+        if ($infants > 0) {
+            $lines[] = $line('infant', 0.0, $infants);
+        }
+
+        return $lines;
     }
 
     /**
      * Full quote for a party in one cabin.
      *
-     *   fare     = Σ price[band] × qty[band]
-     *   fees     = Σ qty[band] × fee_per_night[band] × nights
+     *   fare     = Σ fare lines (see fareLines())
+     *   fees     = Σ qty[band] × fee_per_night[band] × nights   (Admin → Age bands)
      *   discount = promo applied to the fare only
      *   total    = fare + fees − discount
      *
@@ -71,26 +76,13 @@ class PricingService
         $nights = $price->sailing->cruise->nights;
         $bands = AgeBand::all()->keyBy(fn (AgeBand $band) => $band->key->value);
 
-        $lines = [];
-        $fare = 0.0;
+        $lines = $this->fareLines($price, $guests);
+        $fare = (float) array_sum(array_column($lines, 'total'));
+
         $feesTotal = 0.0;
         $count = 0;
-
         foreach (TravellerBand::cases() as $band) {
             $qty = (int) ($guests[$band->value] ?? 0);
-            if ($qty <= 0) {
-                continue;
-            }
-
-            $unit = $price->priceFor($band);
-            $lines[] = [
-                'band' => $band->value,
-                'label' => $bands->get($band->value)?->label ?? ucfirst($band->value),
-                'unit' => $unit,
-                'qty' => $qty,
-                'total' => $unit * $qty,
-            ];
-            $fare += $unit * $qty;
             $feesTotal += $qty * (float) ($bands->get($band->value)?->fee_per_night ?? 0) * $nights;
             $count += $qty;
         }
@@ -98,11 +90,7 @@ class PricingService
         $discount = $promo ? $this->discount($promo, $fare) : 0.0;
 
         return [
-            'prices' => [
-                'adult' => $price->priceFor(TravellerBand::Adult),
-                'child' => $price->priceFor(TravellerBand::Child),
-                'infant' => $price->priceFor(TravellerBand::Infant),
-            ],
+            'prices' => $price->tiers(),
             'lines' => $lines,
             'fare' => $fare,
             'fees' => $feesTotal,
@@ -111,6 +99,23 @@ class PricingService
             'total' => $fare + $feesTotal - $discount,
             'count' => $count,
         ];
+    }
+
+    /**
+     * Starting prices for a new sailing: the price rows of the cruise's latest sailing that has them,
+     * keyed by cabin_category_id. Empty when the cruise has no priced sailing yet.
+     *
+     * @return Collection<int, SailingCabinPrice>
+     */
+    public function latestPrices(Cruise $cruise, ?Sailing $except = null): Collection
+    {
+        $sailing = $cruise->sailings()
+            ->when($except, fn ($q) => $q->whereKeyNot($except->id))
+            ->whereHas('cabinPrices')
+            ->reorder('departure_date', 'desc')
+            ->first();
+
+        return $sailing ? $sailing->cabinPrices()->get()->keyBy('cabin_category_id') : collect();
     }
 
     private function discount(PromoCode $promo, float $fare): float

@@ -176,7 +176,7 @@ class AdminPanelTest extends TestCase
         $this->put("/admin/cruises/{$cruise->id}", [
             'name' => $cruise->name, 'slug' => $cruise->slug, 'ship_id' => $cruise->ship_id, 'nights' => 3,
             'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah', 'route' => "Jeddah\nYanbu\nJeddah",
-            'price_factor' => '1.00', 'tags' => ['weekend'], 'is_active' => '1',
+            'tags' => ['weekend'], 'is_active' => '1',
             'itinerary' => [
                 ['port' => 'Jeddah', 'time' => 'Departs 20:00', 'text' => 'Embark.'],
                 ['port' => '', 'time' => '', 'text' => ''],
@@ -209,31 +209,80 @@ class AdminPanelTest extends TestCase
         $this->get("/admin/users/{$reem->id}/edit")->assertOk();
     }
 
-    public function test_sailing_create_fills_prices_and_grid_overrides_them(): void
+    public function test_sailing_prices_are_explicit_single_double_and_extra_tiers(): void
     {
         $this->actingAs($this->admin(), 'admin');
         $cruise = Cruise::where('slug', 'saudi-coast-weekend')->firstOrFail();
+        $cabins = $cruise->ship->cabinCategories()->pluck('id', 'slug');
 
+        // The new-sailing form starts from the cruise's latest prices and has no factor or recalculation
+        $html = $this->get("/admin/cruises/{$cruise->slug}/sailings/create")->assertOk()->getContent();
+        $this->assertStringContainsString('name="prices['.$cabins['interior'].'][single]"', $html);
+        $this->assertStringContainsString('value="1485"', $html);
+        $this->assertStringNotContainsString('price_factor', $html);
+        $this->assertStringNotContainsString('Recalculate', $html);
+
+        // Every tier is required
+        $this->post("/admin/cruises/{$cruise->slug}/sailings", ['code' => 'scw-270311', 'departure_date' => '2027-03-11', 'status' => 'open'])
+            ->assertSessionHasErrors('prices');
+
+        $prices = $cabins->mapWithKeys(fn ($id, $slug) => [$id => ['single' => 1000, 'double' => 1600, 'extra' => 400]])->all();
         $this->post("/admin/cruises/{$cruise->slug}/sailings", [
-            'code' => 'scw-270311', 'departure_date' => '2027-03-11', 'price_factor' => '1.10', 'status' => 'open',
+            'code' => 'scw-270311', 'departure_date' => '2027-03-11', 'status' => 'open', 'prices' => $prices,
         ])->assertSessionHasNoErrors();
 
         $sailing = Sailing::where('code', 'SCW-270311')->firstOrFail();
         $this->assertSame('2027-03-14', $sailing->return_date->toDateString());
         $this->assertSame(3, $sailing->cabinPrices()->count());
 
-        $interior = $sailing->cabinPrices()->whereHas('cabinCategory', fn ($q) => $q->where('slug', 'interior'))->firstOrFail();
-        $this->assertSame('1090.00', $interior->price_adult); // round5(330 × 3 × 1.1 = 1089)
+        $interior = $sailing->cabinPrices()->where('cabin_category_id', $cabins['interior'])->firstOrFail();
+        $this->assertSame(['1000.00', '1600.00', '400.00'], [$interior->price_single, $interior->price_double, $interior->price_extra]);
 
+        $prices[$cabins['interior']] = ['single' => 999, 'double' => 1500, 'extra' => 350, 'capacity' => 5, 'sold_out' => '1'];
         $this->put("/admin/sailings/{$sailing->id}", [
-            'code' => 'SCW-270311', 'departure_date' => '2027-03-11', 'price_factor' => '1.10', 'status' => 'open',
-            'prices' => [$interior->cabin_category_id => ['adult' => 999, 'child' => 500, 'infant' => 100, 'capacity' => 5, 'sold_out' => '1']],
+            'code' => 'SCW-270311', 'departure_date' => '2027-03-11', 'status' => 'open', 'prices' => $prices,
         ])->assertSessionHasNoErrors();
         $interior->refresh();
-        $this->assertSame(['999.00', 5, true], [$interior->price_adult, $interior->capacity, $interior->is_sold_out]);
+        $this->assertSame(['999.00', '1500.00', '350.00', 5, true], [$interior->price_single, $interior->price_double, $interior->price_extra, $interior->capacity, $interior->is_sold_out]);
 
-        $this->post("/admin/sailings/{$sailing->id}/recalculate");
-        $this->assertSame('1090.00', $interior->fresh()->price_adult);
+        // Prices for a cabin of another ship are rejected
+        $this->put("/admin/sailings/{$sailing->id}", [
+            'code' => 'SCW-270311', 'departure_date' => '2027-03-11', 'status' => 'open', 'prices' => $prices + [999999 => ['single' => 1, 'double' => 1, 'extra' => 1]],
+        ])->assertSessionHasErrors('prices.999999');
+
+        // The rate-card recalculation is gone
+        $this->post("/admin/sailings/{$sailing->id}/recalculate")->assertNotFound();
+    }
+
+    public function test_cruises_list_shows_the_next_sailing_and_no_price_factor(): void
+    {
+        $this->travelTo('2026-10-11');
+        $this->actingAs($this->admin(), 'admin');
+
+        $html = $this->get('/admin/cruises')->assertOk()->getContent();
+        $this->assertStringContainsString('Next sailing', $html);
+        $this->assertStringContainsString('Thu 29 Oct 2026', $html); // SCW-261029, the closest departure of Saudi Coast Weekend
+        $this->assertStringContainsString('In 18 days', $html);
+
+        // Cancelled and past departures are skipped
+        Sailing::where('code', 'SCW-261029')->update(['status' => 'cancelled']);
+        $html = $this->get('/admin/cruises')->getContent();
+        $this->assertStringNotContainsString('Thu 29 Oct 2026', $html);
+        $this->assertStringContainsString('Thu 5 Nov 2026', $html);
+
+        $cruise = Cruise::firstOrFail();
+        $this->get("/admin/cruises/{$cruise->id}/edit")->assertOk()->assertDontSee('price_factor');
+    }
+
+    public function test_cabins_hold_at_most_three_guests(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+        $cabin = \App\Models\CabinCategory::where('slug', 'suite')->firstOrFail();
+        $form = $cabin->only(['name_en', 'ship_id', 'slug', 'sort_order']);
+
+        $this->put("/admin/cabin-categories/{$cabin->id}", $form + ['max_guests' => 4])->assertSessionHasErrors('max_guests');
+        $this->put("/admin/cabin-categories/{$cabin->id}", $form + ['max_guests' => 3])->assertSessionHasNoErrors();
+        $this->get("/admin/cabin-categories/{$cabin->id}/edit")->assertOk()->assertDontSee('base_rate');
     }
 
     public function test_sailings_with_bookings_cannot_be_deleted(): void

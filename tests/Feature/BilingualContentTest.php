@@ -170,7 +170,7 @@ class BilingualContentTest extends TestCase
         $this->actingAs($admin, 'admin')->get("/admin/cruises/{$cruise->id}/edit")->assertOk()
             ->assertSee('itinerary[0][time_ar]', false)->assertSee('المغادرة 20:00');
 
-        $form = $cruise->only(['name', 'name_ar', 'slug', 'ship_id', 'nights', 'departure_port', 'arrival_port', 'price_factor', 'summary', 'summary_ar'])
+        $form = $cruise->only(['name', 'name_ar', 'slug', 'ship_id', 'nights', 'departure_port', 'arrival_port', 'summary', 'summary_ar'])
             + ['route' => "Jeddah\nYanbu\nJeddah", 'tags' => ['family'], 'is_active' => 1,
                 'itinerary' => [['port' => 'Jeddah', 'time' => 'Departs 21:00', 'time_ar' => 'المغادرة 21:00', 'text' => 'Embark.', 'text_ar' => 'الصعود.']]];
         $this->put("/admin/cruises/{$cruise->id}", $form)->assertSessionHasNoErrors();

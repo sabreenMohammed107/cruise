@@ -37,11 +37,9 @@ class CabinCategoryResource extends Resource
                 Rule::unique('cabin_categories', 'slug')->where('ship_id', request('ship_id'))->ignore($r?->id)])
                 ->help('Short ID used by the booking pages, e.g. "balcony".')->index(),
             Field::text('badge', 'Badge')->arabic()->rules(['nullable', 'string', 'max:40'])->help('e.g. "Best value". Leave empty for none.'),
-            Field::number('max_guests', 'Maximum guests')->rules(['required', 'integer', 'min:1', 'max:9'])->index(),
-            Field::number('base_rate_adult', 'Adult rate per night ($)', '0.01')->rules(['required', 'numeric', 'min:0'])->index(),
-            Field::number('base_rate_child', 'Child rate per night ($)', '0.01')->rules(['required', 'numeric', 'min:0']),
-            Field::number('base_rate_infant', 'Infant rate per night ($)', '0.01')->rules(['required', 'numeric', 'min:0'])
-                ->help('Rates feed every sailing\'s prices. After changing them, use "Recalculate prices" on the sailings.'),
+            Field::number('max_guests', 'Maximum guests')->default(config('cruise.max_cabin_guests'))
+                ->rules(['required', 'integer', 'min:1', 'max:'.config('cruise.max_cabin_guests')])->index()
+                ->help('Adults and children, at most '.config('cruise.max_cabin_guests').'. Infants don\'t count: every cabin also takes up to '.config('cruise.max_infants_per_cabin').' free infants. Prices are set per sailing: Cruises → Sailings.'),
             Field::text('short_description', 'Short description')->arabic()->rules(['nullable', 'string', 'max:255'])->wide(),
             Field::textarea('description', 'Description')->arabic()->rules(['nullable', 'string', 'max:3000']),
             Field::text('size', 'Size')->arabic()->rules(['nullable', 'string', 'max:40'])->help('e.g. "20 m²"'),

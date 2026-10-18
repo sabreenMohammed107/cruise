@@ -43,6 +43,16 @@
                   {{ $field->options[$value instanceof \BackedEnum ? $value->value : $value] ?? $value }}
                 @elseif ($value instanceof \DateTimeInterface)
                   {{ Format::date($value) }}
+                @elseif ($field->type === 'date' && $field->indexOnly)
+                  {{-- computed date column (e.g. a cruise's next sailing), selected as a plain string --}}
+                  @if ($value)
+                    @php($day = \Illuminate\Support\Carbon::parse($value))
+                    @php($in = (int) today()->diffInDays($day))
+                    <span class="whitespace-nowrap">{{ Format::date($day, 'D j M Y') }}</span>
+                    <span class="block text-xs text-muted">{{ $in === 0 ? 'Today' : "In {$in} ".Str::plural('day', $in) }}</span>
+                  @else
+                    <span class="text-muted">None scheduled</span>
+                  @endif
                 @elseif (is_array($value))
                   {{ implode(', ', $value) }}
                 @else

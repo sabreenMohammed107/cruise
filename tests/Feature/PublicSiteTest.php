@@ -43,7 +43,10 @@ class PublicSiteTest extends TestCase
         $this->assertSame("Saudi Arabia's first cruise ship", $data['ships'][0]['tagline']);
         // Stored prices are sent per sailing, so admin overrides reach the page
         $rsd = collect($data['cruises'])->firstWhere('id', 'red-sea-discovery');
-        $this->assertSame(['adult' => 4005.0, 'child' => 1850.0, 'infant' => 315.0], collect($rsd['sailings'])->firstWhere('id', 'RSD-261213')['prices']['balcony']);
+        $this->assertSame(['single' => 5460.0, 'double' => 7280.0, 'extra' => 1680.0], collect($rsd['sailings'])->firstWhere('id', 'RSD-261213')['prices']['balcony']);
+        // Tiered pricing: at most 3 adults and children per cabin, plus up to 4 free infants
+        $this->assertSame([3, 4], [$data['maxCabinGuests'], $data['maxInfants']]);
+        $this->assertSame([3, 3, 3], array_column($data['cabins'], 'maxGuests'));
         // Promo codes are never published
         $this->assertEquals((object) [], $data['promos']);
     }
