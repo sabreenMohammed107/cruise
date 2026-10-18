@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 106 tests
+C:\xampp\php\php.exe artisan test                     # 112 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1122,15 +1122,59 @@ prices.
   and down on SQLite.
 - **To apply locally:** `C:\xampp\php\php.exe artisan migrate` (back up `safer_cruise_db` first), then review the
   prices of each sailing in Admin → Cruises → Sailings.
+- Applied 2026-10-18: backup `C:\Users\admin\Downloads\files\db-backups\safer_cruise_db-2026-10-18-before-tiered-pricing.sql`,
+  migration run on MySQL, XAMPP copy synced.
+
+### Step 10: Sign in, register, booking, confirmation and account in Arabic and English (2026-10-18)
+
+The browsing pages were already bilingual (steps 5b–5h). The remaining pages and every message the visitor can see
+now follow the header's عربي button too.
+
+**How it works** (unchanged mechanism, now covering every public page):
+
+| Layer | Reads | Notes |
+| --- | --- | --- |
+| Language | `sc_lang` cookie → `App\Http\Middleware\SetLocale` → `app()->getLocale()` | Admin panel always English |
+| Direction | `layouts/app.blade.php`: `<html lang dir="rtl|ltr">` | Email, password, phone and booking reference stay `dir="ltr"` inside Arabic pages |
+| Blade | `{{ __('site.…') }}`; links inside sentences as `:placeholders` with `{!! !!}` and escaped values | |
+| Page scripts | `SC.t('booking.…')`, `SC.tc('account.sails_in', n)` from `SC_DATA.i18n` (`Bi::scriptStrings()`: all of `site.php`, plus `ui.php` under `ui`) | Nothing to register: new `site.php` keys reach the scripts automatically |
+| Server messages | `__('site.…')` in controllers, `ConfirmBookingRequest`, `AgeBandValidator`, `BookingService`; Laravel's own rules from the new `lang/ar/validation.php` | Same words as the browser checks |
+| Dates | Blade: `translatedFormat('j M Y')` (Carbon follows the locale: "13 ديسمبر 2026"); scripts: `SC.fmtDate` | Western digits everywhere, as for prices |
+| Form values | Gender and nationality are stored in English (the server validates them); shown via `site.genders` / `site.nationalities` (`SC.genderLabel`, `SC.natLabel`, `Bi::value()`) | Ports via `Bi::port()` (server) / `SC.port()` (scripts) |
+
+**New keys in `lang/{en,ar}/site.php`** (same keys in both files; `PageTranslationTest` checks it):
+
+| Group | Used by | Contents |
+| --- | --- | --- |
+| `auth.*` (20) | `auth/login`, `auth/register`, `Auth\LoginController`, `Auth\RegisterController` | titles, intros, labels (first/last name, email, password, repeat), hint, remember me, buttons, toggle links, wrong-password and name/email errors |
+| `booking.*` (~65) | `booking/show`, `booking.js`, `confirmation` labels | stepper, empty state, traveller form labels, contact block, review sections (trip, cabin, travellers), price table, promo code, total note, terms sentence, confirm / confirming / failed |
+| `booking.errors.*` (37) | `booking.js`, `SC.checkBand`, `ConfirmBookingRequest`, `AgeBandValidator`, `BookingService`, `BookingController::promo` | field errors (name, email, phone per country, gender, nationality), the "N fields need attention" plural, date-of-birth rules per band, sold out, cabin too small, infants limit, promo invalid |
+| `genders`, `nationalities` | traveller forms, review, voucher, profile | English value → label; the English `nationalities` list is built from `config('cruise.nationalities')` |
+| `confirmation.*` (11) | `booking/confirmation` | headings, "details sent to…" sentence, reference, status badges, total, voucher buttons |
+| `account.*` (~75) | `account/dashboard`, `dashboard.js`, `AccountController` | menu, overview, stats, booking tabs and cards, status and payment tags, "sails in N days" plural, booking modal, favourites, profile and password forms, notifications, toasts |
+| `errors.*` (4) | `errors/403` (website branch) | |
+
+Plus `lang/ar/validation.php`: Arabic for Laravel's rules used on the website (required, email, confirmed, unique,
+min/max, password numbers…) and attribute names (البريد الإلكتروني، كلمة المرور…).
+
+**Pages changed:** `auth/login`, `auth/register`, `auth/partials/field` (ltr for email/password), `booking/show`,
+`booking/confirmation`, `account/dashboard`, `errors/403`. **Scripts:** `core.js` (`SC.checkBand` messages,
+`SC.genderLabel`, `SC.natLabel`), `booking.js` and `dashboard.js` (no English left; option values stay English, the
+text is translated; saved price lines are labelled from their band so old bookings show in the page language).
+
+- Tests: **112 passed**; new `LocalizedPagesTest` (sign in / register in both languages with `dir`, Arabic errors
+  for wrong password, Laravel rules and duplicate email, booking page and its `SC_DATA.i18n` words, Arabic server
+  errors for date of birth / phone / promo, Arabic voucher with Arabic month and nationality, account page and
+  password error). Checked in a headless browser on `localhost/cruise/public` in Arabic: booking with a sample
+  booking (form, plural error summary, age message, review, summary), sign in, account overview, bookings, booking
+  modal, notifications. No console errors.
 
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.
-2. Arabic copy: all database content (5e), page sections (5b, 5f), template words and breadcrumbs (5g), browsing-page
-   scripts (5h), homepage sections, search widget, header and footer are bilingual. Still
-   English: the booking steps (booking.js, date-of-birth checks in core.js),
-   the account dashboard (dashboard.js), booking emails and server validation messages. Move them into
-   `lang/{en,ar}/ui.php` and read them with `SC.t()` / `SC.tc()` (or `__()` on the server).
+2. Arabic copy: the whole public website is bilingual since step 10. Still English: the booking emails
+   (`resources/views/mail/*`), promo-code labels (database column without an Arabic twin) and the admin panel
+   (English by design).
 3. Phase 7: Tailwind via Vite instead of the CDN; production `.env` (`APP_DEBUG=false`, real mailer,
    `CRUISE_TEAM_EMAIL`); back up `public/uploads` with the database.
 4. Optional: move page sections from JS rendering to server-rendered Blade for SEO (cruise details first).

@@ -28,7 +28,7 @@ class LoginController extends Controller
         $isCustomer = fn ($user) => ! $user->isStaff();
         if (! Auth::guard('web')->attemptWhen($credentials, $isCustomer, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
-                'email' => 'That email and password don\'t match an account.',
+                'email' => __('site.auth.failed'),
             ]);
         }
 

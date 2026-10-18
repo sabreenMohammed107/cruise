@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -47,5 +48,32 @@ class Bi
     public static function isArabic(): bool
     {
         return app()->getLocale() === 'ar';
+    }
+
+    /**
+     * A port as SC.port() shows it: "Safaga, Egypt" → "سفاجا، مصر" in Arabic, from the destinations'
+     * Arabic names. English, or a name without an Arabic twin, is returned unchanged.
+     */
+    public static function port(?string $port): string
+    {
+        if (! static::isArabic() || ! $port) {
+            return (string) $port;
+        }
+        static $names = null;
+        $names ??= \App\Models\Destination::all()->flatMap(fn ($d) => array_filter([
+            $d->name => $d->name_ar, $d->country => $d->country_ar,
+        ]))->put('At sea', __('site.at_sea'))->all();
+
+        return collect(explode(', ', $port))->map(fn ($part) => $names[$part] ?? $part)->join('، ');
+    }
+
+    /** A traveller-form value (gender, nationality) in the page language; the stored value is the English key. */
+    public static function value(string $group, ?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        return Lang::has("site.$group.$value") ? __("site.$group.$value") : $value;
     }
 }

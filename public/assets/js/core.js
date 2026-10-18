@@ -153,17 +153,22 @@
     if (r.getDate() < b.getDate()) months -= 1;
     return { years: Math.floor(months / 12), months };
   };
-  /* Returns null when the DOB fits the band, else a message explaining the fix. */
+  /* Returns null when the DOB fits the band, else a message explaining the fix.
+     Laravel: words from lang/{en,ar}/site.php → booking.errors (App\Services\AgeBandValidator uses the same keys). */
   SC.checkBand = (band, dobISO, refISO) => {
-    if (!dobISO) return 'Enter a date of birth.';
-    if (SC.parseDate(dobISO) > new Date()) return 'Date of birth can\'t be in the future.';
+    const e = (key, r) => SC.t(`booking.errors.${key}`, r);
+    if (!dobISO) return e('dob_required');
+    if (SC.parseDate(dobISO) > new Date()) return e('dob_future');
     const { years, months } = SC.ageAt(dobISO, refISO);
     const B = D.ageBands[band];
-    if (band === 'adult' && years < B.minYears) return `Adults must be ${B.minYears} or older on the departure date. Change the date or go back and add this guest as a child.`;
-    if (band === 'child' && (years < B.minYears || years > B.maxYears)) return `Children must be ${B.minYears}–${B.maxYears} years old on the departure date.`;
-    if (band === 'infant' && (months < B.minMonths || months >= B.maxMonthsExclusive)) return 'Infants must be at least 6 months and under 2 years old on the departure date.';
+    if (band === 'adult' && years < B.minYears) return e('dob_adult', { min: B.minYears });
+    if (band === 'child' && (years < B.minYears || years > B.maxYears)) return e('dob_child', { min: B.minYears, max: B.maxYears });
+    if (band === 'infant' && (months < B.minMonths || months >= B.maxMonthsExclusive)) return e('dob_infant', { min: B.minMonths, max: B.maxMonthsExclusive / 12 });
     return null;
   };
+  /* Traveller-form values are stored in English (the server checks them); shown in the page language */
+  SC.genderLabel = (g) => SC.t(`genders.${g}`);
+  SC.natLabel = (n) => ((SC.t('nationalities') || {})[n]) || n;
 
   /* ------------------------------------------------------------------
      3. DATA ACCESS

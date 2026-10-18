@@ -27,9 +27,9 @@ class RegisterController extends Controller
             // Same rule as the template's password form: at least 8 characters, including a number
             'password' => ['required', 'confirmed', Password::min(8)->numbers()],
         ], [
-            'first_name.*' => 'Enter your first name using letters only.',
-            'last_name.*' => 'Enter your last name using letters only.',
-            'email.unique' => 'An account with this email already exists. Sign in instead.',
+            'first_name.*' => __('site.auth.first_name_invalid'),
+            'last_name.*' => __('site.auth.last_name_invalid'),
+            'email.unique' => __('site.auth.email_taken'),
         ]);
 
         // role defaults to "customer" in the database and is not mass-assignable

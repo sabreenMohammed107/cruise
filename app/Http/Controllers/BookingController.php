@@ -36,7 +36,7 @@ class BookingController extends Controller
         $promo = PromoCode::findRedeemable($request->input('code'));
 
         if (! $promo) {
-            return response()->json(['message' => "That code isn't valid for this sailing."], 422);
+            return response()->json(['message' => __('site.booking.errors.promo_unknown')], 422);
         }
 
         return response()->json([

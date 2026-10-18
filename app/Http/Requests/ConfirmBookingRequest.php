@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\TravellerBand;
+use App\Models\AgeBand;
 use App\Models\CabinCategory;
 use App\Models\PromoCode;
 use App\Models\Sailing;
@@ -57,17 +58,20 @@ class ConfirmBookingRequest extends FormRequest
 
     public function messages(): array
     {
+        // In the visitor's language (lang/{en,ar}/site.php → booking.errors)
+        $e = fn (string $key) => __("site.booking.errors.$key");
+
         return [
-            'guests.adult.min' => 'Every booking needs at least one adult.',
-            'travellers.*.first.*' => 'Enter each first name using letters only, in Arabic or English.',
-            'travellers.*.last.*' => 'Enter each last name using letters only, in Arabic or English.',
-            'travellers.*.dob.*' => 'Enter a date of birth for every traveller.',
-            'travellers.*.gender.*' => 'Select a gender for every traveller.',
-            'travellers.*.nationality.*' => 'Select a nationality for every traveller.',
-            'contact.email.*' => 'Enter an email like name@example.com.',
-            'contact.dial.*' => 'Choose a country code.',
-            'contact.phone.*' => 'Enter a mobile number.',
-            'agreed.accepted' => 'Tick the box to accept the terms before you continue.',
+            'guests.adult.min' => $e('adult_required'),
+            'travellers.*.first.*' => $e('first_each'),
+            'travellers.*.last.*' => $e('last_each'),
+            'travellers.*.dob.*' => $e('dob_each'),
+            'travellers.*.gender.*' => $e('gender_each'),
+            'travellers.*.nationality.*' => $e('nationality_each'),
+            'contact.email.*' => $e('email_invalid'),
+            'contact.dial.*' => $e('dial'),
+            'contact.phone.*' => $e('phone_required'),
+            'agreed.accepted' => $e('agree'),
         ];
     }
 
@@ -84,7 +88,7 @@ class ConfirmBookingRequest extends FormRequest
 
         $this->sailing = Sailing::upcoming()->with('cruise')->where('code', $this->input('sailing'))->first();
         if (! $this->sailing || ! $this->sailing->cruise->is_active || $this->sailing->cruise->trashed()) {
-            $validator->errors()->add('sailing', 'This sailing is no longer available. Choose another date.');
+            $validator->errors()->add('sailing', __('site.booking.errors.sailing_gone'));
 
             return;
         }
@@ -92,12 +96,13 @@ class ConfirmBookingRequest extends FormRequest
         $cabin = CabinCategory::where('ship_id', $this->sailing->cruise->ship_id)->where('slug', $this->input('cabin'))->first();
         $this->price = $cabin ? $this->sailing->cabinPrices()->with('cabinCategory')->where('cabin_category_id', $cabin->id)->first() : null;
         if (! $this->price) {
-            $validator->errors()->add('cabin', 'Choose a cabin for this sailing.');
+            $validator->errors()->add('cabin', __('site.booking.errors.choose_cabin'));
 
             return;
         }
+        $cabinName = app()->getLocale() === 'ar' ? ($cabin->name_ar ?: $cabin->name_en) : $cabin->name_en;
         if ($this->price->is_sold_out) {
-            $validator->errors()->add('cabin', "{$cabin->name_en} is sold out on this date. Choose another cabin.");
+            $validator->errors()->add('cabin', __('site.booking.errors.cabin_sold_out', ['cabin' => $cabinName]));
 
             return;
         }
@@ -106,11 +111,11 @@ class ConfirmBookingRequest extends FormRequest
         // Adults and children fill the cabin (at most 3); infants are free and limited separately (at most 4)
         $paying = $guests['adult'] + $guests['child'];
         if ($paying > $cabin->capacity()) {
-            $validator->errors()->add('guests', "{$cabin->name_en} fits up to {$cabin->capacity()} adults and children, and you've added {$paying}.");
+            $validator->errors()->add('guests', __('site.booking.errors.cabin_too_small', ['cabin' => $cabinName, 'max' => $cabin->capacity(), 'count' => $paying]));
         }
         $maxInfants = (int) config('cruise.max_infants_per_cabin');
         if ($guests['infant'] > $maxInfants) {
-            $validator->errors()->add('guests', "A cabin takes up to {$maxInfants} infants.");
+            $validator->errors()->add('guests', __('site.booking.errors.too_many_infants', ['max' => $maxInfants]));
         }
 
         $this->checkTravellers($validator, $guests);
@@ -122,7 +127,7 @@ class ConfirmBookingRequest extends FormRequest
         if ($this->filled('promoCode')) {
             $this->promo = PromoCode::findRedeemable($this->input('promoCode'));
             if (! $this->promo) {
-                $validator->errors()->add('promoCode', "That code isn't valid for this sailing. Remove it and try again.");
+                $validator->errors()->add('promoCode', __('site.booking.errors.promo_invalid'));
             }
         }
     }
@@ -145,17 +150,19 @@ class ConfirmBookingRequest extends FormRequest
         $sorted = $expected;
         sort($sorted);
         if ($given !== $sorted) {
-            $validator->errors()->add('travellers', 'Enter the details of every traveller.');
+            $validator->errors()->add('travellers', __('site.booking.errors.travellers'));
 
             return;
         }
 
         $ages = app(AgeBandValidator::class);
+        // "Adult 1", "رضيع 1": band labels from Admin → Age bands, in the visitor's language
+        $labels = AgeBand::all()->mapWithKeys(fn (AgeBand $b) => [$b->key->value => $b->tr('label')]);
         foreach ($expected as $key) {
             [$band, $n] = explode('-', $key);
             $error = $ages->check(TravellerBand::from($band), $this->input("travellers.$key.dob"), $this->sailing->departure_date);
             if ($error) {
-                $validator->errors()->add("travellers.$key.dob", ucfirst($band)." $n: $error");
+                $validator->errors()->add("travellers.$key.dob", __('site.booking.errors.traveller', ['traveller' => ($labels[$band] ?? ucfirst($band))." $n", 'error' => $error]));
             }
         }
     }
@@ -165,14 +172,16 @@ class ConfirmBookingRequest extends FormRequest
     {
         $n = ltrim(preg_replace('/[\s\-()]/', '', $raw), '0');
 
-        return match (true) {
-            $n === '' => 'Enter a mobile number.',
-            ! ctype_digit($n) => 'Use digits only.',
-            $dial === '+966' && ! preg_match('/^5\d{8}$/', $n) => 'Saudi mobile numbers have 9 digits and start with 5.',
-            $dial === '+20' && ! preg_match('/^1\d{9}$/', $n) => 'Egyptian mobile numbers have 10 digits and start with 1.',
-            strlen($n) < 7 || strlen($n) > 12 => 'Enter a mobile number with 7 to 12 digits.',
+        $key = match (true) {
+            $n === '' => 'phone_required',
+            ! ctype_digit($n) => 'phone_digits',
+            $dial === '+966' && ! preg_match('/^5\d{8}$/', $n) => 'phone_sa',
+            $dial === '+20' && ! preg_match('/^1\d{9}$/', $n) => 'phone_eg',
+            strlen($n) < 7 || strlen($n) > 12 => 'phone_length',
             default => null,
         };
+
+        return $key ? __("site.booking.errors.$key") : null;
     }
 
     /** @return array{adult: int, child: int, infant: int} */

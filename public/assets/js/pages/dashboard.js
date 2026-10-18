@@ -2,9 +2,11 @@
    Account dashboard — /account  (#overview | #bookings | #favorites | #profile)
    Laravel: profile, bookings and favourites come from the signed-in
    account (SC_DATA.account); changes are saved with SC.api().
+   Words: lang/{en,ar}/site.php → account (SC.t / SC.tc).
    ===================================================================== */
 document.addEventListener('sc:ready', () => {
   const D = window.SC_DATA, { $, $$ } = SC;
+  const t = (key, r) => SC.t(`account.${key}`, r);
 
   /* ---------- Profile ---------- */
   const profile = D.account.profile;
@@ -12,7 +14,7 @@ document.addEventListener('sc:ready', () => {
     $('#u-name').textContent = `${profile.first} ${profile.last}`.trim();
     $('#u-email').textContent = profile.email;
     $('#u-initials').textContent = ((profile.first || '')[0] || '') + ((profile.last || '')[0] || '');
-    $('#greeting').textContent = profile.first ? `Welcome back, ${profile.first}` : 'Welcome back';
+    $('#greeting').textContent = profile.first ? t('welcome_name', { name: profile.first }) : t('welcome');
   };
 
   /* ---------- Bookings (from the account) ---------- */
@@ -20,32 +22,32 @@ document.addEventListener('sc:ready', () => {
   const group = (b) => (b.status === 'cancelled' ? 'cancelled' : SC.daysUntil(b.departure) >= 0 ? 'upcoming' : 'past');
   const imgFor = (b) => SC.getCruise(b.cruiseId)?.image || b.image;
 
-  const STATUS = { upcoming: ['tag-lagoon', 'Confirmed'], past: ['tag-ocean', 'Completed'], cancelled: ['tag-sun', 'Cancelled'] };
-  const PAYMENT = { unpaid: ['tag-sun', 'Payment pending'], partial: ['tag-sun', 'Part paid'], paid: ['tag-lagoon', 'Paid'], refunded: ['tag-ocean', 'Refunded'] };
+  const STATUS = { upcoming: ['tag-lagoon', t('status_confirmed')], past: ['tag-ocean', t('status_completed')], cancelled: ['tag-sun', t('status_cancelled')] };
+  const PAYMENT = { unpaid: ['tag-sun', t('payment_unpaid')], partial: ['tag-sun', t('payment_partial')], paid: ['tag-lagoon', t('payment_paid')], refunded: ['tag-ocean', t('payment_refunded')] };
   const paymentTag = (b) => (PAYMENT[b.paymentStatus] ? `<span class="tag ${PAYMENT[b.paymentStatus][0]}">${PAYMENT[b.paymentStatus][1]}</span>` : '');
   const bookingCard = (b) => {
     const g = group(b); const cab = SC.getCabin(b.cabinId); const days = SC.daysUntil(b.departure);
     return `<article class="card overflow-hidden flex flex-col md:flex-row ${g === 'cancelled' ? 'opacity-80' : ''}">
       <div class="relative md:w-56 aspect-[16/9] md:aspect-auto"><img src="${imgFor(b)}" alt="" class="absolute inset-0 w-full h-full object-cover ${g !== 'upcoming' ? 'grayscale-[40%]' : ''}" loading="lazy"></div>
       <div class="flex-1 p-5">
-        <div class="flex flex-wrap items-center gap-2"><span class="tag ${STATUS[g][0]}">${STATUS[g][1]}</span>${g === 'upcoming' ? paymentTag(b) : ''}${g === 'upcoming' && days >= 0 ? `<span class="text-xs font-bold text-muted">${days === 0 ? 'Sails today' : `Sails in ${SC.plural(days, 'day')}`}</span>` : ''}</div>
+        <div class="flex flex-wrap items-center gap-2"><span class="tag ${STATUS[g][0]}">${STATUS[g][1]}</span>${g === 'upcoming' ? paymentTag(b) : ''}${g === 'upcoming' && days >= 0 ? `<span class="text-xs font-bold text-muted">${days === 0 ? t('sails_today') : SC.tc('account.sails_in', days)}</span>` : ''}</div>
         <h3 class="font-display font-semibold text-lg mt-2">${SC.esc(b.cruiseName)}</h3>
-        <p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}, ${SC.esc(SC.port(b.departurePort))}</p>
+        <p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}${SC.lang() === 'ar' ? '، ' : ', '}${SC.esc(SC.port(b.departurePort))}</p>
         <dl class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <div><dt class="text-xs text-muted font-semibold">Reference</dt><dd class="font-bold tabular">${b.ref}</dd></div>
-          <div><dt class="text-xs text-muted font-semibold">Cabin</dt><dd class="font-bold">${cab ? cab.nameEn : ''}</dd></div>
-          <div><dt class="text-xs text-muted font-semibold">Guests</dt><dd class="font-bold">${SC.guestText(b.guests)}</dd></div>
-          <div><dt class="text-xs text-muted font-semibold">Total</dt><dd class="font-bold tabular">${SC.money(b.amountDue)}</dd></div>
+          <div><dt class="text-xs text-muted font-semibold">${t('reference')}</dt><dd class="font-bold tabular" dir="ltr">${b.ref}</dd></div>
+          <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.cabin')}</dt><dd class="font-bold">${cab ? cab.nameEn : ''}</dd></div>
+          <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.guests')}</dt><dd class="font-bold">${SC.guestText(b.guests)}</dd></div>
+          <div><dt class="text-xs text-muted font-semibold">${t('total')}</dt><dd class="font-bold tabular">${SC.money(b.amountDue)}</dd></div>
         </dl>
       </div>
       <div class="p-5 pt-0 md:pt-5 md:w-48 flex md:flex-col gap-2 md:border-s md:border-line md:justify-center">
-        <button class="btn btn-primary btn-sm flex-1 md:flex-none" data-booking="${b.ref}">View details</button>
-        ${g === 'upcoming' ? `<a class="btn btn-outline btn-sm flex-1 md:flex-none" target="_blank" rel="noopener" href="${SC.whatsapp(`Hello, I'd like to change booking ${b.ref}.`)}">Change booking</a>` : ''}
-        ${g === 'past' ? `<a class="btn btn-outline btn-sm flex-1 md:flex-none" href="${SC.detailsUrl({ cruiseId: b.cruiseId })}">Book again</a>` : ''}
+        <button class="btn btn-primary btn-sm flex-1 md:flex-none" data-booking="${b.ref}">${t('view_details')}</button>
+        ${g === 'upcoming' ? `<a class="btn btn-outline btn-sm flex-1 md:flex-none" target="_blank" rel="noopener" href="${SC.whatsapp(t('whatsapp_change', { ref: b.ref }))}">${t('change')}</a>` : ''}
+        ${g === 'past' ? `<a class="btn btn-outline btn-sm flex-1 md:flex-none" href="${SC.detailsUrl({ cruiseId: b.cruiseId })}">${t('book_again')}</a>` : ''}
       </div>
     </article>`;
   };
-  const empty = (title, text) => `<div class="card p-10 text-center"><span class="inline-grid place-items-center w-14 h-14 rounded-2xl bg-ocean-50 text-ocean-600">${SC.icon('ticket', 'w-7 h-7')}</span><h3 class="font-display font-semibold text-lg mt-4">${title}</h3><p class="text-muted mt-1">${text}</p><a href="${SC.route('catalog')}" class="btn btn-primary mt-5">Browse cruises</a></div>`;
+  const empty = (title, text) => `<div class="card p-10 text-center"><span class="inline-grid place-items-center w-14 h-14 rounded-2xl bg-ocean-50 text-ocean-600">${SC.icon('ticket', 'w-7 h-7')}</span><h3 class="font-display font-semibold text-lg mt-4">${title}</h3><p class="text-muted mt-1">${text}</p><a href="${SC.route('catalog')}" class="btn btn-primary mt-5">${SC.t('booking.browse')}</a></div>`;
 
   const renderBookings = () => {
     const by = { upcoming: [], past: [], cancelled: [] };
@@ -54,31 +56,35 @@ document.addEventListener('sc:ready', () => {
     by.past.sort((a, b) => b.departure.localeCompare(a.departure));
     Object.entries(by).forEach(([k, list]) => {
       $(`#n-${k}`).textContent = list.length;
-      $(`#list-${k}`).innerHTML = list.length ? list.map(bookingCard).join('') : empty(k === 'upcoming' ? 'No upcoming cruises' : `No ${k} bookings`, k === 'upcoming' ? 'Your next sailing will appear here once it is booked.' : 'Nothing here yet.');
+      $(`#list-${k}`).innerHTML = list.length ? list.map(bookingCard).join('') : empty(t(`no_${k}`), k === 'upcoming' ? t('no_upcoming_text') : t('nothing'));
     });
     return by;
   };
+
+  /* A saved price line in the page language: the label was stored in the language of the booking, so use its
+     band (single / double / extra / infant, or adult / child on bookings made before tiered pricing) */
+  const lineLabel = (l) => (SC.t(`pricing.${l.band}`) !== `pricing.${l.band}` ? SC.t(`pricing.${l.band}`) : D.ageBands[l.band]?.label || l.label);
 
   /* Booking detail modal */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-booking]'); if (!btn) return;
     const b = bookings.find((x) => x.ref === btn.dataset.booking); const cab = SC.getCabin(b.cabinId); const q = b.quote;
-    const body = SC.ensureModal('booking-modal', { title: `Booking ${b.ref}`, width: '720px' });
+    const body = SC.ensureModal('booking-modal', { title: t('booking_title', { ref: b.ref }), width: '720px' });
     body.innerHTML = `
-      <div class="flex gap-4 items-center"><img src="${cab ? cab.images[0] : imgFor(b)}" alt="" class="w-24 h-20 rounded-xl object-cover"><div><p class="font-display font-semibold text-lg">${SC.esc(b.cruiseName)}</p><p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}</p><p class="text-sm text-muted">${cab ? cab.nameEn : ''}, ${SC.esc(SC.port(b.departurePort))} to ${SC.esc(SC.port(b.arrivalPort))}</p></div></div>
-      <h3 class="font-bold mt-6 mb-2">Travellers</h3>
+      <div class="flex gap-4 items-center"><img src="${cab ? cab.images[0] : imgFor(b)}" alt="" class="w-24 h-20 rounded-xl object-cover"><div><p class="font-display font-semibold text-lg">${SC.esc(b.cruiseName)}</p><p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}</p><p class="text-sm text-muted">${cab ? cab.nameEn : ''}${SC.lang() === 'ar' ? '، ' : ', '}${SC.esc(SC.t('booking.route', { from: SC.port(b.departurePort), to: SC.port(b.arrivalPort) }))}</p></div></div>
+      <h3 class="font-bold mt-6 mb-2">${SC.t('booking.travellers')}</h3>
       <ul class="grid gap-2 text-sm">${Object.entries(b.travellers).map(([k, t]) => `<li class="flex justify-between rounded-xl bg-page px-3 py-2"><span class="font-semibold">${SC.esc(t.first)} ${SC.esc(t.last)}</span><span class="text-muted">${D.ageBands[k.split('-')[0]].label}</span></li>`).join('')}</ul>
-      <h3 class="font-bold mt-6 mb-2">Price</h3>
+      <h3 class="font-bold mt-6 mb-2">${t('price')}</h3>
       <dl class="grid gap-1.5 text-sm tabular">
-        ${q.lines.map((l) => `<div class="flex justify-between"><dt class="text-muted">${l.label} ${SC.money(l.unit)} × ${l.qty}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
-        <div class="flex justify-between"><dt class="text-muted">Taxes & port fees</dt><dd>${SC.money(q.fees)}</dd></div>
-        ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>Discount</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
-        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>Total</dt><dd>${SC.money(q.total)}</dd></div>
-        <div class="flex justify-between"><dt class="text-muted">Paid so far</dt><dd>${SC.money(b.amountPaid)} ${paymentTag(b)}</dd></div>
+        ${q.lines.map((l) => `<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
+        <div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>
+        ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
+        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}</dt><dd>${SC.money(q.total)}</dd></div>
+        <div class="flex justify-between"><dt class="text-muted">${t('paid_so_far')}</dt><dd>${SC.money(b.amountPaid)} ${paymentTag(b)}</dd></div>
       </dl>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
-        <button class="btn btn-ghost" data-terms-link>Cancellation policy</button>
-        <a class="btn btn-outline" href="${b.voucherUrl}">${SC.icon('download', 'w-4 h-4')} Voucher</a>
+        <button class="btn btn-ghost" data-terms-link>${t('cancellation_policy')}</button>
+        <a class="btn btn-outline" href="${b.voucherUrl}">${SC.icon('download', 'w-4 h-4')} ${t('voucher')}</a>
       </div>`;
     body.querySelector('[data-terms-link]').onclick = () => { SC.modal.close('booking-modal'); SC.ui.openTerms('cancellation'); };
     SC.modal.open('booking-modal');
@@ -91,7 +97,7 @@ document.addEventListener('sc:ready', () => {
       <article class="card pass overflow-hidden flex flex-col md:flex-row" style="--perf-bg:#F5F8FB">
         <div class="relative md:w-2/5 aspect-[16/9] md:aspect-auto"><img src="${imgFor(next)}" alt="" class="absolute inset-0 w-full h-full object-cover"></div>
         <div class="flex-1 p-6">
-          <p class="text-xs font-bold text-lagoon-600">Your next cruise</p>
+          <p class="text-xs font-bold text-lagoon-600">${t('next_cruise')}</p>
           <h2 class="font-display font-semibold text-2xl mt-1">${SC.esc(next.cruiseName)}</h2>
           <div class="mt-5 flex items-center gap-3 text-sm">
             <div><p class="font-bold">${SC.fmtDate(next.departure, { day: 'numeric', month: 'short' })}</p><p class="text-muted">${SC.esc(SC.port(next.departurePort))}</p></div>
@@ -100,25 +106,26 @@ document.addEventListener('sc:ready', () => {
           </div>
         </div>
         <div class="md:w-44 p-6 md:border-s-2 md:border-dashed md:border-line flex md:flex-col items-center justify-between md:justify-center gap-3 bg-ocean-50/60">
-          <div class="text-center"><p class="font-display font-bold text-4xl text-ocean-700 tabular">${Math.max(0, SC.daysUntil(next.departure))}</p><p class="text-sm text-muted">days to go</p></div>
-          <button class="btn btn-primary btn-sm" data-booking="${next.ref}">Details</button>
+          <div class="text-center"><p class="font-display font-bold text-4xl text-ocean-700 tabular">${Math.max(0, SC.daysUntil(next.departure))}</p><p class="text-sm text-muted">${t('days_to_go')}</p></div>
+          <button class="btn btn-primary btn-sm" data-booking="${next.ref}">${t('details')}</button>
         </div>
-      </article>` : empty('No upcoming cruises', 'Pick a sailing and your countdown starts here.');
+      </article>` : empty(t('no_upcoming'), t('countdown'));
     const stat = (icon, n, label) => `<div class="card p-5 flex items-center gap-4"><span class="grid place-items-center w-11 h-11 rounded-xl bg-ocean-50 text-ocean-600">${SC.icon(icon)}</span><div><p class="font-display font-bold text-2xl tabular">${n}</p><p class="text-sm text-muted">${label}</p></div></div>`;
-    $('#stats').innerHTML = stat('ticket', by.upcoming.length, 'Upcoming cruises') + stat('anchor', by.past.length, 'Cruises completed') + stat('heart', SC.favs.all().length, 'Saved cruises');
+    $('#stats').innerHTML = stat('ticket', by.upcoming.length, t('stat_upcoming')) + stat('anchor', by.past.length, t('stat_completed')) + stat('heart', SC.favs.all().length, t('stat_saved'));
   };
 
   /* ---------- Favourites ---------- */
   const renderFavs = () => {
     const views = SC.favs.all().map((id) => SC.allSailings().find((s) => s.cruiseId === id)).filter(Boolean);
     $('#fav-grid').innerHTML = views.length ? views.map((v) => SC.ui.sailingCard(v)).join('')
-      : `<div class="sm:col-span-2 xl:col-span-3 card p-10 text-center"><span class="inline-grid place-items-center w-14 h-14 rounded-2xl bg-ocean-50 text-rose-500">${SC.icon('heart', 'w-7 h-7')}</span><h3 class="font-display font-semibold text-lg mt-4">No saved cruises yet</h3><p class="text-muted mt-1">Tap the heart on any cruise to keep it here.</p><a href="${SC.route('catalog')}" class="btn btn-primary mt-5">Browse cruises</a></div>`;
+      : `<div class="sm:col-span-2 xl:col-span-3 card p-10 text-center"><span class="inline-grid place-items-center w-14 h-14 rounded-2xl bg-ocean-50 text-rose-500">${SC.icon('heart', 'w-7 h-7')}</span><h3 class="font-display font-semibold text-lg mt-4">${t('no_favs')}</h3><p class="text-muted mt-1">${t('no_favs_text')}</p><a href="${SC.route('catalog')}" class="btn btn-primary mt-5">${SC.t('booking.browse')}</a></div>`;
   };
   document.addEventListener('sc:favs', () => { renderFavs(); renderOverview(by); });
 
   /* ---------- Profile forms ---------- */
   D.dialCodes.forEach(([c, iso]) => $('#p-dial').add(new Option(`${iso} ${c}`, c)));
-  D.nationalities.forEach((n) => $('#p-nat').add(new Option(n, n)));
+  $('#p-nat').add(new Option(SC.t('booking.select_nationality'), ''));
+  D.nationalities.forEach((n) => $('#p-nat').add(new Option(SC.natLabel(n), n)));
   const fill = () => { $('#p-first').value = profile.first; $('#p-last').value = profile.last; $('#p-email').value = profile.email; $('#p-dial').value = profile.dial; $('#p-phone').value = profile.phone; $('#p-dob').value = profile.dob; $('#p-nat').value = profile.nationality; };
   // Shows/hides the .err line under a field (phone input sits inside a .flex row, so its error is one level up)
   const flag = (el, bad, msg) => {
@@ -137,14 +144,14 @@ document.addEventListener('sc:ready', () => {
       flag($('#p-email'), !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('#p-email').value.trim())),
       flag($('#p-phone'), !!$('#p-phone').value.trim() && !/^\d{7,12}$/.test($('#p-phone').value.replace(/\s/g, '')))
     ].some(Boolean);
-    if (bad) return SC.toast('Fix the highlighted fields to save', 'error');
+    if (bad) return SC.toast(t('fix_fields'), 'error');
     const next = { first: $('#p-first').value.trim(), last: $('#p-last').value.trim(), email: $('#p-email').value.trim(), dial: $('#p-dial').value, phone: $('#p-phone').value.replace(/\s/g, ''), dob: $('#p-dob').value, nationality: $('#p-nat').value };
     const r = await SC.api('PUT', SC.route('accountProfile'), next);
     if (!r.ok) return SC.toast(SC.apiError(r), 'error');
-    Object.assign(profile, r.data.profile); paintUser(); SC.toast('Changes saved');
+    Object.assign(profile, r.data.profile); paintUser(); SC.toast(t('saved'));
   });
 
-  const NOTIF = [['reminders', 'Trip reminders', 'Check-in times and what to bring, a week before you sail.'], ['whatsapp', 'WhatsApp updates', 'Booking changes and port updates by WhatsApp.'], ['offers', 'New sailings and offers', 'At most two emails a month.']];
+  const NOTIF = ['reminders', 'whatsapp', 'offers'].map((k) => [k, t(`notif_${k}`), t(`notif_${k}_text`)]);
   $('#notif').innerHTML = NOTIF.map(([k, t, d]) => `
     <li class="py-4 flex items-center justify-between gap-4">
       <div><p class="font-bold">${t}</p><p class="text-sm text-muted">${d}</p></div>
@@ -162,7 +169,7 @@ document.addEventListener('sc:ready', () => {
     profile.notif[s.dataset.notif] = on; paintSwitch(s, on);
     const r = await SC.api('PUT', SC.route('accountNotifications'), profile.notif);
     if (!r.ok) { profile.notif[s.dataset.notif] = !on; paintSwitch(s, !on); return SC.toast(SC.apiError(r), 'error'); }
-    SC.toast(on ? 'Notifications on' : 'Notifications off');
+    SC.toast(t(on ? 'notif_on' : 'notif_off'));
   });
 
   $('#pw-form').addEventListener('submit', async (e) => {
@@ -175,7 +182,7 @@ document.addEventListener('sc:ready', () => {
       if (r.data?.errors?.current_password) return flag($('#pw-old'), true, r.data.errors.current_password[0]);
       return SC.toast(SC.apiError(r), 'error');
     }
-    e.target.reset(); SC.toast('Password updated');
+    e.target.reset(); SC.toast(t('password_updated'));
   });
 
   $('#sign-out').addEventListener('click', async () => {

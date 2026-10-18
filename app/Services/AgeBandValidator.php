@@ -32,13 +32,14 @@ class AgeBandValidator
      */
     public function check(TravellerBand $band, ?string $dob, CarbonInterface $departure): ?string
     {
+        // Messages in the visitor's language: lang/{en,ar}/site.php → booking.errors (same words as SC.checkBand)
         if (! $dob) {
-            return 'Enter a date of birth.';
+            return __('site.booking.errors.dob_required');
         }
 
         $birth = Carbon::parse($dob)->startOfDay();
         if ($birth->isFuture()) {
-            return "Date of birth can't be in the future.";
+            return __('site.booking.errors.dob_future');
         }
 
         $rule = AgeBand::where('key', $band->value)->firstOrFail();
@@ -50,20 +51,9 @@ class AgeBandValidator
         }
 
         return match ($band) {
-            TravellerBand::Adult => sprintf(
-                'Adults must be %d or older on the departure date. Change the date or go back and add this guest as a child.',
-                intdiv($rule->min_months, 12),
-            ),
-            TravellerBand::Child => sprintf(
-                'Children must be %d–%d years old on the departure date.',
-                intdiv($rule->min_months, 12),
-                intdiv($max, 12) - 1,
-            ),
-            TravellerBand::Infant => sprintf(
-                'Infants must be at least %d months and under %d years old on the departure date.',
-                $rule->min_months,
-                intdiv($max, 12),
-            ),
+            TravellerBand::Adult => __('site.booking.errors.dob_adult', ['min' => intdiv($rule->min_months, 12)]),
+            TravellerBand::Child => __('site.booking.errors.dob_child', ['min' => intdiv($rule->min_months, 12), 'max' => intdiv($max, 12) - 1]),
+            TravellerBand::Infant => __('site.booking.errors.dob_infant', ['min' => $rule->min_months, 'max' => intdiv($max, 12)]),
         };
     }
 }

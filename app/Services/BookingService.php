@@ -102,7 +102,7 @@ class BookingService
 
         if ($price->is_sold_out || ($price->capacity !== null && $taken >= $price->capacity)) {
             throw ValidationException::withMessages([
-                'cabin' => 'This cabin has just sold out on this date. Choose another cabin or date.',
+                'cabin' => __('site.booking.errors.cabin_just_sold_out'),
             ]);
         }
     }

@@ -39,11 +39,11 @@ class AccountController extends Controller
             'dob' => ['nullable', 'date_format:Y-m-d', 'before:today'],
             'nationality' => ['nullable', Rule::in(config('cruise.nationalities'))],
         ], [
-            'first.*' => 'Enter your first name.',
-            'last.*' => 'Enter your last name.',
-            'email.unique' => 'Another account already uses this email.',
-            'email.*' => 'Enter an email like name@example.com.',
-            'phone.*' => 'Enter a mobile number with 7 to 12 digits.',
+            'first.*' => __('site.account.first_required'),
+            'last.*' => __('site.account.last_required'),
+            'email.unique' => __('site.account.email_taken'),
+            'email.*' => __('site.booking.errors.email_invalid'),
+            'phone.*' => __('site.booking.errors.phone_length'),
         ]);
 
         $user->update([
@@ -78,7 +78,7 @@ class AccountController extends Controller
             'current_password' => ['required', 'current_password'],
             'password' => ['required', 'confirmed', Password::min(8)->numbers()],
         ], [
-            'current_password.current_password' => "That isn't your current password.",
+            'current_password.current_password' => __('site.account.current_password_wrong'),
         ]);
 
         $request->user()->update(['password' => $data['password']]);
