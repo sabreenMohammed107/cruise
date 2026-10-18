@@ -15,9 +15,9 @@ document.addEventListener('sc:ready', () => {
   [...new Set(sailings.map((s) => s.departure.slice(0, 7)))].forEach((m) => monthSel.add(new Option(m, m)));
   [...new Set(sailings.map((s) => s.nights))].sort((a, b) => a - b).forEach((n) => nightSel.add(new Option(n, n)));
 
-  const guests = SC.guestsPref.get();
-  // Laravel: infants don't take a paid place; up to SC_DATA.maxInfants (4) per cabin
-  const limits = (band, g) => ({ min: band === 'adult' ? 1 : 0, max: band === 'infant' ? (D.maxInfants ?? 4) : 6 });
+  const guests = SC.fitGuests(SC.guestsPref.get()); // counts saved under older rules
+  // Laravel: one cabin per booking — at most SC_DATA.maxCabinGuests (3) guests, infants included, infants with an adult
+  const limits = (band, g) => SC.guestLimits(band, g);
   const counters = () => { $('#s-counters').innerHTML = ['adult', 'child', 'infant'].map((b) => SC.ui.counterRow(b, guests[b], limits(b, guests))).join(''); };
   counters();
   SC.ui.bindCounters($('#s-counters'), guests, (g) => {

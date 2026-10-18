@@ -14,10 +14,9 @@ return [
     'currency' => 'USD',
     'currency_symbol' => '$',
 
-    // Tiered occupancy pricing (PROJECT_STEPS.md step 9): a cabin takes at most 3 paying guests (adults + children)
-    // and, on top of them, up to 4 infants, who are free and don't count towards the paying limit.
+    // Cabin capacity (PROJECT_STEPS.md step 11): at most 3 guests in a cabin, counting adults, children AND infants.
+    // Every infant needs at least one adult in the booking. Infants are free (tiered pricing, step 9).
     'max_cabin_guests' => 3,
-    'max_infants_per_cabin' => 4,
 
     // No online payment: confirming creates the booking and the team arranges payment offline.
     'payment_contact_hours' => 24,

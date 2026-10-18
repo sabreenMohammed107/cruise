@@ -28,8 +28,8 @@ class CabinCategory extends Model
     }
 
     /**
-     * Paying guests (adults + children) this cabin takes: its own limit, never more than cruise.max_cabin_guests (3).
-     * Infants don't count; every cabin also takes up to cruise.max_infants_per_cabin (4) of them.
+     * Guests this cabin takes, adults + children + infants together: its own limit, never more than
+     * cruise.max_cabin_guests (3).
      */
     public function capacity(): int
     {

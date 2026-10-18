@@ -44,8 +44,9 @@ class PublicSiteTest extends TestCase
         // Stored prices are sent per sailing, so admin overrides reach the page
         $rsd = collect($data['cruises'])->firstWhere('id', 'red-sea-discovery');
         $this->assertSame(['single' => 5460.0, 'double' => 7280.0, 'extra' => 1680.0], collect($rsd['sailings'])->firstWhere('id', 'RSD-261213')['prices']['balcony']);
-        // Tiered pricing: at most 3 adults and children per cabin, plus up to 4 free infants
-        $this->assertSame([3, 4], [$data['maxCabinGuests'], $data['maxInfants']]);
+        // At most 3 guests per cabin, infants included (no separate infant limit any more)
+        $this->assertSame(3, $data['maxCabinGuests']);
+        $this->assertArrayNotHasKey('maxInfants', $data);
         $this->assertSame([3, 3, 3], array_column($data['cabins'], 'maxGuests'));
         // Promo codes are never published
         $this->assertEquals((object) [], $data['promos']);

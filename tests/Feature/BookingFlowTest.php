@@ -86,35 +86,50 @@ class BookingFlowTest extends TestCase
             ->assertJsonValidationErrors(['travellers.child-1.dob']);
     }
 
-    public function test_guest_limits_follow_the_template(): void
+    /** The payload for a party of the given size, with a traveller for every slot. */
+    private function party(int $adults, int $children, int $infants, string $cabin = 'balcony'): array
     {
-        // at most 4 infants per cabin
-        $this->postJson('/booking/confirm', $this->payload([
-            'guests' => ['adult' => 2, 'child' => 1, 'infant' => 5],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['guests.infant']);
+        $person = fn (string $first, string $dob) => ['first' => $first, 'last' => 'Alqahtani', 'dob' => $dob, 'gender' => 'Female', 'nationality' => 'Saudi Arabia'];
+        $travellers = [];
+        foreach (['adult' => [$adults, '1990-01-01'], 'child' => [$children, '2018-05-01'], 'infant' => [$infants, '2026-01-01']] as $band => [$n, $dob]) {
+            for ($i = 1; $i <= $n; $i++) {
+                $travellers["$band-$i"] = $person(ucfirst($band).chr(64 + $i), $dob);
+            }
+        }
 
-        // interior cabin fits 3 adults and children, party of 4
-        $this->postJson('/booking/confirm', $this->payload([
-            'cabin' => 'interior',
-            'guests' => ['adult' => 2, 'child' => 2, 'infant' => 0],
-            'travellers' => ['child-2' => ['first' => 'Ali', 'last' => 'Alqahtani', 'dob' => '2016-01-01', 'gender' => 'Male', 'nationality' => 'Saudi Arabia']],
-        ]))->assertUnprocessable()->assertJsonValidationErrors(['guests']);
-
+        return array_merge($this->payload(), [
+            'cabin' => $cabin,
+            'guests' => ['adult' => $adults, 'child' => $children, 'infant' => $infants],
+            'travellers' => $travellers,
+        ]);
     }
 
-    public function test_up_to_four_free_infants_on_top_of_a_full_cabin(): void
+    public function test_cabin_limit_counts_infants_and_infants_need_an_adult(): void
     {
-        $infant = fn (string $first) => ['first' => $first, 'last' => 'Alqahtani', 'dob' => '2026-01-01', 'gender' => 'Male', 'nationality' => 'Saudi Arabia'];
+        // 3 guests in total, infants included
+        $this->postJson('/booking/confirm', $this->party(2, 1, 1))->assertUnprocessable()
+            ->assertJsonValidationErrors(['guests' => "Balcony Cabin fits up to 3 guests including infants, and you've added 4."]);
+        $this->postJson('/booking/confirm', $this->party(1, 0, 3))->assertUnprocessable()->assertJsonValidationErrors(['guests']);
+        $this->postJson('/booking/confirm', $this->party(2, 2, 0, 'interior'))->assertUnprocessable()->assertJsonValidationErrors(['guests']);
 
-        $ref = $this->postJson('/booking/confirm', $this->payload([
-            'guests' => ['adult' => 2, 'child' => 1, 'infant' => 4],
-            'travellers' => ['infant-1' => $infant('Ali'), 'infant-2' => $infant('Omar'), 'infant-3' => $infant('Hamza'), 'infant-4' => $infant('Zaid')],
-        ]))->assertCreated()->json('reference');
+        // no adult: infants can't travel alone
+        $this->postJson('/booking/confirm', $this->party(0, 1, 1))->assertUnprocessable()
+            ->assertJsonValidationErrors(['guests.adult' => 'Infants must travel with at least one adult. Add an adult to the booking.']);
+        $this->postJson('/booking/confirm', $this->party(0, 1, 0))->assertUnprocessable()
+            ->assertJsonValidationErrors(['guests.adult' => 'Every booking needs at least one adult.']);
+    }
 
+    public function test_infants_fill_a_place_but_are_free(): void
+    {
+        // 1 adult + 2 infants: full cabin, single price
+        $ref = $this->postJson('/booking/confirm', $this->party(1, 0, 2))->assertCreated()->json('reference');
         $booking = Booking::where('reference', $ref)->firstOrFail();
-        // double 7280 + 3rd guest 1680; infants free and pay no fees
-        $this->assertSame(['8960.00', '735.00', '9695.00'], [$booking->fare_total, $booking->fees_total, $booking->grand_total]);
-        $this->assertSame(4, $booking->infants);
+        $this->assertSame(['5460.00', '245.00', '5705.00'], [$booking->fare_total, $booking->fees_total, $booking->grand_total]); // single; fees 1×35×7
+        $this->assertSame([1, 0, 2], [$booking->adults, $booking->children, $booking->infants]);
+
+        // 2 adults + 1 infant: double price
+        $ref = $this->postJson('/booking/confirm', $this->party(2, 0, 1))->assertCreated()->json('reference');
+        $this->assertSame('7280.00', Booking::where('reference', $ref)->value('fare_total'));
     }
 
     public function test_travellers_must_match_the_guest_counts(): void

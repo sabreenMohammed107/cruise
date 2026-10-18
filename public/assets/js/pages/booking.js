@@ -131,18 +131,23 @@ document.addEventListener('sc:ready', () => {
     const box = $(`#${el.id}-err`);
     if (box) { if (msg) box.textContent = msg; box.classList.toggle('show', !!msg); el.setAttribute('aria-describedby', box.id); }
   };
+  // Guest mix from the details page: every infant with an adult, everyone (infants included) within the cabin limit
+  const guestErr = () => SC.guestError(b.guests, cabin.maxGuests);
   const validateAll = (ui = true) => {
     const inputs = $$('#guests-form [data-rule]');
     let firstBad = null, bad = 0;
     inputs.forEach((el) => { const m = errorFor(el); if (m) { bad++; firstBad ||= el; } if (ui) showError(el, m); });
+    const mix = guestErr();
     if (ui) {
       const box = $('#form-error');
-      box.classList.toggle('hidden', !bad);
-      box.textContent = bad ? SC.tc('booking.errors.fields', bad) : '';
+      box.classList.toggle('hidden', !bad && !mix);
+      box.innerHTML = mix ? `${SC.esc(mix)} <a href="${detailsUrl}" class="underline">${t('change')}</a>` : bad ? SC.esc(SC.tc('booking.errors.fields', bad)) : '';
       firstBad?.focus();
     }
-    return !bad;
+    return !bad && !mix;
   };
+  // Shown straight away (without flagging the empty traveller fields) so the guest can go back and fix it
+  if (guestErr()) { $('#form-error').innerHTML = `${SC.esc(guestErr())} <a href="${detailsUrl}" class="underline">${t('change')}</a>`; $('#form-error').classList.remove('hidden'); }
 
   // Persist as the user types; validate on blur (and live once a field has been flagged)
   $('#guests-form').addEventListener('input', (e) => {
@@ -169,7 +174,6 @@ document.addEventListener('sc:ready', () => {
     const sectionHead = (title, step) => `<div class="flex items-center justify-between mb-4"><h2 class="font-display font-semibold text-lg">${title}</h2>${step ? `<button class="btn btn-ghost btn-sm" data-goto="${step}">${SC.icon('edit', 'w-4 h-4')} ${t('edit')}</button>` : `<a class="btn btn-ghost btn-sm" href="${detailsUrl}">${SC.icon('edit', 'w-4 h-4')} ${t('change')}</a>`}</div>`;
     const bandTag = { adult: 'tag-ocean', child: 'tag-lagoon', infant: 'tag-sun' };
     const longDate = (iso) => SC.fmtDate(iso, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-    const paying = b.guests.adult + b.guests.child;
 
     $('#review').innerHTML = `
       <section class="card p-5 sm:p-6">
@@ -188,7 +192,7 @@ document.addEventListener('sc:ready', () => {
           <img src="${cabin.images[0]}" alt="${cabin.nameEn}" class="w-full sm:w-44 aspect-[4/3] object-cover rounded-xl">
           <dl class="flex-1 grid grid-cols-2 gap-4">
             ${row(t('cabin_type'), cabin.nameEn)}${row(t('category'), `${cabin.nameAr} (${CAT_CODE[cabin.id] || cabin.id})`)}
-            ${row(t('guests_in_cabin'), `${t('guests_of', { count: paying, max: cabin.maxGuests })}${b.guests.infant ? ` + ${SC.tc('guests.infant', b.guests.infant)}` : ''}`)}${row(t('size'), cabin.size + (cabin.balcony ? ` + ${SC.t('ui.balcony_size', { size: cabin.balcony })}` : ''))}
+            ${row(t('guests_in_cabin'), t('guests_of', { count: SC.guestTotal(b.guests), max: cabin.maxGuests }))}${row(t('size'), cabin.size + (cabin.balcony ? ` + ${SC.t('ui.balcony_size', { size: cabin.balcony })}` : ''))}
             <div class="col-span-2"><button class="text-sm font-bold text-ocean-600 hover:underline" data-cabin-info>${t('cabin_info')}</button></div>
           </dl>
         </div>

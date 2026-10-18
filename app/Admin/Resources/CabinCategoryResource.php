@@ -39,7 +39,7 @@ class CabinCategoryResource extends Resource
             Field::text('badge', 'Badge')->arabic()->rules(['nullable', 'string', 'max:40'])->help('e.g. "Best value". Leave empty for none.'),
             Field::number('max_guests', 'Maximum guests')->default(config('cruise.max_cabin_guests'))
                 ->rules(['required', 'integer', 'min:1', 'max:'.config('cruise.max_cabin_guests')])->index()
-                ->help('Adults and children, at most '.config('cruise.max_cabin_guests').'. Infants don\'t count: every cabin also takes up to '.config('cruise.max_infants_per_cabin').' free infants. Prices are set per sailing: Cruises → Sailings.'),
+                ->help('Adults, children and infants together, at most '.config('cruise.max_cabin_guests').'. Prices are set per sailing: Cruises → Sailings.'),
             Field::text('short_description', 'Short description')->arabic()->rules(['nullable', 'string', 'max:255'])->wide(),
             Field::textarea('description', 'Description')->arabic()->rules(['nullable', 'string', 'max:3000']),
             Field::text('size', 'Size')->arabic()->rules(['nullable', 'string', 'max:40'])->help('e.g. "20 m²"'),

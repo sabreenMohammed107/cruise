@@ -58,7 +58,7 @@
         <p class="text-sm text-muted max-w-[80ch]">
           Price of the whole cabin for the {{ $cruise->nights }}-night cruise, in US dollars, by the number of paying guests (adults and children):
           <b>Single</b> = 1 guest, <b>Double</b> = 2 guests, <b>3rd guest</b> = added to the double price for a third adult or child.
-          A cabin takes at most {{ config('cruise.max_cabin_guests') }} adults and children; infants travel free and don't count, up to {{ config('cruise.max_infants_per_cabin') }} per cabin.
+          A cabin holds at most {{ config('cruise.max_cabin_guests') }} guests, infants included. Infants travel free and must be with at least one adult.
           Taxes and port fees per guest come from Age bands.
         </p>
         @if (! $sailing && $prices->isNotEmpty())
@@ -81,7 +81,7 @@
           @foreach ($cabins as $cabin)
             @php($p = $prices->get($cabin->id))
             <tr class="border-t border-line align-top">
-              <td class="p-3 font-bold">{{ $cabin->name_en }}<p class="text-xs text-muted font-normal">Up to {{ $cabin->capacity() }} guests + {{ config('cruise.max_infants_per_cabin') }} infants</p></td>
+              <td class="p-3 font-bold">{{ $cabin->name_en }}<p class="text-xs text-muted font-normal">Up to {{ $cabin->capacity() }} guests incl. infants</p></td>
               @foreach (['single' => 'single', 'double' => 'double', 'extra' => '3rd guest'] as $tier => $label)
                 <td class="p-3">
                   <input name="prices[{{ $cabin->id }}][{{ $tier }}]" type="number" step="0.01" min="0" class="field !py-2 tabular !w-28 @error("prices.{$cabin->id}.{$tier}") is-invalid @enderror" aria-label="{{ $cabin->name_en }} {{ $label }} price"
@@ -101,7 +101,7 @@
         </tbody>
       </table>
       <p class="p-5 text-xs text-muted">
-        Example: 2 adults + 1 child pay Double + 3rd guest; 1 adult + 2 infants pay Single.
+        Example: 2 adults + 1 child pay Double + 3rd guest; 2 adults + 1 infant pay Double; 1 adult + 2 infants pay Single.
         "Cabins available" stops online bookings once that many confirmed bookings exist for the cabin on this date. Leave empty for no limit.
       </p>
     </section>

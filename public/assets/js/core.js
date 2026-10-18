@@ -202,8 +202,7 @@
      4. PRICING ENGINE — tiered occupancy (same rules as App\Services\PricingService)
      Each Sailing × Cabin has three cabin prices for the whole cruise, set in Admin → Sailings:
        single = 1 paying guest · double = 2 paying guests · extra = the 3rd guest (adult or child)
-     Adults + children fill the cabin (cabin.maxGuests, at most 3). Infants are free and don't count:
-     every cabin also takes up to SC_DATA.maxInfants (4) of them.
+     Infants are free, but they count towards the cabin limit (see SC.guestLimits below).
      Total = fare lines + fees − discount. The server recalculates it when the booking is confirmed.
      ------------------------------------------------------------------ */
   const r5 = (n) => Math.round(n / 5) * 5;
@@ -233,8 +232,32 @@
     const discount = promo ? r5(fare * promo.value / 100) : 0;
     return { prices, lines, fare, fees, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
   };
+  /* Guest rules (same as App\Http\Requests\ConfirmBookingRequest):
+     - adults + children + infants together ≤ cap (the cabin's maxGuests, at most SC_DATA.maxCabinGuests = 3)
+     - at least one adult; every infant travels with an adult
+     guestLimits(band, guests, cap) → { min, max } for a +/- counter; guestError(guests, cap) → message or null. */
+  SC.maxCabinGuests = () => D.maxCabinGuests || 3;
+  SC.guestTotal = (g) => (g.adult || 0) + (g.child || 0) + (g.infant || 0);
+  SC.guestLimits = (band, g, cap = SC.maxCabinGuests()) => {
+    const room = Math.max(0, cap - (SC.guestTotal(g) - (g[band] || 0)));
+    if (band === 'adult') return { min: 1, max: Math.max(1, room) };
+    if (band === 'infant') return { min: 0, max: g.adult >= 1 ? room : 0 };
+    return { min: 0, max: room };
+  };
+  // Counts saved under older rules are trimmed to fit: infants first, then children, then adults (never below 1)
+  SC.fitGuests = (g, cap = SC.maxCabinGuests()) => {
+    g.adult = Math.max(1, g.adult || 0); g.child = g.child || 0; g.infant = g.infant || 0;
+    for (const band of ['infant', 'child', 'adult']) while (SC.guestTotal(g) > cap && g[band] > (band === 'adult' ? 1 : 0)) g[band]--;
+    return g;
+  };
+  SC.guestError = (g, cap = SC.maxCabinGuests()) => {
+    if ((g.infant || 0) > 0 && (g.adult || 0) < 1) return SC.t('booking.errors.infant_needs_adult');
+    if ((g.adult || 0) < 1) return SC.t('booking.errors.adult_required');
+    if (SC.guestTotal(g) > cap) return SC.t('booking.errors.cabin_too_small', { cabin: '', max: cap, count: SC.guestTotal(g) }).trim();
+    return null;
+  };
   // Laravel: wording from lang/{en,ar}/site.php (English output unchanged)
-  SC.guestText = (g) => ['adult', 'child', 'infant'].filter((b) => g[b]).map((b) => SC.tc(`guests.${b}`, g[b])).join(SC.t('guests.join'));
+  SC.guestText =(g) => ['adult', 'child', 'infant'].filter((b) => g[b]).map((b) => SC.tc(`guests.${b}`, g[b])).join(SC.t('guests.join'));
 
   /* ------------------------------------------------------------------
      5. STORAGE (wrapped: private mode or blocked storage must not break pages)

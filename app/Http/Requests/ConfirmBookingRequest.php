@@ -40,7 +40,7 @@ class ConfirmBookingRequest extends FormRequest
             'guests' => ['required', 'array'],
             'guests.adult' => ['required', 'integer', 'min:1', 'max:'.config('cruise.max_cabin_guests')],
             'guests.child' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_cabin_guests')],
-            'guests.infant' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_infants_per_cabin')],
+            'guests.infant' => ['required', 'integer', 'min:0', 'max:'.config('cruise.max_cabin_guests')],
             'travellers' => ['required', 'array'],
             'travellers.*.first' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
             'travellers.*.last' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
@@ -62,7 +62,8 @@ class ConfirmBookingRequest extends FormRequest
         $e = fn (string $key) => __("site.booking.errors.$key");
 
         return [
-            'guests.adult.min' => $e('adult_required'),
+            // with infants in the party, say why an adult is needed
+            'guests.adult.min' => (int) $this->input('guests.infant') > 0 ? $e('infant_needs_adult') : $e('adult_required'),
             'travellers.*.first.*' => $e('first_each'),
             'travellers.*.last.*' => $e('last_each'),
             'travellers.*.dob.*' => $e('dob_each'),
@@ -108,14 +109,14 @@ class ConfirmBookingRequest extends FormRequest
         }
 
         $guests = $this->guests();
-        // Adults and children fill the cabin (at most 3); infants are free and limited separately (at most 4)
-        $paying = $guests['adult'] + $guests['child'];
-        if ($paying > $cabin->capacity()) {
-            $validator->errors()->add('guests', __('site.booking.errors.cabin_too_small', ['cabin' => $cabinName, 'max' => $cabin->capacity(), 'count' => $paying]));
+        // Same rules as SC.guestError() in core.js: every infant travels with an adult, and adults + children +
+        // infants together fit the cabin (at most 3, config cruise.max_cabin_guests)
+        if ($guests['infant'] > 0 && $guests['adult'] < 1) {
+            $validator->errors()->add('guests', __('site.booking.errors.infant_needs_adult'));
         }
-        $maxInfants = (int) config('cruise.max_infants_per_cabin');
-        if ($guests['infant'] > $maxInfants) {
-            $validator->errors()->add('guests', __('site.booking.errors.too_many_infants', ['max' => $maxInfants]));
+        $total = array_sum($guests);
+        if ($total > $cabin->capacity()) {
+            $validator->errors()->add('guests', __('site.booking.errors.cabin_too_small', ['cabin' => $cabinName, 'max' => $cabin->capacity(), 'count' => $total]));
         }
 
         $this->checkTravellers($validator, $guests);

@@ -39,9 +39,8 @@ class ScDataPresenter
             // Broken images fall back to core.js's placeholder drawing
             'imageFallbacks' => (object) [],
             'ageBands' => $this->ageBands(),
-            // Tiered occupancy pricing: paying guests per cabin (cabins[].maxGuests) and free infants per cabin
+            // Guests per cabin, infants included (cabins[].maxGuests is each cabin's own limit, never above this)
             'maxCabinGuests' => (int) config('cruise.max_cabin_guests'),
-            'maxInfants' => (int) config('cruise.max_infants_per_cabin'),
             'fees' => ['perGuestPerNight' => $this->fees()],
             // Promo codes are checked on the server (POST /booking/promo), never published here.
             'promos' => (object) [],

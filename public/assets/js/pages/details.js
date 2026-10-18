@@ -22,9 +22,10 @@ document.addEventListener('sc:ready', () => {
     cabinId: same && saved.sailingId === sailing.id ? saved.cabinId : null
   };
   const maxCapacity = () => Math.max(...SC.cabinsSorted().filter((c) => !(sailing.soldOut || []).includes(c.id)).map((c) => c.maxGuests));
-  // Laravel: tiered pricing — adults + children fill the cabin; infants are free and limited separately (SC_DATA.maxInfants)
-  const totalGuests = () => state.guests.adult + state.guests.child;
-  const maxInfants = D.maxInfants ?? 4;
+  // Laravel: adults, children and infants all count towards the cabin limit (SC.guestLimits in core.js)
+  const totalGuests = () => SC.guestTotal(state.guests);
+  SC.fitGuests(state.guests, maxCapacity()); // counts saved under older rules
+
 
   document.title = `${cruise.name} | Safer Cruise`;
   $('#wa-fab')?.classList.replace('bottom-5', 'bottom-24');
@@ -147,12 +148,8 @@ document.addEventListener('sc:ready', () => {
 
   /* ---------- Travellers (Who's travelling?) ---------- */
   $('#d-counters').innerHTML = ['adult', 'child', 'infant'].map((b) => SC.ui.counterRow(b, state.guests[b])).join('');
-  const limits = (band, g) => {
-    if (band === 'infant') return { min: 0, max: maxInfants };
-    const cap = maxCapacity(); const others = totalGuests() - g[band];
-    if (band === 'adult') return { min: 1, max: cap - others };
-    return { min: 0, max: cap - others };
-  };
+  // Up to the largest cabin still available on this date; infants need an adult
+  const limits = (band, g) => SC.guestLimits(band, g, maxCapacity());
   const repaintCounters = SC.ui.bindCounters($('#d-counters'), state.guests, () => {
     SC.guestsPref.set(state.guests);
     checkCapacity(true);

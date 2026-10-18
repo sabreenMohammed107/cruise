@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 112 tests
+C:\xampp\php\php.exe artisan test                     # 112 tests (step 11)
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -103,13 +103,13 @@ The template's rate card (cabin rate × nights × cruise factor × sailing facto
 Each Sailing × Cabin now has three admin-set prices for the **whole cabin and the whole cruise**:
 
 ```
-paying guests  = adults + children            // infants are free and don't take a place
+paying guests  = adults + children            // infants are free (but take a place, see cabin limit)
 1 paying guest  → fare = single
 2 paying guests → fare = double
 3 paying guests → fare = double + extra       // "3rd guest", adult or child
 infants         → $0
-cabin limit    = 3 adults + children           // config cruise.max_cabin_guests
-infant limit   = 4 per cabin, on top           // config cruise.max_infants_per_cabin
+cabin limit    = adults + children + infants ≤ 3   // config cruise.max_cabin_guests (step 11)
+infant rule    = every infant needs ≥ 1 adult in the booking
 fees           = Σ qty[band] × fee_per_night[band] × nights   // Age bands: adult 35, child 35, infant 0
 discount       = round5(fare × promo.percent / 100)           // applies to fare only (fixed codes: min(value, fare))
 total          = fare + fees − discount                       // = amount due
@@ -179,7 +179,7 @@ home_sections 1â”€* home_section_items   (homepage copy, step 5)
 
 **cabin_categories**: `ship_id`, `slug` (unique per ship), `name_en`, `name_ar`, `badge`, `short_description`,
 `description`, `max_guests`, `size`, `balcony_size`, `beds`, `bedroom`, `features` (json), `image_slots` (json, ordered
-slot keys), `sort_order`. `max_guests` (adults + children) is at most **3**; infants don't count (up to 4 per cabin); the per-night `base_rate_adult|child|infant`
+slot keys), `sort_order`. `max_guests` (adults + children + infants together) is at most **3**; the per-night `base_rate_adult|child|infant`
 columns were dropped in step 9.
 
 **cruises**: `ship_id` (restrict), `slug` (unique), `name`, `name_ar`, `nights`, `departure_port`, `arrival_port`,
@@ -301,7 +301,7 @@ Pages that don't run a template script get `ScDataPresenter::minimal()` through 
 
 **D3. Server owns prices and bookings.** `POST /booking/confirm` (`ConfirmBookingRequest` + `BookingService`)
 re-checks the sailing (upcoming, open), cabin (on the ship, not sold out, capacity), guest limits (at least 1 adult,
-adults + children ≤ cabin max, at most 4 infants: step 9), the exact traveller slots, names, every date of birth against its age band on the departure
+every infant with an adult, adults + children + infants ≤ cabin max: step 11), the exact traveller slots, names, every date of birth against its age band on the departure
 date, contact email/dial/phone (same rules as `booking.js`), the promo code and the terms box; then prices the
 booking with `PricingService` inside a transaction that locks the sailing Ã— cabin price row.
 
@@ -1065,7 +1065,10 @@ New business rules: a cabin is priced by how many people share it, not by multip
 | 1 paying guest (± infants) | Single |
 | 2 paying guests (± infant) | Double |
 | 3 paying guests | Double + 3rd guest (extra) |
-| Infants | Free ($0); don't count towards the cabin limit; up to 4 per cabin |
+| Infants | Free ($0); see step 11 for how they count towards the cabin limit |
+
+> **Superseded by step 11:** the capacity rule below (3 adults and children + up to 4 infants on top) was replaced
+> the same day. Infants now count towards the 3-guest limit and each needs an adult. Pricing is unchanged.
 
 - A cabin holds **at most 3 adults and children** (`config('cruise.max_cabin_guests')`, `CabinCategory::capacity()`),
   plus **up to 4 infants in every cabin** (`config('cruise.max_infants_per_cabin')`), who are free and take no paid
@@ -1148,7 +1151,7 @@ now follow the header's عربي button too.
 | --- | --- | --- |
 | `auth.*` (20) | `auth/login`, `auth/register`, `Auth\LoginController`, `Auth\RegisterController` | titles, intros, labels (first/last name, email, password, repeat), hint, remember me, buttons, toggle links, wrong-password and name/email errors |
 | `booking.*` (~65) | `booking/show`, `booking.js`, `confirmation` labels | stepper, empty state, traveller form labels, contact block, review sections (trip, cabin, travellers), price table, promo code, total note, terms sentence, confirm / confirming / failed |
-| `booking.errors.*` (37) | `booking.js`, `SC.checkBand`, `ConfirmBookingRequest`, `AgeBandValidator`, `BookingService`, `BookingController::promo` | field errors (name, email, phone per country, gender, nationality), the "N fields need attention" plural, date-of-birth rules per band, sold out, cabin too small, infants limit, promo invalid |
+| `booking.errors.*` (37) | `booking.js`, `SC.checkBand`, `ConfirmBookingRequest`, `AgeBandValidator`, `BookingService`, `BookingController::promo` | field errors (name, email, phone per country, gender, nationality), the "N fields need attention" plural, date-of-birth rules per band, sold out, cabin too small, infant needs an adult (step 11), promo invalid |
 | `genders`, `nationalities` | traveller forms, review, voucher, profile | English value → label; the English `nationalities` list is built from `config('cruise.nationalities')` |
 | `confirmation.*` (11) | `booking/confirmation` | headings, "details sent to…" sentence, reference, status badges, total, voucher buttons |
 | `account.*` (~75) | `account/dashboard`, `dashboard.js`, `AccountController` | menu, overview, stats, booking tabs and cards, status and payment tags, "sails in N days" plural, booking modal, favourites, profile and password forms, notifications, toasts |
@@ -1168,6 +1171,50 @@ text is translated; saved price lines are labelled from their band so old bookin
   password error). Checked in a headless browser on `localhost/cruise/public` in Arabic: booking with a sample
   booking (form, plural error summary, age message, review, summary), sign in, account overview, bookings, booking
   modal, notifications. No console errors.
+
+### Step 11: Cabin capacity counts infants; every infant needs an adult (2026-10-18)
+
+Replaces the capacity rule of step 9 ("3 adults and children, plus up to 4 free infants"). Tiered pricing is unchanged.
+
+**Rules** (one cabin per booking):
+
+| Rule | Detail |
+| --- | --- |
+| Cabin limit | **adults + children + infants ≤ 3** (`config('cruise.max_cabin_guests')`, `CabinCategory::capacity()` = the cabin's own `max_guests`, never above 3) |
+| Infant with adult | A party with infants must include **at least one adult**. Any number of infants is fine within the limit (1 adult + 2 infants is allowed) |
+| At least one adult | Unchanged: every booking needs an adult |
+| Price | Unchanged: adults + children pick the tier (single / double / double + extra); infants are $0 and pay no fees |
+
+Allowed: 1A, 2A, 3A, 1A+1C, 1A+2C, 2A+1C, 1A+1I, 1A+2I, 2A+1I, 1A+1C+1I. Blocked: anything above 3 people,
+and any party without an adult (e.g. 1 child + 1 infant).
+
+**Removed:** `config('cruise.max_infants_per_cabin')` (4), `SC_DATA.maxInfants`, the "too many infants" message, the
+separate infant counter limit in `details.js` and `home.js`, and the home search widget's old limit of 6 adults /
+6 children (now the same 3-guest rule).
+
+**Backend:** `ConfirmBookingRequest` checks `infant > 0 && adult < 1` (`booking.errors.infant_needs_adult`) and
+`adult + child + infant > capacity` (`booking.errors.cabin_too_small`, now "fits up to :max guests including
+infants"); `guests.*` are capped at 3; with infants in the party, the "at least one adult" error explains that infants
+need an adult.
+
+**Frontend** (`core.js`, shared by the pages):
+- `SC.guestLimits(band, guests, cap)`: min/max for each +/- counter: adults 1…room, children 0…room, infants 0…room
+  and **0 when there is no adult**; room = cap − the other guests.
+- `SC.guestError(guests, cap)`: same checks as the server, in the page language.
+- `SC.fitGuests(guests, cap)`: trims guest counts saved under older rules (infants first, then children, then adults).
+- `SC.guestTotal(guests)`.
+- `details.js`: counters use `SC.guestLimits` with the largest cabin still on sale; the "cabin too small" warning and
+  disabled cabins count infants. `home.js`: search counters use the same rule. `booking.js`: blocks the review step
+  with `SC.guestError` and a link back to the cabins if the saved party breaks the rules; "Guests in cabin" shows
+  everyone, e.g. "3 of 3".
+
+**Admin:** sailing form and cabin category help say "at most 3 guests, infants included; infants with an adult".
+
+- Tests: **112 passed**. `BookingFlowTest`: 2A+1C+1I, 1A+3I and 2A+2C rejected; 1C+1I without an adult rejected with
+  the infant message; 1A+2I booked at the single price ($5,460 + fees for 1 adult) and 2A+1I at the double price.
+  `PublicSiteTest`: `maxCabinGuests` 3 and no `maxInfants`. Checked in a headless browser on the details page: a
+  saved 2A+1C+4I party is trimmed to 2A+1C, counters stop at 3 people, infant "+" is only enabled with an adult and
+  room, adults never go below 1. No console errors.
 
 **Open items (next):**
 
