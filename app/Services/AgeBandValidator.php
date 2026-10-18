@@ -53,7 +53,8 @@ class AgeBandValidator
         return match ($band) {
             TravellerBand::Adult => __('site.booking.errors.dob_adult', ['min' => intdiv($rule->min_months, 12)]),
             TravellerBand::Child => __('site.booking.errors.dob_child', ['min' => intdiv($rule->min_months, 12), 'max' => intdiv($max, 12) - 1]),
-            TravellerBand::Infant => __('site.booking.errors.dob_infant', ['min' => $rule->min_months, 'max' => intdiv($max, 12)]),
+            // At least min_months (6) and under max_months_exclusive (24) whole months on the departure date
+            TravellerBand::Infant => trans_choice('site.booking.errors.dob_infant', intdiv($max, 12), ['min' => $rule->min_months, 'max' => intdiv($max, 12)]),
         };
     }
 }

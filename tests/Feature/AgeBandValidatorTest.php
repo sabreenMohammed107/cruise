@@ -60,6 +60,31 @@ class AgeBandValidatorTest extends TestCase
         );
     }
 
+    public function test_infant_under_six_months_gets_the_rule_in_both_languages(): void
+    {
+        // 5 months, a few weeks and newborn on 15 Nov 2026
+        foreach (['2026-05-16', '2026-09-20', '2026-10-01'] as $dob) {
+            $this->assertSame(
+                'Infants must be at least 6 months and under 2 years old on the departure date.',
+                $this->validator->check(TravellerBand::Infant, $dob, $this->departure),
+            );
+        }
+
+        app()->setLocale('ar');
+        $this->assertSame(
+            'يجب أن يكون عمر الرضيع 6 أشهر على الأقل وأقل من سنتين في تاريخ المغادرة.',
+            $this->validator->check(TravellerBand::Infant, '2026-05-16', $this->departure),
+        );
+    }
+
+    public function test_infant_age_is_counted_on_the_departure_date_not_today(): void
+    {
+        // 4 months old today (11 Oct 2026) but 6 months on the 15 Nov 2026 departure: allowed
+        $this->assertNull($this->validator->check(TravellerBand::Infant, '2026-05-15', $this->departure));
+        // the same baby on an earlier sailing (1 Nov 2026) is 5 months old: rejected
+        $this->assertNotNull($this->validator->check(TravellerBand::Infant, '2026-05-15', Carbon::parse('2026-11-01')));
+    }
+
     public function test_infant_must_be_under_two_on_departure(): void
     {
         $this->assertNull($this->validator->check(TravellerBand::Infant, '2024-11-16', $this->departure));

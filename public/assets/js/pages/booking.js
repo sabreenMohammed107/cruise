@@ -163,7 +163,11 @@ document.addEventListener('sc:ready', () => {
     if (el.tagName === 'SELECT' && el.dataset.key) { (b.travellers[el.dataset.key] ||= {})[el.dataset.f] = el.value; save(); }
     if (el.id === 'c-dial' && $('#c-phone').value) showError($('#c-phone'), errorFor($('#c-phone')));
   });
-  $('#guests-form').addEventListener('focusout', (e) => { if (e.target.dataset.rule && e.target.value) showError(e.target, errorFor(e.target)); });
+  // Pressing "Review booking" blurs the field first; showing its error then would push the button down before the
+  // mouse is released and the click would be lost. The submit check validates every field anyway.
+  let pressingSubmit = false;
+  $('#guests-form button[type=submit]').addEventListener('pointerdown', () => { pressingSubmit = true; setTimeout(() => (pressingSubmit = false), 1000); });
+  $('#guests-form').addEventListener('focusout', (e) => { if (!pressingSubmit && e.target.dataset.rule && e.target.value) showError(e.target, errorFor(e.target)); });
   $('#guests-form').addEventListener('submit', (e) => { e.preventDefault(); if (validateAll(true)) go('review'); });
 
   /* ---------- Step 2: review ---------- */

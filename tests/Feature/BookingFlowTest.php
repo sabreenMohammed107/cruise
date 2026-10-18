@@ -119,6 +119,24 @@ class BookingFlowTest extends TestCase
             ->assertJsonValidationErrors(['guests.adult' => 'Every booking needs at least one adult.']);
     }
 
+    public function test_infant_under_six_months_on_departure_blocks_the_booking(): void
+    {
+        // RSD-261213 departs 13 Dec 2026: born 14 Jun 2026 = 5 months; born 13 Jun 2026 = 6 months
+        $payload = $this->party(1, 0, 1);
+        $payload['travellers']['infant-1']['dob'] = '2026-06-14';
+
+        $this->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors([
+            'travellers.infant-1.dob' => 'Infant 1: Infants must be at least 6 months and under 2 years old on the departure date.',
+        ]);
+        $this->withCredentials()->withUnencryptedCookie('sc_lang', 'ar')->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors([
+            'travellers.infant-1.dob' => 'رضيع 1: يجب أن يكون عمر الرضيع 6 أشهر على الأقل وأقل من سنتين في تاريخ المغادرة.',
+        ]);
+        $this->assertSame(0, Booking::count() - 3); // only the 3 demo bookings
+
+        $payload['travellers']['infant-1']['dob'] = '2026-06-13';
+        $this->postJson('/booking/confirm', $payload)->assertCreated();
+    }
+
     public function test_infants_fill_a_place_but_are_free(): void
     {
         // 1 adult + 2 infants: full cabin, single price

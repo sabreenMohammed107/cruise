@@ -222,7 +222,8 @@ return [
             'dob_future' => "Date of birth can't be in the future.",
             'dob_adult' => 'Adults must be :min or older on the departure date. Change the date or go back and add this guest as a child.',
             'dob_child' => 'Children must be :min–:max years old on the departure date.',
-            'dob_infant' => 'Infants must be at least :min months and under :max years old on the departure date.',
+            // Plural on the upper limit in years (Admin → Age bands, normally 2): trans_choice() / SC.tc()
+            'dob_infant' => '{1} Infants must be at least :min months and under 1 year old on the departure date.|[2,*] Infants must be at least :min months and under :max years old on the departure date.',
             'traveller' => ':traveller: :error',
             'adult_required' => 'Every booking needs at least one adult.',
             'first_each' => 'Enter each first name using letters only, in Arabic or English.',

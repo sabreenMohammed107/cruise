@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 112 tests (step 11)
+C:\xampp\php\php.exe artisan test                     # 116 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1234,6 +1234,36 @@ Reported on `cruise.safer.travel`: the cruise list showed "0 sailings", and the 
   Tests: **113 passed** (new: versioned script and style URLs).
 - **Deploy:** upload `public/assets/js/pages/catalog.js`, `public/assets/js/pages/ship.js`, `app/Support/Asset.php`,
   `app/Providers/AppServiceProvider.php` and the views above, then run `php artisan view:clear` on the server.
+
+### Step 13: Infant age rule checked on the booking page and server (2026-10-18)
+
+**Rule:** an infant must be **at least 6 months and under 24 months (2 years)** old **on the departure date** of the
+sailing (not today). Age is counted in whole months: `(departure year − birth year) × 12 + (departure month − birth
+month)`, minus 1 if the departure day is before the birthday day. So for a 15 Nov 2026 departure, a baby born
+15 May 2026 (6 months) is accepted and one born 16 May 2026 (5 months) is not. The limits come from Admin → Age bands
+(`age_bands`: infant `min_months` 6, `max_months_exclusive` 24, seeded by `AgeBandSeeder`).
+
+**Message** (`booking.errors.dob_infant`, plural on the upper limit in years so the Arabic stays correct if the band
+changes):
+- EN: "Infants must be at least 6 months and under 2 years old on the departure date."
+- AR: "يجب أن يكون عمر الرضيع 6 أشهر على الأقل وأقل من سنتين في تاريخ المغادرة." (was "وأقل من 2 سنة")
+
+**Where it is enforced:**
+- Browser: `SC.checkBand('infant', dob, departure)` (`core.js`) for every `[data-rule="dob"]` field in `booking.js`.
+  The infant's date field turns red with the message under it, the summary box says "1 field needs attention", focus
+  moves to the field, and the guest can't go on to the review / confirm step, also not by typing `#review` in the
+  address bar. There is no online payment step; confirming happens on the review step. The date picker's
+  `min`/`max` also limit infants to 2 years minus a day … 6 months before departure.
+- Server: `ConfirmBookingRequest::checkTravellers()` → `App\Services\AgeBandValidator::check()` for every traveller,
+  error on `travellers.infant-N.dob` as "Infant 1: …" / "رضيع 1: …"; the booking is not created.
+- Fixed on the way: pressing "Review booking" right after typing a date blurred the field, its error line pushed the
+  button down 16 px and the click was lost (a second click was needed). The blur check now waits when the button is
+  being pressed.
+
+- Tests: **116 passed**. `AgeBandValidatorTest`: 5 months, a few weeks and newborn rejected with the exact English
+  message; Arabic message; 6 months exactly accepted; age counted on the departure date (same baby fine on 15 Nov,
+  rejected on 1 Nov). `BookingFlowTest`: an infant 1 day short of 6 months blocks `POST /booking/confirm` (English and
+  Arabic messages, no booking saved); 6 months exactly is booked. Checked in a headless browser in English and Arabic.
 
 **Open items (next):**
 

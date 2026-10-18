@@ -163,7 +163,11 @@
     const B = D.ageBands[band];
     if (band === 'adult' && years < B.minYears) return e('dob_adult', { min: B.minYears });
     if (band === 'child' && (years < B.minYears || years > B.maxYears)) return e('dob_child', { min: B.minYears, max: B.maxYears });
-    if (band === 'infant' && (months < B.minMonths || months >= B.maxMonthsExclusive)) return e('dob_infant', { min: B.minMonths, max: B.maxMonthsExclusive / 12 });
+    // Infants: at least minMonths (6) and under maxMonthsExclusive (24) whole months on the departure date
+    if (band === 'infant' && (months < B.minMonths || months >= B.maxMonthsExclusive)) {
+      const maxYears = Math.floor(B.maxMonthsExclusive / 12);
+      return SC.tc('booking.errors.dob_infant', maxYears, { min: B.minMonths, max: maxYears });
+    }
     return null;
   };
   /* Traveller-form values are stored in English (the server checks them); shown in the page language */
