@@ -280,8 +280,10 @@ class AdminPanelTest extends TestCase
         $cabin = \App\Models\CabinCategory::where('slug', 'suite')->firstOrFail();
         $form = $cabin->only(['name_en', 'ship_id', 'slug', 'sort_order']);
 
-        $this->put("/admin/cabin-categories/{$cabin->id}", $form + ['max_guests' => 4])->assertSessionHasErrors('max_guests');
-        $this->put("/admin/cabin-categories/{$cabin->id}", $form + ['max_guests' => 3])->assertSessionHasNoErrors();
+        // the limit is config('cruise.max_cabin_guests')
+        $max = (int) config('cruise.max_cabin_guests');
+        $this->put("/admin/cabin-categories/{$cabin->id}", $form + ['max_guests' => $max + 1])->assertSessionHasErrors('max_guests');
+        $this->put("/admin/cabin-categories/{$cabin->id}", $form + ['max_guests' => $max])->assertSessionHasNoErrors();
         $this->get("/admin/cabin-categories/{$cabin->id}/edit")->assertOk()->assertDontSee('base_rate');
     }
 

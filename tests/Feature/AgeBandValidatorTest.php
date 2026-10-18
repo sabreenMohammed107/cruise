@@ -29,26 +29,37 @@ class AgeBandValidatorTest extends TestCase
         $this->departure = Carbon::parse('2026-11-15');
     }
 
-    public function test_child_turning_twelve_after_departure_is_still_a_child(): void
+    public function test_teenagers_book_as_children_until_eighteen(): void
     {
-        $this->assertNull($this->validator->check(TravellerBand::Child, '2014-11-16', $this->departure));
+        // 12 to 17 are children now (step 14: adults are 18+)
+        $this->assertNull($this->validator->check(TravellerBand::Child, '2014-11-15', $this->departure)); // 12
+        $this->assertNull($this->validator->check(TravellerBand::Child, '2008-11-16', $this->departure)); // 17, turns 18 the day after
+        $this->assertSame(
+            'Adults must be 18 or older on the departure date. Change the date or go back and add this guest as a child.',
+            $this->validator->check(TravellerBand::Adult, '2010-03-01', $this->departure), // 16
+        );
     }
 
-    public function test_child_who_is_twelve_on_departure_day_must_book_as_adult(): void
+    public function test_guest_who_is_eighteen_on_departure_day_must_book_as_adult(): void
     {
         $this->assertSame(
-            'Children must be 2–11 years old on the departure date.',
-            $this->validator->check(TravellerBand::Child, '2014-11-15', $this->departure),
+            'Children must be 2–17 years old on the departure date.',
+            $this->validator->check(TravellerBand::Child, '2008-11-15', $this->departure),
         );
-        $this->assertNull($this->validator->check(TravellerBand::Adult, '2014-11-15', $this->departure));
+        $this->assertNull($this->validator->check(TravellerBand::Adult, '2008-11-15', $this->departure));
+        $this->assertNotNull($this->validator->check(TravellerBand::Adult, '2008-11-16', $this->departure));
+
+        app()->setLocale('ar');
+        $this->assertSame(
+            'يجب أن يكون عمر الطفل بين 2 و17 سنة في تاريخ المغادرة.',
+            $this->validator->check(TravellerBand::Child, '2008-11-15', $this->departure),
+        );
     }
 
-    public function test_adult_under_twelve_is_rejected(): void
+    public function test_child_under_two_is_rejected(): void
     {
-        $this->assertStringStartsWith(
-            'Adults must be 12 or older',
-            $this->validator->check(TravellerBand::Adult, '2015-01-01', $this->departure),
-        );
+        $this->assertNull($this->validator->check(TravellerBand::Child, '2024-11-15', $this->departure));
+        $this->assertNotNull($this->validator->check(TravellerBand::Child, '2024-11-16', $this->departure));
     }
 
     public function test_infant_must_be_at_least_six_months_on_departure(): void

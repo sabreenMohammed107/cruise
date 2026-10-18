@@ -59,10 +59,12 @@ document.addEventListener('sc:ready', () => {
   const shift = (iso, { y = 0, m = 0, d = 0 }) => { const t = SC.parseDate(iso); t.setFullYear(t.getFullYear() + y, t.getMonth() + m, t.getDate() + d); return SC.toISO(t); };
   const today = SC.toISO(new Date());
   const minIso = (a, c) => (a < c ? a : c);
+  // Laravel: from Admin → Age bands (SC_DATA.ageBands), e.g. adults 18+, children 2–17, infants 6 months–under 2
+  const AB = D.ageBands;
   const dobBounds = {
-    adult: { min: '1920-01-01', max: minIso(shift(b.departure, { y: -12 }), today) },
-    child: { min: shift(b.departure, { y: -12, d: 1 }), max: minIso(shift(b.departure, { y: -2 }), today) },
-    infant: { min: shift(b.departure, { y: -2, d: 1 }), max: minIso(shift(b.departure, { m: -6 }), today) }
+    adult: { min: '1920-01-01', max: minIso(shift(b.departure, { y: -AB.adult.minYears }), today) },
+    child: { min: shift(b.departure, { y: -(AB.child.maxYears + 1), d: 1 }), max: minIso(shift(b.departure, { y: -AB.child.minYears }), today) },
+    infant: { min: shift(b.departure, { m: -AB.infant.maxMonthsExclusive, d: 1 }), max: minIso(shift(b.departure, { m: -AB.infant.minMonths }), today) }
   };
 
   /* ---------- Step 1: render traveller forms ---------- */

@@ -30,7 +30,7 @@ class ArabicContentSeeder extends Seeder
         $this->destinations();
         $this->testimonials();
 
-        foreach (['adult' => '12 سنة فأكثر', 'child' => 'من 2 إلى 11 سنة', 'infant' => 'من 6 أشهر حتى أقل من سنتين'] as $key => $hint) {
+        foreach (['adult' => '18 سنة فأكثر', 'child' => 'من 2 إلى 17 سنة', 'infant' => 'من 6 أشهر حتى أقل من سنتين'] as $key => $hint) {
             $this->fill(AgeBand::where('key', $key)->first(), ['hint_ar' => $hint]);
         }
         $this->fill(PromoCode::where('code', 'SAFER10')->first(), ['label_ar' => 'خصم 10% على سعر الرحلة']);

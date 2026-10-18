@@ -14,7 +14,8 @@ return [
     'currency' => 'USD',
     'currency_symbol' => '$',
 
-    // Cabin capacity (PROJECT_STEPS.md step 11): at most 3 guests in a cabin, counting adults, children AND infants.
+    // Cabin capacity (PROJECT_STEPS.md step 11): the most guests any cabin can take, counting adults, children AND
+    // infants. Each cabin's own "Maximum guests" (Admin → Cabin categories) applies up to this number.
     // Every infant needs at least one adult in the booking. Infants are free (tiered pricing, step 9).
     'max_cabin_guests' => 10,
 

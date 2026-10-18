@@ -55,7 +55,7 @@ class PublicSiteTest extends TestCase
         $rsd = collect($data['cruises'])->firstWhere('id', 'red-sea-discovery');
         $this->assertSame(['single' => 5460.0, 'double' => 7280.0, 'extra' => 1680.0], collect($rsd['sailings'])->firstWhere('id', 'RSD-261213')['prices']['balcony']);
         // At most 3 guests per cabin, infants included (no separate infant limit any more)
-        $this->assertSame(3, $data['maxCabinGuests']);
+        $this->assertSame((int) config('cruise.max_cabin_guests'), $data['maxCabinGuests']);
         $this->assertArrayNotHasKey('maxInfants', $data);
         $this->assertSame([3, 3, 3], array_column($data['cabins'], 'maxGuests'));
         // Promo codes are never published

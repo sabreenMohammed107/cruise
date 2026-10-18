@@ -121,7 +121,7 @@ class BilingualContentTest extends TestCase
 
         $this->assertSame('ريم أ.', $ar['testimonials'][0]['name']);
         $this->assertSame('بالغ', $ar['ageBands']['adult']['label']);
-        $this->assertSame('12 سنة فأكثر', $ar['ageBands']['adult']['hint']);
+        $this->assertSame('18 سنة فأكثر', $ar['ageBands']['adult']['hint']);
     }
 
     public function test_promo_label_follows_the_language(): void

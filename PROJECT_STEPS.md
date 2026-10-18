@@ -122,8 +122,8 @@ from price     = cheapest double ÷ 2 ("From, per person" on cards, two sharing;
 
 | Band | Rule |
 | --- | --- |
-| adult | 12 years and over |
-| child | 2 to 11 years |
+| adult | 18 years and over (step 14; the template had 12+) |
+| child | 2 to 17 years (step 14; the template had 2 to 11) |
 | infant | 6 months to under 24 months |
 
 ### Booking lifecycle (v2: no online payment)
@@ -1264,6 +1264,47 @@ changes):
   message; Arabic message; 6 months exactly accepted; age counted on the departure date (same baby fine on 15 Nov,
   rejected on 1 Nov). `BookingFlowTest`: an infant 1 day short of 6 months blocks `POST /booking/confirm` (English and
   Arabic messages, no booking saved); 6 months exactly is booked. Checked in a headless browser in English and Arabic.
+
+### Step 14: Adults are 18+, children 2–17 (2026-10-18)
+
+Business rule: anyone under 18 on the departure date books as a child. Infants unchanged.
+
+| Band | Before | Now | `min_months` | `max_months_exclusive` | Fee / night |
+| --- | --- | --- | --- | --- | --- |
+| Adult | 12+ | **18+** | 144 → **216** | none | $35 (unchanged) |
+| Child | 2–11 | **2–17** | 24 | 144 → **216** | $35 (unchanged) |
+| Infant | 6 months – under 2 | unchanged | 6 | 24 | $0 |
+
+**Where the limits live:** only in the `age_bands` table (Admin → Pricing & offers → Age bands & fees). Everything
+else reads it: `AgeBandValidator` and `ConfirmBookingRequest` on the server, `ScDataPresenter` →
+`SC_DATA.ageBands` (`minYears` 18, child `maxYears` 17) → `SC.checkBand`, the guest counter hints, the traveller form
+hints and the error messages ("Adults must be :min or older", "Children must be :min–:max years old"). No column or
+code change was needed for the check itself.
+
+**Changes:**
+- Migration `2026_10_18_000002_adults_from_eighteen` (data only, reversible): adult `min_months` 216, child
+  `max_months_exclusive` 216; hints (EN and AR) replaced only where they still have the old seeded text, so wording an
+  admin wrote is kept.
+- `AgeBandSeeder` / `ArabicContentSeeder`: same values and hints ("18 years and over" / "18 سنة فأكثر",
+  "2 to 17 years" / "من 2 إلى 17 سنة") for fresh installs. Fallback hints in `lang/{en,ar}/site.php` → `bands`.
+- `booking.js`: the date pickers' `min`/`max` were hard-coded to 12 and 2 years; now built from `SC_DATA.ageBands`, so
+  they follow the admin values (adult up to 18 years before departure, child 18 years minus a day … 2 years, infant
+  2 years minus a day … 6 months).
+- Admin → Age bands: help text gives 18 years = 216 months and says the bands must touch (Adult minimum = Child
+  "Under", Child minimum = Infant "Under").
+- **Pricing:** unchanged. Adults and children are both paying guests for the Single / Double / 3rd-guest tiers, and
+  their fees are the same, so moving 12–17 year-olds from adult to child does not change any total.
+- **Existing bookings:** untouched. Travellers keep the band they were booked in; the new ages only apply to new
+  bookings.
+- `config/cruise.php`: `max_cabin_guests` is now 10 (set by the owner); its comment no longer says 3, and the tests
+  read the value from the config instead of assuming 3.
+
+- Tests: **116 passed**. `AgeBandValidatorTest`: 12 and 17 are children, 18 on departure day must be an adult, a
+  16-year-old adult is rejected (English and Arabic). `BookingFlowTest`: a 12-year-old child books; 18 as a child and
+  17 as an adult are rejected by `POST /booking/confirm`. Applied locally (backup
+  `db-backups\safer_cruise_db-2026-10-18-before-adults-18.sql`, migration run) and checked in a headless browser in
+  English and Arabic: counter and form hints, date-picker limits, the 17-year-old-adult message.
+- **Deploy:** upload the files above, run `php artisan migrate` (back up first) and `php artisan view:clear`.
 
 **Open items (next):**
 

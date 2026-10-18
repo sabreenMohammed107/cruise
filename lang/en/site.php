@@ -79,8 +79,8 @@ return [
     ],
 
     'bands' => [
-        'adult' => ['label' => 'Adult', 'hint' => '12 years and over'],
-        'child' => ['label' => 'Child', 'hint' => '2 to 11 years'],
+        'adult' => ['label' => 'Adult', 'hint' => '18 years and over'],
+        'child' => ['label' => 'Child', 'hint' => '2 to 17 years'],
         'infant' => ['label' => 'Infant', 'hint' => '6 to 23 months'],
         'fewer' => 'Fewer',
         'more' => 'More',

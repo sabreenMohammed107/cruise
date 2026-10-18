@@ -79,11 +79,20 @@ class BookingFlowTest extends TestCase
         $this->assertSame($user->id, Booking::where('reference', $ref)->value('user_id'));
     }
 
-    public function test_child_who_is_twelve_on_departure_is_rejected(): void
+    public function test_children_are_two_to_seventeen_and_adults_eighteen_plus(): void
     {
-        $this->postJson('/booking/confirm', $this->payload(['travellers' => ['child-1' => ['dob' => '2014-12-13']]]))
+        // RSD-261213 departs 13 Dec 2026. A 12-year-old is a child now (adults are 18+, step 14).
+        $this->postJson('/booking/confirm', $this->payload(['travellers' => ['child-1' => ['dob' => '2014-12-13']]]))->assertCreated();
+
+        // 18 on the departure day: must book as an adult
+        $this->postJson('/booking/confirm', $this->payload(['travellers' => ['child-1' => ['dob' => '2008-12-13']]]))
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['travellers.child-1.dob']);
+            ->assertJsonValidationErrors(['travellers.child-1.dob' => 'Child 1: Children must be 2–17 years old on the departure date.']);
+
+        // 17 as an adult: rejected
+        $this->postJson('/booking/confirm', $this->payload(['travellers' => ['adult-2' => ['dob' => '2009-01-01']]]))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['travellers.adult-2.dob' => 'Adult 2: Adults must be 18 or older on the departure date.']);
     }
 
     /** The payload for a party of the given size, with a traveller for every slot. */

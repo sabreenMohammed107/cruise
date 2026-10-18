@@ -122,7 +122,7 @@ class LocalizedPagesTest extends TestCase
             'travellers' => ['adult-1' => ['dob' => '2020-01-01']],
             'contact' => ['phone' => '123'],
         ]))->assertUnprocessable()->assertJsonValidationErrors([
-            'travellers.adult-1.dob' => 'بالغ 1: يجب أن يكون عمر البالغ 12 سنة أو أكثر في تاريخ المغادرة. غيّر التاريخ أو ارجع وأضف هذا الضيف كطفل.',
+            'travellers.adult-1.dob' => 'بالغ 1: يجب أن يكون عمر البالغ 18 سنة أو أكثر في تاريخ المغادرة. غيّر التاريخ أو ارجع وأضف هذا الضيف كطفل.',
             'contact.phone' => 'أرقام الجوال السعودية من 9 أرقام وتبدأ بـ 5.',
         ]);
 
