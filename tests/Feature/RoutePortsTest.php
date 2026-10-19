@@ -127,9 +127,10 @@ class RoutePortsTest extends TestCase
 
     public function test_migration_converts_existing_routes(): void
     {
-        Artisan::call('migrate:rollback', ['--step' => 1]);
+        $migration = ['--path' => 'database/migrations/2026_10_19_000001_create_ports_and_cruise_port_tables.php'];
+        Artisan::call('migrate:rollback', $migration);
         Cruise::where('slug', 'egypt-jordan-voyage')->update(['route' => json_encode(['Jeddah, Saudi Arabia', 'Aqaba', 'Duba', 'Jeddah'])]);
-        Artisan::call('migrate');
+        Artisan::call('migrate', $migration);
 
         $cruise = Cruise::where('slug', 'egypt-jordan-voyage')->firstOrFail();
         $this->assertSame(['Jeddah', 'Aqaba', 'Duba', 'Jeddah'], $cruise->ports->pluck('name_en')->all());

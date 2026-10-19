@@ -17,6 +17,7 @@ use App\Models\ShipEssential;
 use App\Models\ShipFaq;
 use App\Models\ShipSpec;
 use App\Models\ShipZone;
+use App\Models\SiteSetting;
 use App\Models\Testimonial;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +35,7 @@ class BilingualContentTest extends TestCase
     private const CONTENT = [
         Ship::class, ShipSpec::class, ShipZone::class, ShipEssential::class, ShipFaq::class, Facility::class,
         CabinCategory::class, Cruise::class, ItineraryDay::class, Destination::class, Testimonial::class,
-        AgeBand::class, PromoCode::class, HomeSection::class, HomeSectionItem::class,
+        AgeBand::class, PromoCode::class, HomeSection::class, HomeSectionItem::class, SiteSetting::class,
     ];
 
     /** Tables with no site copy: personal or operational data, links, framework tables. */

@@ -30,17 +30,12 @@ return [
     ],
 
     'footer' => [
-        'about' => 'Safer Cruise is the cruise booking site of Safar Tourism, an international travel agency licensed by the Ministry of Tourism (License No. 14079).',
-        'visit' => 'Visit safer.travel',
         'explore' => 'Explore',
         'all_cruises' => 'All cruises',
         'help' => 'Help',
         'terms' => 'Terms & conditions',
         'cancellation' => 'Cancellation policy',
         'contact' => 'Contact us',
-        'individuals' => 'Individuals:',
-        'companies' => 'Companies:',
-        'address' => 'Watan Square, Al-Fateh, Istanbul, Turkey',
         'rights' => '© :year Safer. All rights reserved.',
         'prices_usd' => 'All prices in US dollars (USD).',
         'chat' => 'Chat with us',

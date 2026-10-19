@@ -11,6 +11,7 @@ use App\Models\Destination;
 use App\Models\Facility;
 use App\Models\Port;
 use App\Models\Sailing;
+use App\Models\SiteSetting;
 use App\Models\Ship;
 use App\Models\Testimonial;
 use App\Models\User;
@@ -32,7 +33,7 @@ class ScDataPresenter
         return array_filter([
             'currency' => config('cruise.currency'),
             'currencySymbol' => config('cruise.currency_symbol'),
-            'whatsappNumber' => config('cruise.whatsapp_number'),
+            'whatsappNumber' => SiteSetting::whatsapp(), // Admin → Footer & contact
             'routes' => $this->routes(),
             'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
             'favorites' => $user ? $user->favorites()->pluck('slug')->all() : [],
@@ -75,7 +76,7 @@ class ScDataPresenter
         return [
             'currency' => config('cruise.currency'),
             'currencySymbol' => config('cruise.currency_symbol'),
-            'whatsappNumber' => config('cruise.whatsapp_number'),
+            'whatsappNumber' => SiteSetting::whatsapp(), // Admin → Footer & contact
             'routes' => $this->routes(),
             'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
             'favorites' => [],

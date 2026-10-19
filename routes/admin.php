@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\HomeSectionController;
 use App\Http\Controllers\Admin\MediaLibraryController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SailingController;
+use App\Http\Controllers\Admin\SiteSettingController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -52,6 +53,10 @@ Route::middleware('can:admin')->group(function () {
     Route::get('pages', [HomeSectionController::class, 'pages'])->name('pages.index');
     Route::get('pages/{page}/{key}/edit', [HomeSectionController::class, 'editPage'])->name('pages.edit')->where(['page' => '[a-z]+', 'key' => '[a-z_-]+']);
     Route::put('pages/{page}/{key}', [HomeSectionController::class, 'updatePage'])->name('pages.update')->where(['page' => '[a-z]+', 'key' => '[a-z_-]+']);
+
+    // Footer & contact: description, phones, email, address, WhatsApp and social links (config/site.php)
+    Route::get('footer', [SiteSettingController::class, 'edit'])->name('site-settings.edit');
+    Route::put('footer', [SiteSettingController::class, 'update'])->name('site-settings.update');
 
     // Media library behind every photo field: images on the server + photo URLs in use (JSON pages)
     Route::get('media-library', MediaLibraryController::class)->name('media-library');

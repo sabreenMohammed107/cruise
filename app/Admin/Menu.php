@@ -62,6 +62,7 @@ final class Menu
             self::group('Website content', 'edit', [
                 self::link('Homepage', null, 'admin.home-sections.index', ['admin.home-sections.*']),
                 self::link('Cruise pages', null, 'admin.pages.index', ['admin.pages.*']),
+                self::link('Footer & contact', null, 'admin.site-settings.edit', ['admin.site-settings.*']),
                 self::resource(Resources\TestimonialResource::class),
             ]),
 

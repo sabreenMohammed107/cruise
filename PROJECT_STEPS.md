@@ -1,4 +1,4 @@
-﻿# Safer Cruise: Laravel 12 conversion log
+# Safer Cruise: Laravel 12 conversion log
 
 Running log of steps, commands, schema and architecture decisions for converting the static
 Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 130 tests
+C:\xampp\php\php.exe artisan test                     # 134 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1460,6 +1460,47 @@ place and closes one gap:
   Double ÷ 2 of their sailing.
 - **Deploy:** upload `public/assets/js/core.js`, `public/assets/js/pages/catalog.js`, `app/Models/Sailing.php`
   (scripts are versioned, so browsers load the new copy).
+
+### Step 17b: Favicon (2026-10-19)
+
+The browser tab showed Laravel's icon (`public/favicon.ico` was the empty Laravel placeholder). New icons from the
+logo mark (white ship from `core.js` on ocean-600 `#155C9E`, rounded): `public/favicon.svg` (source),
+`public/favicon.ico` (16, 32, 48 px), `public/apple-touch-icon.png` (180 px). Linked from the new partial
+`partials/favicon.blade.php` (with `?v=` versions and `theme-color`) in `layouts/app`, `layouts/admin` and
+`admin/login`. **Deploy:** upload those files and run `php artisan view:clear`.
+
+### Step 18: Footer & contact edited in the admin panel (2026-10-19)
+
+**Admin → Website content → Footer & contact** (`GET/PUT /admin/footer`, `admin.site-settings.edit` / `.update`,
+admins only) edits what the footer shows on every page:
+
+| Group | Fields |
+| --- | --- |
+| Description | text under the logo (EN + AR), website link text (EN + AR) and address |
+| Contact | two phones (label EN + AR, number), email, address (EN + AR), WhatsApp number |
+| Social media | Facebook, Instagram, YouTube, X, TikTok, Snapchat, LinkedIn (only those with an address are shown) |
+
+An empty box hides that line; an empty Arabic box shows the English text. Validation: links must be `http(s)://`
+addresses (no `javascript:`), a valid email, phones `+`, digits, spaces, `()` and `-`, WhatsApp 8–15 digits.
+
+- **Fields and defaults:** new `config/site.php` (label, type, English/Arabic, length, default). The defaults are
+  the footer text as it was, so nothing changes on the site until an admin saves.
+- **Database** (migration `2026_10_19_000002_create_site_settings_table`): `site_settings` (`key` unique, `value`,
+  `value_ar`). A field with no row shows its default.
+- **`SiteSetting` model:** `value($key, $lang)`, `text($key)` (escaped, page language), `whatsapp()` (falls back
+  to `config('cruise.whatsapp_number')` if emptied), `tel()`, `socialLinks()`. Rows are loaded once per request.
+- `partials/footer.blade.php` reads from it; the green WhatsApp button and `SC_DATA.whatsappNumber` (both
+  `ScDataPresenter::make()` and `minimal()`) use the saved number. Footer headings and fixed words stay in
+  `lang/{en,ar}/site.php`; the moved keys (`footer.about`, `visit`, `individuals`, `companies`, `address`) were
+  removed from both files.
+- Tests: **134 passed**. New `FooterSettingsTest` (defaults in both languages, admin edit in both languages with
+  hidden empty lines and Arabic fallback, WhatsApp in `SC_DATA`, validation, admins only); `site_settings` is in
+  `BilingualContentTest`'s content list; the route-ports migration test now rolls back that migration by path.
+  Applied locally (backup `db-backups\safer_cruise_db-2026-10-19-before-site-settings.sql`) and checked in a
+  headless browser: saved a TikTok link, emptied the second phone and an Arabic address, and saw the footer change in
+  English and Arabic (test values removed afterwards).
+- **Deploy:** upload the files, back up, `php artisan migrate`, `php artisan view:clear`, `php artisan config:clear`
+  and `php artisan route:clear`.
 
 **Open items (next):**
 
