@@ -117,6 +117,25 @@ class PricingServiceTest extends TestCase
         $this->assertSame(1782.5, $sailing->fromPrice());
     }
 
+    public function test_from_price_is_the_lowest_double_halved_never_the_single(): void
+    {
+        $sailing = Sailing::where('code', 'SCW-261105')->firstOrFail();
+        // The admin price grid [single, double, 3rd guest] of a 7-night sailing
+        foreach (['interior' => [820, 1200, 532], 'balcony' => [820, 1500, 600], 'suite' => [900, 1700, 650]] as $slug => [$single, $double, $extra]) {
+            $this->price('SCW-261105', $slug)->update(['price_single' => $single, 'price_double' => $double, 'price_extra' => $extra]);
+        }
+
+        $this->assertSame(600.0, $sailing->load('cabinPrices')->fromPrice()); // 1200 / 2, not the single 820
+
+        // A cabin without a Double price (0) isn't the "from" price
+        $this->price('SCW-261105', 'interior')->update(['price_double' => 0]);
+        $this->assertSame(750.0, $sailing->load('cabinPrices')->fromPrice());
+
+        // Every cabin sold out: no price
+        $sailing->cabinPrices()->update(['is_sold_out' => true]);
+        $this->assertNull($sailing->load('cabinPrices')->fromPrice());
+    }
+
     public function test_new_sailings_start_from_the_latest_prices_of_the_cruise(): void
     {
         $sailing = Sailing::where('code', 'SCW-270107')->firstOrFail();

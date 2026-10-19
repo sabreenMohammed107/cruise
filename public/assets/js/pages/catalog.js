@@ -63,11 +63,9 @@ document.addEventListener('sc:ready', () => {
   $('#sort').value = state.sort;
 
   /* ---------- Filtering ---------- */
-  // Effective price: cheapest per-person price (double ÷ 2, tiered pricing) among the selected (and available) cabin types
-  const priceFor = (s) => {
-    const ids = state.cabins.length ? s.availableCabins.filter((c) => state.cabins.includes(c)) : s.availableCabins;
-    return ids.length ? Math.min(...ids.map((id) => SC.prices(s.cruise, s.sailing, id).perPerson)) : Infinity;
-  };
+  // Effective price: "From, per person" (lowest Double ÷ 2, SC.fromPrice) among the selected (and available) cabin types
+  const priceFor = (s) => SC.fromPrice(s.cruise, s.sailing,
+    state.cabins.length ? s.availableCabins.filter((c) => state.cabins.includes(c)) : s.availableCabins);
   const hasHighlight = (s, h) => (h === 'visaFree' ? s.visaFree : s.tags.includes(h));
 
   const filtered = () => {

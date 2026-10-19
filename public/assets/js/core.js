@@ -188,7 +188,7 @@
   /* Flattened "view model" for one departure — what cards and filters use. */
   SC.sailingView = (c, s) => {
     const available = SC.cabinsSorted().filter((cab) => !(s.soldOut || []).includes(cab.id) && (s.prices || {})[cab.id]);
-    const fromPrice = Math.min(...available.map((cab) => SC.prices(c, s, cab.id).perPerson));
+    const fromPrice = SC.fromPrice(c, s, available.map((cab) => cab.id));
     return {
       key: s.id, cruiseId: c.id, sailingId: s.id, name: c.name, ship: SC.getShip(c.shipId).name,
       nights: c.nights, days: c.nights + 1, departure: s.departure, returnDate: SC.addDays(s.departure, c.nights),
@@ -214,6 +214,13 @@
     const p = (sailing.prices || {})[cabinId] || { single: 0, double: 0, extra: 0 };
     // perPerson: the "From, per person" figure on cards, for two guests sharing
     return { single: p.single, double: p.double, extra: p.extra, infant: 0, perPerson: p.double / 2 };
+  };
+  /* "From, per person" (step 17): the lowest Double price ÷ 2 among the given cabin types. Cabins without a Double
+     price (0) are skipped unless no cabin has one, so a card never says "From $0". Same as Sailing::fromPrice(). */
+  SC.fromPrice = (cruise, sailing, cabinIds) => {
+    const all = cabinIds.map((id) => SC.prices(cruise, sailing, id).perPerson);
+    const priced = all.filter((x) => x > 0);
+    return all.length ? Math.min(...(priced.length ? priced : all)) : Infinity;
   };
   /* 1 paying guest → single; 2 → double; 3 → double + extra; infants free */
   SC.fareLines = (prices, guests) => {

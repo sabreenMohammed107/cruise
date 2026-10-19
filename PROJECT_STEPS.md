@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 129 tests
+C:\xampp\php\php.exe artisan test                     # 130 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -268,7 +268,7 @@ Key behaviour:
 - `ImageSlot::url()` / `candidates()` / `isFilled()` / `ImageSlot::urls($keys)`: resolution order is uploaded photo â†’
   `public/assets/img/aroya/{key}.jpg` â†’ stock photo â†’ SVG. `candidates()` feeds `SC_DATA.imageFallbacks`.
 - `Cruise::callsAt($port)` (prefix match like `destinations.js`) and `Destination::cruises()`.
-- `Sailing::upcoming()` scope and `fromPrice()`.
+- `Sailing::upcoming()` scope and `fromPrice()` ("From, per person" = lowest Double price ÷ 2, see step 17).
 - `Booking` scopes `upcoming()`, `past()`, `cancelled()` (dashboard tabs) and `awaitingPayment()` (admin follow-up);
   `amountDue()`; `syncPaymentTotals()` recomputes `amount_paid`, `payment_status` and `paid_at` from payments.
 - `App\Services\PricingService` and `App\Services\AgeBandValidator`: server side of `SC.prices` / `SC.fareLines` /
@@ -1435,6 +1435,31 @@ and drop; × removes a stop. A link goes to Route ports.
   list, add / move / remove / drag stops and save, and the Arabic catalog showing "جدة > ينبع > جدة".
 - **Deploy:** upload the changed files, back up, `php artisan migrate`, `php artisan view:clear` and
   `php artisan config:clear`.
+
+### Step 17: "From, per person" is the Double price ÷ 2 (2026-10-19)
+
+**Rule:** the "From, per person" price on sailing cards (home, cruises list and its price filter / sort,
+destinations, cruise page dates) is the **lowest Double price ÷ 2** among the sailing's cabins that aren't sold out.
+The Single price is never used. Example, the admin grid of a 7-night sailing: Interior 820 / **1,200** / 532,
+Balcony 820 / 1,500 / 600, Suite 900 / 1,700 / 650 → **From $600** per person.
+
+This was already how the price was worked out since step 9 (`perPerson: double / 2`); step 17 puts the rule in one
+place and closes one gap:
+- `core.js`: new `SC.fromPrice(cruise, sailing, cabinIds)`, used by `SC.sailingView()` (every card) and the
+  cruises list's `priceFor()` (filtered cabin types, price slider, price sort). `SC.prices().perPerson` stays
+  `double / 2` (cabin cards on the home, ship and cruise pages).
+- `Sailing::fromPrice()` (server): same rule.
+- A cabin **without a Double price (0)** is skipped, so a card can't say "From $0"; if no cabin has one, the lowest
+  (0) is shown. A very low card price (e.g. $20) therefore means a cabin of that sailing has that Double price ×2
+  (e.g. 40) in Cruises → Sailings: check the price grid.
+- No change to `ScDataPresenter`: it already sends each cabin's `single` / `double` / `extra`.
+
+- Tests: **130 passed**. New `PricingServiceTest::test_from_price_is_the_lowest_double_halved_never_the_single`
+  (the grid above gives 600, a 0 Double is skipped, all sold out gives none). Checked in a headless browser on the
+  local site: all 19 cards on the home page, the cruises list and the cruises list sorted by price equal the lowest
+  Double ÷ 2 of their sailing.
+- **Deploy:** upload `public/assets/js/core.js`, `public/assets/js/pages/catalog.js`, `app/Models/Sailing.php`
+  (scripts are versioned, so browsers load the new copy).
 
 **Open items (next):**
 

@@ -47,13 +47,17 @@ class Sailing extends Model
     }
 
     /**
-     * "From, per person" on cards: the lowest double price among cabins that aren't sold out,
-     * shown per person for two sharing (same as SC.sailingView in core.js).
+     * "From, per person" on cards: the lowest Double price ÷ 2 among cabins that aren't sold out (never the Single
+     * price). Cabins without a Double price (0) are skipped unless no cabin has one. Same as SC.fromPrice in core.js.
      */
     public function fromPrice(): ?float
     {
-        $min = $this->cabinPrices->where('is_sold_out', false)->min('price_double');
+        $doubles = $this->cabinPrices->where('is_sold_out', false)->pluck('price_double')->map(fn ($p) => (float) $p);
+        if ($doubles->isEmpty()) {
+            return null;
+        }
+        $priced = $doubles->filter(fn ($p) => $p > 0);
 
-        return $min === null ? null : (float) $min / 2;
+        return ($priced->isNotEmpty() ? $priced : $doubles)->min() / 2;
     }
 }
