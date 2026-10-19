@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 122 tests
+C:\xampp\php\php.exe artisan test                     # 129 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -155,6 +155,7 @@ sailings 1â”€* bookings 1â”€* booking_travellers
 bookings *â”€1 cabin_categories, *â”€1 users (nullable), *â”€1 promo_codes (nullable)
 users *â”€* cruises (favorites)
 destinations Â·Â·Â· cruises   (no FK: linked by port name in cruises.route)
+cruises *-* ports   (via cruise_port, ordered by position; a port may repeat. Step 16)
 age_bands, promo_codes, testimonials, newsletter_subscribers: standalone
 home_sections 1â”€* home_section_items   (homepage copy, step 5)
 ```
@@ -184,7 +185,15 @@ columns were dropped in step 9.
 
 **cruises**: `ship_id` (restrict), `slug` (unique), `name`, `name_ar`, `nights`, `departure_port`, `arrival_port`,
 `route` (json), `tags` (json), `visa_free`, `rating`, `reviews_count`, `popularity`, `image_slot`,
-`gallery_slots` (json), `summary`, `is_active`, timestamps, soft deletes.
+`gallery_slots` (json), `summary`, `is_active`, timestamps, soft deletes. Since step 16 `route` is a **cache** of the
+English names of the cruise's `cruise_port` stops (written by `Cruise::syncRoute()` / `refreshRoute()`), kept for
+`core.js` and the destination links.
+
+**ports** *(step 16)*: `name_en` (unique; the key stored in `cruises.route` and matched against `destinations.name`),
+`name_ar`, `sort_order`, `is_active` (inactive = can't be added to new routes), timestamps.
+
+**cruise_port** *(step 16)*: `cruise_id` (cascade), `port_id` (restrict), `position` (1 = first stop). Primary key
+`(cruise_id, position)`, so the same port can appear twice (round trips).
 
 **itinerary_days**: `cruise_id`, `day_number`, `port`, `time_label`, `description`. Unique `(cruise_id, day_number)`.
 
@@ -252,7 +261,7 @@ Static reference data stays in **`config/cruise.php`**: currency (`USD`) and sym
 
 `User`, `ImageSlot`, `Ship`, `ShipSpec`, `ShipZone`, `ShipEssential`, `ShipFaq`, `Facility`, `CabinCategory`, `Cruise`,
 `ItineraryDay`, `Sailing`, `SailingCabinPrice`, `AgeBand`, `PromoCode`, `Destination`, `Testimonial`,
-`NewsletterSubscriber`, `Booking`, `BookingTraveller`, `Payment`.
+`NewsletterSubscriber`, `Booking`, `BookingTraveller`, `Payment`, `Port` *(step 16)*.
 
 Key behaviour:
 
@@ -275,6 +284,7 @@ Key behaviour:
 | `AgeBandSeeder` | `ageBands` + `fees` | 3 |
 | `ShipSeeder` | `ships[0]` + `facilities` | 1 ship, 7 specs, 4 zones, 6 essentials, 4 FAQs, 9 facilities |
 | `CabinCategorySeeder` | `cabins` | 3 (balcony now has 3 photos) |
+| `PortSeeder` *(step 16)* | destination port names | 6 route ports (English + Arabic), run before `CruiseSeeder` |
 | `CruiseSeeder` | `cruises` | 6 cruises, 34 itinerary days, 17 sailings, 51 price rows (3 sold out) |
 | `DestinationSeeder` | `destinations` | 6 (with slug, Arabic name, description, highlights, visa note) |
 | `TestimonialSeeder` | `testimonials` | 3 |
@@ -436,7 +446,8 @@ browser, and stored prices reach the page in `SC_DATA` (D4).
 | Sailings | `cruises/{cruise}/sailings` (index, create, store), `sailings/{sailing}` (edit, update, destroy) | Departures of a cruise; price grid per cabin on create and edit (Single, Double, 3rd guest, infant free, cabins available, sold out), prefilled on create from the cruise's latest sailing; delete blocked when bookings exist |
 | Homepage *(step 5)* | `GET home-sections`, `GET home-sections/{key}/edit`, `PUT home-sections/{key}` | Text, buttons, photo and visibility of each homepage section; add/edit/delete the "Why Safer Cruise" cards |
 | Photo slots | `GET image-slots`, `POST/DELETE image-slots/{key}` | The 22 slots with filled / fallback state; upload (jpg/png/webp â‰¤ 5 MB) or remove |
-| Generic CRUD | `{slug}` index, create, store, `{id}/edit`, update, destroy | Cruises (with itinerary editor and links to sailings), Cabin categories, Destinations, Ships, Ship facts, Life on board, Good to know, Ship FAQs, Facilities, Promo codes, Age bands & fees (edit only), Testimonials, Newsletter (list/delete), Users |
+| Route ports *(step 16)* | `GET/POST routes`, `GET routes/create`, `GET routes/{id}/edit`, `PUT/DELETE routes/{id}` (`admin.routes.*`, generic CRUD) | Port names in English and Arabic, order, "can be added to routes", number of cruises calling there; delete blocked while a cruise uses the port |
+| Generic CRUD | `{slug}` index, create, store, `{id}/edit`, update, destroy | Cruises (with route builder, itinerary editor and links to sailings), Cabin categories, Destinations, Ships, Ship facts, Life on board, Good to know, Ship FAQs, Facilities, Promo codes, Age bands & fees (edit only), Testimonials, Newsletter (list/delete), Users |
 
 Guard rails: admins can't change their own role or delete themselves; cabin categories with prices, ships with
 cruises and age bands can't be deleted; cruises are soft-deleted; slugs, codes and emails are unique-validated.
@@ -1378,6 +1389,50 @@ team emails list the cabins.
   `db-backups\safer_cruise_db-2026-10-18-before-multi-cabin.sql`: 4 bookings → 4 cabins, 11 travellers linked).
   Checked in a headless browser: two cabins (2 adults; 1 adult + 1 infant) chosen, travellers entered, confirmed;
   the server total equals the page total and the voucher lists both cabins (the test booking was removed afterwards).
+- **Deploy:** upload the changed files, back up, `php artisan migrate`, `php artisan view:clear` and
+  `php artisan config:clear`.
+
+### Step 16: Route ports managed in the admin panel (2026-10-19)
+
+Cruise routes are no longer typed one port per line. Admins manage the **ports** (English and Arabic names) under
+**Admin → Cruises → Route ports** (`/admin/routes`) and build each cruise's route by picking ports in order.
+
+**Database** (migration `2026_10_19_000001_create_ports_and_cruise_port_tables`, reversible): new `ports` and
+`cruise_port` tables (see section 3). Existing data is converted: every destination and every port named in a cruise
+route becomes a port (Arabic name from the destination with the same name), and each cruise's `route` becomes its
+ordered `cruise_port` rows. A route entry with a country ("Yanbu, Saudi Arabia") becomes the port "Yanbu".
+`cruises.route` stays, as the English names of the stops.
+
+**Backend:**
+- `Port` model: `cruises()`, `ordered()` scope, `label()` (name in the current language), `Port::idsFor($names)`
+  (ids for English names, adding missing ones; used by seeders and tests). Renaming a port's English name refreshes
+  `route` on every cruise that calls there.
+- `Cruise::ports()` (ordered by `position`), `syncRoute($portIds)` (rewrites the stops and `route`),
+  `refreshRoute()`, `routeNames()` (English stop names from the ports, or `route` for a cruise without stops).
+- `Admin\Resources\PortResource` (slug `routes`): English name required and unique, Arabic name required, order,
+  active flag, "Cruises" count column; added to `config/admin.php` and the sidebar (`Admin\Menu`, Cruises group).
+- `CruiseResource`: the `route` textarea is gone. Input `route_ports[]` (ordered port ids): required, 2 to 30 stops,
+  each an existing port, repeats allowed. Saved by `afterSave()` → `Cruise::syncRoute()`, before the itinerary.
+- `ScDataPresenter`: cruises load `ports`; `SC_DATA.cruises[].route` comes from `routeNames()` (same English keys as
+  before), and `SC_DATA.portNames` (Arabic only) now also has every route port's Arabic name, which wins over the
+  destination's. `core.js` and the page scripts are **unchanged**: `SC.port()` / `SC.ui.route()` show the names in
+  the page language, and catalog, home and destination filters keep matching the English names.
+- Seeders: new `PortSeeder` (before `CruiseSeeder`); `CruiseSeeder` calls `syncRoute()`.
+
+**Admin UI** (`resources/views/admin/cruises/route.blade.php`, `route-stop.blade.php`, and `extra.blade.php` which
+puts the route builder above the itinerary): a port drop-down (English · Arabic, active ports only) with "Add stop";
+each stop shows its number, both names and "Departs" / "Arrives" on the first and last; reorder with ↑ / ↓ or drag
+and drop; × removes a stop. A link goes to Route ports.
+
+- Tests: **129 passed**. New `RoutePortsTest`: seeded routes as ports, Route ports CRUD and validation, delete
+  blocked when in use, the cruise form saves stops in order (with a repeated port) and rejects one stop / unknown
+  ports, a new cruise gets its route, renaming a port updates routes, `SC_DATA` route keys and Arabic `portNames`,
+  and the migration converting existing routes (with a "Port, Country" entry and a port without a destination).
+  The cruise-form tests in `AdminPanelTest`, `BilingualContentTest` and `MediaLibraryTest` send `route_ports[]`;
+  `BilingualContentTest` lists `ports` (name_en / name_ar, like cabins) and `cruise_port`.
+- Applied locally (backup `db-backups\safer_cruise_db-2026-10-19-before-route-ports.sql`; `db-backups/` is now
+  git-ignored): 6 ports, all 6 cruises converted with the same routes. Checked in a headless browser: Route ports
+  list, add / move / remove / drag stops and save, and the Arabic catalog showing "جدة > ينبع > جدة".
 - **Deploy:** upload the changed files, back up, `php artisan migrate`, `php artisan view:clear` and
   `php artisan config:clear`.
 

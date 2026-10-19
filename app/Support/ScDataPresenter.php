@@ -9,6 +9,7 @@ use App\Models\CabinCategory;
 use App\Models\Cruise;
 use App\Models\Destination;
 use App\Models\Facility;
+use App\Models\Port;
 use App\Models\Sailing;
 use App\Models\Ship;
 use App\Models\Testimonial;
@@ -260,7 +261,7 @@ class ScDataPresenter
     {
         return Cruise::active()
             ->with([
-                'ship', 'itinerary',
+                'ship', 'itinerary', 'ports',
                 'sailings' => fn ($q) => $q->upcoming()->with('cabinPrices.cabinCategory'),
             ])
             ->get()
@@ -273,7 +274,8 @@ class ScDataPresenter
                 'nights' => $cruise->nights,
                 'departurePort' => $cruise->departure_port,
                 'arrivalPort' => $cruise->arrival_port,
-                'route' => $cruise->route,
+                // English port names (the keys core.js filters on); SC.port() shows them in Arabic via portNames
+                'route' => $cruise->routeNames(),
                 'tags' => $cruise->tags ?? [],
                 'visaFree' => $cruise->visa_free,
                 'rating' => (float) $cruise->rating,
@@ -329,8 +331,9 @@ class ScDataPresenter
     }
 
     /**
-     * English port / country name → Arabic, from the destinations (e.g. "Safaga" → "سفاجا", "Egypt" → "مصر").
-     * Empty in English, so SC.port() leaves names unchanged.
+     * English port / country name → Arabic, from the destinations and the route ports (e.g. "Safaga" → "سفاجا",
+     * "Egypt" → "مصر"). Route ports come last, so their Arabic name wins. Empty in English, so SC.port() leaves
+     * names unchanged.
      *
      * @return array<string, string>
      */
@@ -347,6 +350,9 @@ class ScDataPresenter
             if ($d->country_ar) {
                 $names[$d->country] = $d->country_ar;
             }
+        }
+        foreach (Port::whereNotNull('name_ar')->where('name_ar', '!=', '')->get() as $port) {
+            $names[$port->name_en] = $port->name_ar;
         }
 
         return $names;

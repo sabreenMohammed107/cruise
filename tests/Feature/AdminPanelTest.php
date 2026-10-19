@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Booking;
 use App\Models\Cruise;
 use App\Models\Destination;
+use App\Models\Port;
 use App\Models\Sailing;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -175,7 +176,7 @@ class AdminPanelTest extends TestCase
 
         $this->put("/admin/cruises/{$cruise->id}", [
             'name' => $cruise->name, 'slug' => $cruise->slug, 'ship_id' => $cruise->ship_id, 'nights' => 3,
-            'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah', 'route' => "Jeddah\nYanbu\nJeddah",
+            'departure_port' => 'Jeddah', 'arrival_port' => 'Jeddah', 'route_ports' => Port::idsFor(['Jeddah', 'Yanbu', 'Jeddah']),
             'tags' => ['weekend'], 'is_active' => '1',
             'itinerary' => [
                 ['port' => 'Jeddah', 'time' => 'Departs 20:00', 'text' => 'Embark.'],

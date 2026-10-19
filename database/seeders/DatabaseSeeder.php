@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             AgeBandSeeder::class,
             ShipSeeder::class,
             CabinCategorySeeder::class,
+            PortSeeder::class, // before cruises: their routes are made of these ports
             CruiseSeeder::class,
             DestinationSeeder::class,
             TestimonialSeeder::class,

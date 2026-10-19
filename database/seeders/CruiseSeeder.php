@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\SailingStatus;
 use App\Models\Cruise;
+use App\Models\Port;
 use App\Models\Sailing;
 use App\Models\Ship;
 use Illuminate\Database\Seeder;
@@ -41,6 +42,9 @@ class CruiseSeeder extends Seeder
                 'summary' => $data['summary'],
                 'is_active' => true,
             ]);
+
+            // Route stops from the route ports (PortSeeder), in order
+            $cruise->syncRoute(Port::idsFor($data['route']));
 
             foreach ($data['itinerary'] as $i => [$port, $time, $text]) {
                 $cruise->itinerary()->updateOrCreate(['day_number' => $i + 1], [

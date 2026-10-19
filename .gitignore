@@ -25,3 +25,6 @@ Thumbs.db
 
 # Photos uploaded from the admin panel (media library)
 /public/uploads
+
+# Local database dumps taken before migrations
+/db-backups

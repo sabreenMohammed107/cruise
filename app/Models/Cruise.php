@@ -54,6 +54,12 @@ class Cruise extends Model
         return $this->hasMany(Sailing::class)->orderBy('departure_date');
     }
 
+    /** The route: ports in sailing order (Admin → Route ports). A port may appear twice, e.g. Jeddah … Jeddah. */
+    public function ports(): BelongsToMany
+    {
+        return $this->belongsToMany(Port::class, 'cruise_port')->withPivot('position')->orderByPivot('position');
+    }
+
     public function testimonials(): HasMany
     {
         return $this->hasMany(Testimonial::class);
@@ -67,6 +73,36 @@ class Cruise extends Model
     public function scopeActive(Builder $query): void
     {
         $query->where('is_active', true);
+    }
+
+    /**
+     * Saves the route as ordered stops (port ids, repeats allowed) and refreshes the `route` column.
+     *
+     * @param  array<int|string>  $portIds
+     */
+    public function syncRoute(array $portIds): void
+    {
+        $this->ports()->detach();
+        foreach (array_values($portIds) as $i => $id) {
+            $this->ports()->attach((int) $id, ['position' => $i + 1]);
+        }
+        $this->refreshRoute();
+    }
+
+    /**
+     * `route` keeps the English names of the stops (the keys core.js and destinations match on);
+     * cruise_port is the source.
+     */
+    public function refreshRoute(): void
+    {
+        $this->unsetRelation('ports');
+        $this->forceFill(['route' => $this->ports()->pluck('ports.name_en')->all()])->save();
+    }
+
+    /** English stop names in order: from the ports, or the stored `route` for a cruise without port rows. */
+    public function routeNames(): array
+    {
+        return $this->ports->isNotEmpty() ? $this->ports->pluck('name_en')->all() : ($this->route ?? []);
     }
 
     /**

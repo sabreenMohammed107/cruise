@@ -47,8 +47,7 @@ class CruiseResource extends Resource
             Field::text('departure_port', 'Departure port')->rules(['required', 'string', 'max:255'])->index(),
             Field::date('next_sailing', 'Next sailing')->indexOnly(),
             Field::text('arrival_port', 'Arrival port')->rules(['required', 'string', 'max:255']),
-            Field::lines('route', 'Route')->rules(['required', 'string'])
-                ->help('One port per line, in order. Use the same port names as Destinations, e.g. "Al Wajh".'),
+            // The route (ordered stops from Route ports) is edited under the fields: admin.cruises.route
             Field::checkboxes('tags', 'Highlights', ['family' => 'Family friendly', 'excursions' => 'Excursions', 'weekend' => 'Weekend', 'festive' => 'Festive sailing']),
             Field::checkbox('visa_free', 'No visa needed'),
             Field::number('rating', 'Guest rating', '0.1')->rules(['nullable', 'numeric', 'min:0', 'max:5']),
@@ -71,12 +70,15 @@ class CruiseResource extends Resource
 
     public static function formExtra(): ?string
     {
-        return 'admin.cruises.itinerary';
+        return 'admin.cruises.extra';
     }
 
     public static function extraRules(?Model $record): array
     {
         return [
+            'route_ports' => ['required', 'array', 'min:2', 'max:30'],
+            // A port may repeat (round trips start and end at the same port)
+            'route_ports.*' => ['integer', Rule::exists('ports', 'id')],
             'itinerary' => ['nullable', 'array'],
             'itinerary.*.port' => ['nullable', 'string', 'max:255'],
             'itinerary.*.time' => ['nullable', 'string', 'max:40'],
@@ -86,19 +88,32 @@ class CruiseResource extends Resource
         ];
     }
 
+    public static function messages(): array
+    {
+        return parent::messages() + [
+            'route_ports.required' => 'Add the ports of the route, in sailing order.',
+            'route_ports.min' => 'A route needs at least two stops: where the cruise starts and where it ends.',
+            'route_ports.*.exists' => 'One of the route ports no longer exists. Remove it and add the stop again.',
+        ];
+    }
+
     public static function fill(Model $record, Request $request): void
     {
         parent::fill($record, $request);
         $record->tags = $record->tags ?: [];
+        $record->route ??= []; // filled from the stops by afterSave()
         $record->reviews_count ??= 0;
         $record->popularity ??= 0;
     }
 
     /**
-     * Rewrites the day-by-day itinerary from the editor rows (rows without a port are dropped).
+     * Saves the route stops in order, then rewrites the day-by-day itinerary from the editor rows
+     * (rows without a port are dropped).
      */
     public static function afterSave(Model $record, Request $request): void
     {
+        $record->syncRoute($request->input('route_ports', []));
+
         $days = collect($request->input('itinerary', []))
             ->filter(fn ($day) => filled($day['port'] ?? null))
             ->values();

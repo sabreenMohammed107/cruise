@@ -10,6 +10,7 @@ use App\Models\Facility;
 use App\Models\HomeSection;
 use App\Models\HomeSectionItem;
 use App\Models\ItineraryDay;
+use App\Models\Port;
 use App\Models\PromoCode;
 use App\Models\Ship;
 use App\Models\ShipEssential;
@@ -40,8 +41,11 @@ class BilingualContentTest extends TestCase
     private const NOT_CONTENT = [
         'users', 'password_reset_tokens', 'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
         'migrations', 'bookings', 'booking_cabins', 'booking_travellers', 'payments', 'favorites', 'newsletter_subscribers',
-        'sailings', 'sailing_cabin_prices',
+        'sailings', 'sailing_cabin_prices', 'cruise_port',
     ];
+
+    /** Content tables with name_en / name_ar instead of TRANSLATABLE columns. */
+    private const NAME_EN_AR = ['cabin_categories', 'ports'];
 
     private function inArabic(): static
     {
@@ -52,7 +56,7 @@ class BilingualContentTest extends TestCase
     {
         $contentTables = array_map(fn ($model) => (new $model)->getTable(), self::CONTENT);
         foreach (Schema::getTableListing(schemaQualified: false) as $table) {
-            $this->assertContains($table, [...$contentTables, ...self::NOT_CONTENT], "Table \"$table\" needs Arabic columns (TRANSLATABLE) or a NOT_CONTENT entry.");
+            $this->assertContains($table, [...$contentTables, ...self::NAME_EN_AR, ...self::NOT_CONTENT], "Table \"$table\" needs Arabic columns (TRANSLATABLE) or a NOT_CONTENT entry.");
         }
 
         foreach (self::CONTENT as $model) {
@@ -63,7 +67,9 @@ class BilingualContentTest extends TestCase
                 $this->assertTrue(Schema::hasColumn($table, $column.'_ar'), "$table.{$column}_ar is missing");
             }
         }
-        $this->assertTrue(Schema::hasColumn('cabin_categories', 'name_ar')); // cabins use name_en / name_ar
+        foreach (self::NAME_EN_AR as $table) {
+            $this->assertTrue(Schema::hasColumns($table, ['name_en', 'name_ar']), "$table.name_en / name_ar");
+        }
     }
 
     public function test_all_seeded_content_has_its_arabic_version(): void
@@ -171,7 +177,7 @@ class BilingualContentTest extends TestCase
             ->assertSee('itinerary[0][time_ar]', false)->assertSee('المغادرة 20:00');
 
         $form = $cruise->only(['name', 'name_ar', 'slug', 'ship_id', 'nights', 'departure_port', 'arrival_port', 'summary', 'summary_ar'])
-            + ['route' => "Jeddah\nYanbu\nJeddah", 'tags' => ['family'], 'is_active' => 1,
+            + ['route_ports' => Port::idsFor(['Jeddah', 'Yanbu', 'Jeddah']), 'tags' => ['family'], 'is_active' => 1,
                 'itinerary' => [['port' => 'Jeddah', 'time' => 'Departs 21:00', 'time_ar' => 'المغادرة 21:00', 'text' => 'Embark.', 'text_ar' => 'الصعود.']]];
         $this->put("/admin/cruises/{$cruise->id}", $form)->assertSessionHasNoErrors();
 
