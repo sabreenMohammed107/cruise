@@ -68,6 +68,8 @@ class BookingService
                 'discount_total' => $quote['discount'],
                 'grand_total' => $quote['total'],
                 'currency' => config('cruise.currency'),
+                // Website language at booking time (sc_lang cookie): the booking emails are written in it
+                'locale' => app()->getLocale(),
                 'price_snapshot' => $quote,
                 'confirmed_at' => now(),
             ]);

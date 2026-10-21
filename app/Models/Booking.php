@@ -17,7 +17,7 @@ class Booking extends Model
     protected $fillable = [
         'reference', 'user_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
         'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
-        'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency',
+        'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency', 'locale',
         'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes', 'seller_id',
     ];
 
@@ -142,6 +142,18 @@ class Booking extends Model
     public function guestCounts(): array
     {
         return ['adult' => $this->adults, 'child' => $this->children, 'infant' => $this->infants];
+    }
+
+    /** "en" or "ar": the website language the guest booked in (step 20). */
+    public function emailLocale(): string
+    {
+        return in_array($this->locale, ['en', 'ar'], true) ? $this->locale : 'en';
+    }
+
+    /** The primary guest (cabin 1, first adult), who also gave the contact details. */
+    public function primaryTraveller(): ?BookingTraveller
+    {
+        return $this->travellers->firstWhere('is_primary', true) ?? $this->travellers->first();
     }
 
     public function amountDue(): float

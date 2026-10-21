@@ -1,0 +1,69 @@
+<?php
+
+/*
+| رسائل الحجز (App\Mail\BookingConfirmed للضيف، App\Mail\NewBookingForTeam للفريق)، الخطوة 20.
+| تُرسل بلغة الموقع التي حجز بها الضيف (bookings.locale). نفس مفاتيح lang/en/emails.php.
+*/
+
+return [
+    'brand' => 'Safer Cruise',
+    'tagline' => 'من safer.travel',
+
+    // للضيف: تأكيد الحجز
+    'guest_subject' => 'تم حجز رحلتك البحرية: :ref',
+    'guest_title' => 'تم حجز رحلتك البحرية',
+    'guest_greeting' => 'مرحبًا :name،',
+    'guest_intro' => 'شكرًا لحجزك مع Safer Cruise. تم تأكيد حجزك والكابينة محجوزة لك.',
+    'next_title' => 'الخطوات التالية',
+    'next_contact' => 'سيتواصل معك فريقنا خلال :hours ساعة على الرقم :phone لترتيب الدفع.',
+    'next_no_online' => 'لا يوجد أي دفع عبر الإنترنت.',
+    'next_documents' => 'أحضر جواز سفر صالحًا لمدة ستة أشهر على الأقل (أو الهوية الوطنية السعودية للرحلات الداخلية فقط) عند تسجيل الوصول.',
+    'view_booking' => 'عرض حجزك',
+    'questions' => 'لديك سؤال؟ رُدّ على هذه الرسالة أو راسلنا عبر واتساب.',
+    'whatsapp' => 'واتساب',
+
+    // للفريق: حجز جديد
+    'team_subject' => 'حجز جديد :ref: ترتيب الدفع',
+    'team_title' => 'حجز جديد :ref',
+    'team_intro' => 'تواصل مع الضيف خلال :hours ساعة لترتيب دفع مبلغ :amount.',
+    'booked_in' => 'لغة الحجز',
+    'language_names' => ['en' => 'الإنجليزية', 'ar' => 'العربية'],
+    'booked_at' => 'تاريخ الحجز',
+    'account' => 'الحساب',
+    'guest_checkout' => 'حجز بدون حساب',
+    'open_admin' => 'فتح في لوحة التحكم',
+    'call' => 'اتصال',
+    'email_guest' => 'بريد',
+
+    // تفاصيل الحجز المشتركة
+    'reference' => 'رقم الحجز',
+    'status' => 'الحالة',
+    'confirmed' => 'مؤكد',
+    'trip' => 'رحلتك',
+    'trip_team' => 'الرحلة',
+    'cruise' => 'الرحلة البحرية',
+    'ship' => 'السفينة',
+    'sailing_code' => 'موعد الإبحار',
+    'departs' => 'المغادرة',
+    'returns' => 'العودة',
+    'duration' => 'المدة',
+    'route' => 'خط السير',
+    'cabins_title' => 'الكبائن والضيوف',
+    'cabin_n' => 'الكابينة :n',
+    'travellers' => 'المسافرون',
+    'primary' => 'الضيف الرئيسي',
+    'born' => 'تاريخ الميلاد :date',
+    'contact' => 'التواصل',
+    'price_title' => 'السعر',
+    'fare' => 'سعر الرحلة',
+    'fees' => 'الضرائب ورسوم الموانئ',
+    'discount' => 'الخصم',
+    'discount_code' => 'الخصم (:code)',
+    'total' => 'الإجمالي',
+    'paid' => 'المدفوع',
+    'due' => 'المبلغ المستحق',
+    'prices_note' => 'الأسعار بالدولار الأمريكي للرحلة كاملة.',
+
+    'footer_rights' => '© :year Safer. جميع الحقوق محفوظة.',
+    'footer_why' => 'وصلتك هذه الرسالة لأنه تم إجراء حجز على Safer Cruise بهذا البريد الإلكتروني.',
+];

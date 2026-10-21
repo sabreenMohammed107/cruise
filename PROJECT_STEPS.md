@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 135 tests
+C:\xampp\php\php.exe artisan test                     # 140 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1518,11 +1518,40 @@ column added in step 9). Cruises with no such sailing ("None scheduled") come la
   Escape from Yanbu → New Year at Sea → AROYA – Repositioning (4 Apr 2027).
 - **Deploy:** upload `app/Admin/Resources/CruiseResource.php` (no migration).
 
+### Step 20: Booking emails in the guest's language, redesigned (2026-10-21)
+
+Both booking emails (sent by `BookingService::sendEmails()` right after `POST /booking/confirm`) are now written in
+**the website language the guest booked in**, and show the full booking in a branded HTML layout. Same approach as
+the `safeer` project: the Mailable sets its locale in the constructor, and every word comes from a language file.
+
+| Email | To | Subject (EN / AR) | Contents |
+| --- | --- | --- | --- |
+| `BookingConfirmed` | the guest (contact email) | "Your cruise is booked: {ref}" / "تم حجز رحلتك البحرية: {ref}" | greeting, reference and total, what happens next (call within 24 h, nothing to pay online), trip, cabins with guests and travellers, price, "View your booking" (signed link), documents, footer contacts |
+| `NewBookingForTeam` | `CRUISE_TEAM_EMAIL` | "New booking {ref}: arrange payment" / "حجز جديد {ref}: ترتيب الدفع" | amount to collect, guest contact (call / WhatsApp / email links), **booking language**, booked on, account or guest checkout, trip, cabins and travellers (with gender and date of birth), price with paid and amount due, "Open in admin" |
+
+- **Language:** new column `bookings.locale` (migration `2026_10_21_000001_add_locale_to_bookings_table`; existing
+  bookings get `en`), saved from the `sc_lang` cookie in `BookingService::confirm()`. `Booking::emailLocale()`
+  (`en` / `ar`, anything else → `en`); both Mailables call `$this->locale($booking->emailLocale())` in their
+  constructor, so subject, text, dates (Arabic month and day names), cabin names, bands, nationalities and port
+  names follow it. The team email uses the same language and says which language to call in.
+- **Words:** new `lang/en/emails.php` and `lang/ar/emails.php` (same keys); guest counts, nights and age-band
+  labels come from `lang/*/site.php`.
+- **Layout:** `resources/views/mail/layout.blade.php` (HTML with inline styles for Gmail / Outlook, site colours,
+  text logo, `dir="rtl"` in Arabic, footer with phone / email / WhatsApp from Admin → Footer & contact) and
+  `mail/partials/booking-details.blade.php` (trip, cabins and travellers, price), filled by
+  `App\Mail\BookingEmailData::make()`. The old Markdown templates were replaced. `Booking::primaryTraveller()`.
+- Tests: **140 passed**. New `BookingEmailsTest`: an English and an Arabic two-cabin booking with SAFER10 (locale
+  saved, subject, `lang`/`dir`, greeting, dates, route, cabins, travellers, discount, totals, team-only details and
+  links), footer contacts from the settings, unknown locale → English, and the two language files having the
+  same keys. Rendered from a local booking in both languages and checked as screenshots.
+  Applied locally (backup `db-backups\safer_cruise_db-2026-10-21-before-booking-locale.sql`).
+- **Deploy:** upload the files, back up, `php artisan migrate`, `php artisan view:clear`.
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.
-2. Arabic copy: the whole public website is bilingual since step 10. Still English: the booking emails
-   (`resources/views/mail/*`), promo-code labels (database column without an Arabic twin) and the admin panel
+2. Arabic copy: the whole public website is bilingual since step 10, and the booking emails since step 20. Still
+   English: promo-code labels (database column without an Arabic twin) and the admin panel
    (English by design).
 3. Phase 7: Tailwind via Vite instead of the CDN; production `.env` (`APP_DEBUG=false`, real mailer,
    `CRUISE_TEAM_EMAIL`); back up `public/uploads` with the database.
