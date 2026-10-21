@@ -275,6 +275,38 @@ class AdminPanelTest extends TestCase
         $this->get("/admin/cruises/{$cruise->id}/edit")->assertOk()->assertDontSee('price_factor');
     }
 
+    public function test_cruises_list_is_ordered_by_the_next_sailing(): void
+    {
+        $this->travelTo('2026-10-11');
+        $this->actingAs($this->admin(), 'admin');
+        $names = fn (string $url = '/admin/cruises') => $this->get($url)->assertOk()->viewData('records')->pluck('name')->all();
+
+        // Closest departure first (29 Oct, 15 Nov, 20 Nov, 10 Dec, 29 Dec, 4 Apr)
+        $this->assertSame(['Saudi Coast Weekend', 'Red Sea Discovery', 'Egypt & Jordan Voyage', 'Winter Escape from Yanbu',
+            'New Year at Sea', 'AROYA – Repositioning'], $names());
+
+        // Cancelling a cruise's only upcoming sailing moves it to the end ("None scheduled"); ties go by name
+        Sailing::where('code', 'NYS-261229')->update(['status' => 'cancelled']);
+        Sailing::where('code', 'ARP-270404')->update(['status' => 'cancelled']);
+        $this->assertSame(['AROYA – Repositioning', 'New Year at Sea'], array_slice($names(), -2));
+
+        // Search keeps the order
+        $this->assertSame(['Saudi Coast Weekend', 'Red Sea Discovery', 'Egypt & Jordan Voyage', 'AROYA – Repositioning', 'New Year at Sea'], $names('/admin/cruises?q=Jeddah'));
+
+        // Pagination (25 per page) continues the same order on page 2
+        $template = Cruise::where('slug', 'saudi-coast-weekend')->firstOrFail();
+        foreach (range(1, 22) as $i) {
+            $copy = $template->replicate(['sailings_count'])->fill(['slug' => "copy-$i", 'name' => sprintf('Copy %02d', $i)]);
+            $copy->save();
+            $copy->sailings()->create(['code' => "CPY-$i", 'departure_date' => "2027-03-{$i}", 'return_date' => "2027-03-{$i}", 'status' => 'open']);
+        }
+        $page1 = $names();
+        $page2 = $names('/admin/cruises?page=2');
+        $this->assertCount(25, $page1);
+        $this->assertSame(['Copy 22', 'AROYA – Repositioning', 'New Year at Sea'], $page2);
+        $this->assertSame(['Copy 20', 'Copy 21'], array_slice($page1, -2));
+    }
+
     public function test_cabins_hold_at_most_three_guests(): void
     {
         $this->actingAs($this->admin(), 'admin');

@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 134 tests
+C:\xampp\php\php.exe artisan test                     # 135 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1501,6 +1501,22 @@ addresses (no `javascript:`), a valid email, phones `+`, digits, spaces, `()` an
   English and Arabic (test values removed afterwards).
 - **Deploy:** upload the files, back up, `php artisan migrate`, `php artisan view:clear`, `php artisan config:clear`
   and `php artisan route:clear`.
+
+### Step 19: Admin cruises list ordered by next sailing (2026-10-21)
+
+**Admin → Cruises list** (`/admin/cruises`) now opens with the cruise whose **next sailing is closest** at the top,
+instead of alphabetical order. "Next sailing" is the earliest departure from today on that isn't cancelled (the
+column added in step 9). Cruises with no such sailing ("None scheduled") come last; equal dates go by name.
+
+- `CruiseResource::query()`: after the `withMin(... as next_sailing)` subquery, `orderByRaw('next_sailing is null')`,
+  `orderBy('next_sailing')`, `orderBy('name')`. Works on MySQL/MariaDB and SQLite. The search box and pagination
+  (25 per page) use the same query, so filtered results and page 2 keep the order (the count query for
+  pagination ignores the ordering).
+- Tests: **135 passed**. New `AdminPanelTest::test_cruises_list_is_ordered_by_the_next_sailing` (order of the six
+  seeded cruises, cancelled-only cruises moved to the end by name, search, and page 1 / page 2 with 28 cruises).
+  Checked on the local site: Saudi Coast Weekend (29 Oct) → Red Sea Discovery → Egypt & Jordan Voyage → Winter
+  Escape from Yanbu → New Year at Sea → AROYA – Repositioning (4 Apr 2027).
+- **Deploy:** upload `app/Admin/Resources/CruiseResource.php` (no migration).
 
 **Open items (next):**
 

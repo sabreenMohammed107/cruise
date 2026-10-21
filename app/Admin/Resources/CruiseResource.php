@@ -32,6 +32,9 @@ class CruiseResource extends Resource
             ->withMin(['sailings as next_sailing' => fn (Builder $q) => $q
                 ->whereDate('departure_date', '>=', today())
                 ->where('status', '!=', SailingStatus::Cancelled)], 'departure_date')
+            // Closest next sailing first; cruises with none scheduled at the end; ties by name
+            ->orderByRaw('next_sailing is null')
+            ->orderBy('next_sailing')
             ->orderBy('name');
     }
 
