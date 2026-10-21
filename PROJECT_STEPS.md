@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 140 tests
+C:\xampp\php\php.exe artisan test                     # 142 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1546,6 +1546,17 @@ the `safeer` project: the Mailable sets its locale in the constructor, and every
   same keys. Rendered from a local booking in both languages and checked as screenshots.
   Applied locally (backup `db-backups\safer_cruise_db-2026-10-21-before-booking-locale.sql`).
 - **Deploy:** upload the files, back up, `php artisan migrate`, `php artisan view:clear`.
+
+**Step 20b (2026-10-21), wording and layout fixes:**
+- Guest email: the documents line no longer mentions the Saudi national ID ("Bring a passport valid for at least
+  six months to check-in."), and the questions line is "Questions? Message us on WhatsApp." (no "reply to this
+  email"); same in Arabic.
+- "Sailing" row: a code made of the date and a number (`03112026-4`) shows as the date in the email language
+  ("3 November 2026" / "3 نوفمبر 2026"), via `BookingEmailData::sailingLabel()`; other codes (`RSD-270214`) are
+  shown as they are.
+- Header: "by safer.travel" is an explicit white link (mail apps were turning it into a blue link, hard to read on
+  the dark header). `emails.tagline` now has a `:site` placeholder.
+- Tests: **142 passed** (2 new in `BookingEmailsTest`).
 
 **Open items (next):**
 

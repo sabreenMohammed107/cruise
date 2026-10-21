@@ -20,6 +20,19 @@ final class BookingEmailData
         return config('cruise.currency_symbol').number_format((float) $amount);
     }
 
+    /**
+     * A sailing code as guests read it. Codes made of the date and a number ("03112026-4" = 3 Nov 2026, sailing 4)
+     * show as the date in the current language ("3 November 2026"); other codes ("RSD-270214") as they are.
+     */
+    public static function sailingLabel(string $code): string
+    {
+        if (preg_match('/^(\d{2})(\d{2})(\d{4})(?:-\d+)?$/', $code, $m) && checkdate((int) $m[2], (int) $m[1], (int) $m[3])) {
+            return \Illuminate\Support\Carbon::create((int) $m[3], (int) $m[2], (int) $m[1])->translatedFormat('j F Y');
+        }
+
+        return $code;
+    }
+
     /** "3 adults + 1 child" in the current language. */
     public static function guests(array $counts): string
     {
@@ -43,7 +56,7 @@ final class BookingEmailData
             'cruise' => $cruise->tr('name'),
             'trip' => [
                 __('emails.ship') => $cruise->ship->tr('name'),
-                __('emails.sailing_code') => $sailing->code,
+                __('emails.sailing_code') => static::sailingLabel($sailing->code),
                 __('emails.departs') => $date($sailing->departure_date).$comma.Bi::port($cruise->departure_port),
                 __('emails.returns') => $date($sailing->return_date).$comma.Bi::port($cruise->arrival_port),
                 __('emails.duration') => trans_choice('site.nights', $cruise->nights, ['count' => $cruise->nights]),

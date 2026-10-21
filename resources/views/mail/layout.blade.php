@@ -27,7 +27,8 @@
           <tr>
             <td style="background:#124A80;padding:22px 28px;text-align:{{ $rtl ? 'right' : 'left' }};">
               <span style="font-size:22px;font-weight:700;color:#FFFFFF;">Safer</span><span style="font-size:22px;font-weight:700;color:#2BC4D9;">Cruise</span>
-              <div style="font-size:12px;color:#BFD6EC;margin-top:2px;">{{ __('emails.tagline') }}</div>
+              {{-- An explicit white link: otherwise mail apps turn "safer.travel" into a blue link that is hard to read on the dark header --}}
+              <div style="font-size:12px;color:#FFFFFF;margin-top:2px;">{!! __('emails.tagline', ['site' => '<a href="https://safer.travel" style="color:#FFFFFF;text-decoration:none;font-weight:600;">safer.travel</a>']) !!}</div>
             </td>
           </tr>
           <tr>

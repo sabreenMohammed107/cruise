@@ -131,6 +131,34 @@ class BookingEmailsTest extends TestCase
         $this->assertStringContainsString('Your cruise is booked', (new BookingConfirmed($booking->fresh()))->render());
     }
 
+    public function test_date_sailing_codes_show_as_a_date(): void
+    {
+        $label = function (string $code, string $lang) {
+            app()->setLocale($lang);
+
+            return \App\Mail\BookingEmailData::sailingLabel($code);
+        };
+
+        $this->assertSame('3 November 2026', $label('03112026-4', 'en'));
+        $this->assertSame('3 نوفمبر 2026', $label('03112026-4', 'ar'));
+        $this->assertSame('29 December 2026', $label('29122026', 'en'));
+        $this->assertSame('RSD-270214', $label('RSD-270214', 'en'));   // not a date code: as it is
+        $this->assertSame('31022026-1', $label('31022026-1', 'en'));   // not a real date
+    }
+
+    public function test_header_link_and_trimmed_guest_text(): void
+    {
+        $this->book('ar');
+        $html = $this->sent(BookingConfirmed::class)->render();
+
+        $this->assertStringContainsString('<a href="https://safer.travel" style="color:#FFFFFF;', $html);
+        $this->assertStringContainsString('لديك سؤال؟ راسلنا عبر واتساب.', $html);
+        $this->assertStringNotContainsString('رُدّ على هذه الرسالة', $html);
+        $this->assertStringNotContainsString('الهوية الوطنية', $html);
+        $this->assertStringNotContainsString('Reply to this email', trans('emails.questions', [], 'en'));
+        $this->assertStringNotContainsString('national ID', trans('emails.next_documents', [], 'en'));
+    }
+
     public function test_email_language_files_have_the_same_keys(): void
     {
         $keys = fn (string $locale) => array_keys(\Illuminate\Support\Arr::dot(trans('emails', [], $locale)));

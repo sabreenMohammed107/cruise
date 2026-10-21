@@ -19,7 +19,7 @@
     @continue($text === '' || $text === null)
     <tr>
       <td style="{{ $label }}">{{ $name }}</td>
-      <td style="{{ $value }}" @if ($name === __('emails.sailing_code')) dir="ltr" @endif>{{ $text }}</td>
+      <td style="{{ $value }}">{{ $text }}</td>
     </tr>
   @endforeach
 </table>

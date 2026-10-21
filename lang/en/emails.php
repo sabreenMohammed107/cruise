@@ -7,7 +7,7 @@
 
 return [
     'brand' => 'Safer Cruise',
-    'tagline' => 'by safer.travel',
+    'tagline' => 'by :site',
 
     // Guest: booking confirmation
     'guest_subject' => 'Your cruise is booked: :ref',
@@ -17,9 +17,9 @@ return [
     'next_title' => 'What happens next',
     'next_contact' => 'Our team will contact you within :hours hours on :phone to arrange payment.',
     'next_no_online' => 'There is nothing to pay online.',
-    'next_documents' => 'Bring a passport valid for at least six months (or a Saudi national ID for domestic-only sailings) to check-in.',
+    'next_documents' => 'Bring a passport valid for at least six months to check-in.',
     'view_booking' => 'View your booking',
-    'questions' => 'Questions? Reply to this email or message us on WhatsApp.',
+    'questions' => 'Questions? Message us on WhatsApp.',
     'whatsapp' => 'WhatsApp',
 
     // Team: new booking
