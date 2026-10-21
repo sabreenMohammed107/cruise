@@ -15,6 +15,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>@yield('title')</title>
+  <style>
+    a.sc-white-link, a.sc-white-link span, a.sc-white-link:visited { color: #FFFFFF !important; text-decoration: none !important; }
+    /* Apple Mail data detectors */
+    a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+  </style>
 </head>
 <body style="margin:0;padding:0;background:#EEF3F8;font-family:{{ $font }};color:#1B2A3A;">
   {{-- Inbox preview line --}}
@@ -27,8 +32,10 @@
           <tr>
             <td style="background:#124A80;padding:22px 28px;text-align:{{ $rtl ? 'right' : 'left' }};">
               <span style="font-size:22px;font-weight:700;color:#FFFFFF;">Safer</span><span style="font-size:22px;font-weight:700;color:#2BC4D9;">Cruise</span>
-              {{-- An explicit white link: otherwise mail apps turn "safer.travel" into a blue link that is hard to read on the dark header --}}
-              <div style="font-size:12px;color:#FFFFFF;margin-top:2px;">{!! __('emails.tagline', ['site' => '<a href="https://safer.travel" style="color:#FFFFFF;text-decoration:none;font-weight:600;">safer.travel</a>']) !!}</div>
+              {{-- "safer.travel" as a white link. Mail apps recolour links (and turn plain "safer.travel" into a blue
+                   one), so the colour is on the link, on a span inside it (what Outlook / Gmail keep) and in a
+                   head rule with !important (Apple Mail, Outlook.com). --}}
+              <div style="font-size:12px;color:#FFFFFF;margin-top:2px;">{!! __('emails.tagline', ['site' => '<a href="https://safer.travel" class="sc-white-link" style="color:#FFFFFF !important;text-decoration:none !important;font-weight:600;"><span style="color:#FFFFFF;text-decoration:none;">safer.travel</span></a>']) !!}</div>
             </td>
           </tr>
           <tr>

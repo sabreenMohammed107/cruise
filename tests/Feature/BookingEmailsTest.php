@@ -151,7 +151,10 @@ class BookingEmailsTest extends TestCase
         $this->book('ar');
         $html = $this->sent(BookingConfirmed::class)->render();
 
-        $this->assertStringContainsString('<a href="https://safer.travel" style="color:#FFFFFF;', $html);
+        // White in every mail app: on the link, on a span inside it, and in a head rule
+        $this->assertStringContainsString('<a href="https://safer.travel" class="sc-white-link" style="color:#FFFFFF !important;', $html);
+        $this->assertStringContainsString('<span style="color:#FFFFFF;text-decoration:none;">safer.travel</span>', $html);
+        $this->assertStringContainsString('a.sc-white-link, a.sc-white-link span', $html);
         $this->assertStringContainsString('لديك سؤال؟ راسلنا عبر واتساب.', $html);
         $this->assertStringNotContainsString('رُدّ على هذه الرسالة', $html);
         $this->assertStringNotContainsString('الهوية الوطنية', $html);

@@ -1555,7 +1555,10 @@ the `safeer` project: the Mailable sets its locale in the constructor, and every
   ("3 November 2026" / "3 نوفمبر 2026"), via `BookingEmailData::sailingLabel()`; other codes (`RSD-270214`) are
   shown as they are.
 - Header: "by safer.travel" is an explicit white link (mail apps were turning it into a blue link, hard to read on
-  the dark header). `emails.tagline` now has a `:site` placeholder.
+  the dark header). `emails.tagline` now has a `:site` placeholder. Because mail apps recolour links, the white is
+  set three ways: inline on the `<a>` (`!important`), on a `<span>` inside it (kept by Outlook / Gmail), and in a
+  `<head>` rule `a.sc-white-link` (Apple Mail, Outlook.com), plus a rule that stops Apple Mail's data detectors.
+  Checked with a "links are blue and underlined" stylesheet added: still white, no underline, in all four emails.
 - Tests: **142 passed** (2 new in `BookingEmailsTest`).
 
 **Open items (next):**
