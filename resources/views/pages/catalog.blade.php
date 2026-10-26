@@ -95,7 +95,8 @@
       <!-- =========================================================
            RESULTS
            ========================================================= -->
-      <section aria-labelledby="results-title">
+      {{-- min-w-0: a grid item is otherwise as wide as its widest unbreakable content, which scrolled phones sideways --}}
+      <section aria-labelledby="results-title" class="min-w-0">
         <div class="flex flex-wrap items-center gap-3 justify-between">
           <h2 id="results-title" class="font-display font-semibold text-lg"><span id="r-count">0</span> {{ __('pages.catalog.sailings') }}</h2>
           <div class="flex items-center gap-2">
@@ -128,7 +129,7 @@
           <button class="btn btn-primary mt-6" data-clear-all>{{ $sections['empty']->filledBi('primary_label') ? $sections['empty']->bi('primary_label') : 'Clear all filters' }}</button>
         </div>
 
-        <nav id="pagination" class="mt-10 flex items-center justify-center gap-2" aria-label="{{ __('pages.catalog.pagination') }}"></nav>
+        <nav id="pagination" class="mt-10 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2" aria-label="{{ __('pages.catalog.pagination') }}"></nav>
       </section>
     </div>
   </main>

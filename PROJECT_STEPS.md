@@ -1650,6 +1650,20 @@ cruise setting of its own.
   (`pointer-events-none`) so the photo link still works around the tags. Checked with 3–4 tags in English and
   Arabic: no tag under the heart. Deploy: upload `public/assets/js/core.js`.
 
+### Step 23: Cruises list scrolled sideways on phones (2026-10-26)
+
+On the live site (61 sailings = 11 pages of 6) the cruises list was 632 px wide on a 360 px phone. Cause: the
+pagination drew one 40 px button per page in a row that couldn't wrap (11 + previous / next = 616 px), and the
+results column (a grid item) grew to fit it. Locally there were only 3 pages, so it didn't show.
+- `catalog.js`: pagination shows the first page, the last page and the current one (± 1 from `sm` up), with "…"
+  for the gaps, e.g. `‹ 1 … 20 … 46 ›` on a phone; buttons are 36 px on phones.
+- `pages/catalog.blade.php`: the pagination row can wrap, and the results section has `min-w-0`, so nothing in it can
+  make the page wider than the screen again.
+- Checked locally with the page data multiplied to 272 sailings (46 pages), at 360 / 390 / 1280 px in English and
+  Arabic, on the first, a middle and the last page: page width = screen width, pagination on one row.
+  Tests: 151 passed. **Deploy:** upload `public/assets/js/pages/catalog.js` and `resources/views/pages/catalog.blade.php`,
+  then `php artisan view:clear`.
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.

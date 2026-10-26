@@ -136,9 +136,15 @@ document.addEventListener('sc:ready', () => {
     // pagination
     const pg = $('#pagination');
     if (pages <= 1) { pg.innerHTML = ''; } else {
-      const btn = (p, label, aria, disabled) => `<button class="w-10 h-10 rounded-full grid place-items-center font-bold border ${p === state.page && !aria ? 'bg-ocean-600 text-white border-ocean-600' : 'bg-white border-line hover:border-ocean-500'} ${disabled ? 'opacity-40 pointer-events-none' : ''}" data-page="${p}" ${aria ? `aria-label="${aria}"` : ''} ${p === state.page && !aria ? 'aria-current="page"' : ''}>${label}</button>`;
+      const btn = (p, label, aria, disabled) => `<button class="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full grid place-items-center font-bold border ${p === state.page && !aria ? 'bg-ocean-600 text-white border-ocean-600' : 'bg-white border-line hover:border-ocean-500'} ${disabled ? 'opacity-40 pointer-events-none' : ''}" data-page="${p}" ${aria ? `aria-label="${aria}"` : ''} ${p === state.page && !aria ? 'aria-current="page"' : ''}>${label}</button>`;
+      // Laravel: with many sailings a button per page was wider than a phone (61 sailings = 11 pages = 616 px).
+      // Show the first, the last and the current page (± 1 from sm up), "…" for the gaps.
+      const near = window.matchMedia('(min-width: 640px)').matches ? 1 : 0;
+      const shown = [...new Set([1, pages, ...Array.from({ length: near * 2 + 1 }, (_, i) => state.page - near + i)])]
+        .filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b);
+      const gap = '<span class="w-6 text-center text-muted shrink-0" aria-hidden="true">…</span>';
       pg.innerHTML = btn(state.page - 1, SC.icon('chevron-left', 'w-4 h-4 rtl:rotate-180'), SC.t('ui.catalog.previous_page'), state.page === 1) +
-        Array.from({ length: pages }, (_, i) => btn(i + 1, i + 1)).join('') +
+        shown.map((p, i) => (i && p - shown[i - 1] > 1 ? gap : '') + btn(p, p)).join('') +
         btn(state.page + 1, SC.icon('chevron-right', 'w-4 h-4 rtl:rotate-180'), SC.t('ui.catalog.next_page'), state.page === pages);
     }
     syncUrl();
