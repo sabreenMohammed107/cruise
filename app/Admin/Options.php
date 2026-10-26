@@ -3,6 +3,7 @@
 namespace App\Admin;
 
 use App\Models\Cruise;
+use App\Models\Highlight;
 use App\Models\Ship;
 
 /**
@@ -13,6 +14,14 @@ final class Options
     public static function ships(): array
     {
         return Ship::orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /** Cruise highlights for the cruise form (Admin → Cruises → Highlights): key => name. */
+    public static function highlights(): array
+    {
+        return Highlight::ordered()->get()
+            ->mapWithKeys(fn (Highlight $h) => [$h->key => $h->name_en.($h->is_active ? '' : ' (hidden)')])
+            ->all();
     }
 
     public static function cruises(): array

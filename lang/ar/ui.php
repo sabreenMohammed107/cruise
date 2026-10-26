@@ -38,11 +38,7 @@ return [
     ],
 
     'tags' => [
-        'visaFree' => 'بدون تأشيرة',
-        'family' => 'مناسبة للعائلات',
-        'excursions' => 'رحلات برية',
-        'weekend' => 'عطلة نهاية الأسبوع',
-        'festive' => 'رحلة احتفالية',
+        'visaFree' => 'بدون تأشيرة', // باقي الوسوم: لوحة التحكم ← Cruises ← Highlights (الخطوة 22)
     ],
 
     'favorites' => [
@@ -57,11 +53,7 @@ return [
         'visiting' => 'تزور',
         'any_port' => 'أي ميناء',
         'highlights' => [
-            'visaFree' => 'بدون تأشيرة',
-            'family' => 'مناسبة للعائلات',
-            'excursions' => 'رحلات برية',
-            'weekend' => 'عطلات نهاية الأسبوع',
-            'festive' => 'رحلات احتفالية',
+            'visaFree' => 'بدون تأشيرة', // الباقي: لوحة التحكم ← Cruises ← Highlights (الخطوة 22)
         ],
         'chip_from_port' => 'من :port',
         'chip_visiting' => 'تزور :port',

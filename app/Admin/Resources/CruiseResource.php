@@ -51,7 +51,8 @@ class CruiseResource extends Resource
             Field::date('next_sailing', 'Next sailing')->indexOnly(),
             Field::text('arrival_port', 'Arrival port')->rules(['required', 'string', 'max:255']),
             // The route (ordered stops from Route ports) is edited under the fields: admin.cruises.route
-            Field::checkboxes('tags', 'Highlights', ['family' => 'Family friendly', 'excursions' => 'Excursions', 'weekend' => 'Weekend', 'festive' => 'Festive sailing']),
+            Field::checkboxes('tags', 'Highlights', Options::highlights())
+                ->help('Add, rename or hide highlights in Cruises → Highlights.'),
             Field::checkbox('visa_free', 'No visa needed'),
             Field::number('rating', 'Guest rating', '0.1')->rules(['nullable', 'numeric', 'min:0', 'max:5']),
             Field::number('reviews_count', 'Number of reviews')->rules(['nullable', 'integer', 'min:0']),

@@ -17,6 +17,7 @@ return [
         'Sailing' => [
             Resources\CruiseResource::class,
             Resources\PortResource::class,
+            Resources\HighlightResource::class,
             Resources\CabinCategoryResource::class,
             Resources\DestinationResource::class,
         ],

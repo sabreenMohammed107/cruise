@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 146 tests
+C:\xampp\php\php.exe artisan test                     # 151 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1611,6 +1611,44 @@ on one line.
   included" on the cruise page and "Net total · Tax included" on the booking page, destinations layout on desktop
   and mobile, country filter.
 - **Deploy:** upload the files, `php artisan view:clear` and `php artisan config:clear` (no migration).
+
+### Step 22: Cruise highlights managed in the admin panel (2026-10-26)
+
+The "Highlights" checkboxes on a cruise (Family friendly, Excursions, Weekend, Festive sailing) were fixed in the
+code. They are now records in **Admin → Cruises → Highlights** (`/admin/highlights`, generic CRUD, admins only):
+
+| Field | Meaning |
+| --- | --- |
+| Name (English) / Name (Arabic) | both required; shown in the page language |
+| Code | e.g. `family`; unique, set once (stored in `cruises.tags` and in `/cruises?hl=family`), not `visaFree` |
+| Show as a tag on the cruise card photos | white tag on the card photo (cruises list, homepage) |
+| Show as a tag on the cruise page | tag above the cruise title, in the chosen colour (blue / turquoise / orange) |
+| Order, Active | active highlights are in the cruises-list "Highlights" filter; inactive ones are hidden on the site, still offered (marked "(hidden)") in the cruise form so a cruise keeps them |
+
+A highlight ticked on any cruise can't be deleted (untick it there, or make it inactive). "No visa needed" stays a
+cruise setting of its own.
+
+- **Database** (migration `2026_10_26_000001_create_highlights_table`): `highlights` (`key` unique, `name_en`,
+  `name_ar`, `show_on_cards`, `show_on_cruise_page`, `tone`, `sort_order`, `is_active`). The four highlights the site
+  had are added with the same names and places (Weekend and Festive on cards; Family and Festive on the cruise page,
+  Festive in orange), so the site looks the same after the migration. `cruises.tags` is unchanged.
+- `Highlight` model (`ordered()`, `label()`, `inUse()`), `Admin\Resources\HighlightResource`, `Options::highlights()`
+  for the cruise form, sidebar link under Cruises.
+- `SC_DATA.highlights` (`ScDataPresenter`): `[{key, label, onCards, onPage, tone}]` of the active ones.
+  `core.js` `SC.highlights(tags, where)` and `SC.ui.tags()`, `details.js` (cruise page tags) and `catalog.js` (filter;
+  unknown `?hl=` codes from old links are ignored) read it. The fixed words `ui.tags.*` / `ui.catalog.highlights.*`
+  for the four were removed (only `visaFree` is left).
+- Tests: **151 passed**. New `HighlightsTest` (the four migrated highlights, add one and tick it on a cruise, unknown
+  code rejected, SC_DATA in both languages, code can't change, hidden highlight, delete blocked when in use, admins
+  only); `highlights` added to `BilingualContentTest`'s name_en / name_ar tables. Applied locally (backup
+  `db-backups\safer_cruise_db-2026-10-26-before-highlights.sql`) and checked in a headless browser: admin list and
+  sidebar, cruise form checkboxes, cruises-list filter, card tags and cruise page tags as before.
+- **Deploy:** upload the files, back up, `php artisan migrate`, `php artisan view:clear`, `php artisan config:clear`.
+- **Fix (same day):** with three tags on a card photo (e.g. No visa needed + Weekend + a new highlight) the row ran
+  under the heart button and was cut off. The tag box in `SC.ui.sailingCard()` now ends 60 px before the heart
+  (`end-[60px]`, so it works right-to-left too) and wraps to a second line; it also passes clicks through
+  (`pointer-events-none`) so the photo link still works around the tags. Checked with 3–4 tags in English and
+  Arabic: no tag under the heart. Deploy: upload `public/assets/js/core.js`.
 
 **Open items (next):**
 

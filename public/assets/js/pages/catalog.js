@@ -7,8 +7,8 @@ document.addEventListener('sc:ready', () => {
   const D = window.SC_DATA, { $, $$ } = SC;
   const ALL = SC.allSailings();
   const PER_PAGE = 6;
-  // Laravel: labels from lang/*/ui.php (catalog.highlights)
-  const HIGHLIGHTS = ['visaFree', 'family', 'excursions', 'weekend', 'festive'].map((k) => [k, SC.t(`ui.catalog.highlights.${k}`)]);
+  // Laravel (step 22): "No visa needed" (a cruise setting), then the active highlights of Admin → Cruises → Highlights
+  const HIGHLIGHTS = [['visaFree', SC.t('ui.catalog.highlights.visaFree')], ...(D.highlights || []).map((h) => [h.key, h.label])];
   const priceMin = Math.floor(Math.min(...ALL.map((s) => s.fromPrice)) / 50) * 50;
   // Laravel: top of the price slider from the cabins each sailing really has (a fixed 'suite' id crashed the page when that cabin was renamed or removed)
   const topPrice = (s) => Math.max(s.fromPrice, ...Object.keys(s.sailing.prices || {}).map((id) => SC.prices(s.cruise, s.sailing, id).perPerson));
@@ -27,7 +27,8 @@ document.addEventListener('sc:ready', () => {
     maxPrice: Number(qs.get('max')) || priceMax,
     cabins: listParam('cabins'),
     ships: listParam('ships'),
-    highlights: listParam('hl'),
+    // codes of highlights deleted or hidden since the link was made are ignored
+    highlights: listParam('hl').filter((k) => HIGHLIGHTS.some(([key]) => key === k)),
     sort: qs.get('sort') || 'popular',
     view: SC.local.get('sc_view', 'grid'),
     page: Number(qs.get('page')) || 1

@@ -57,8 +57,8 @@ document.addEventListener('sc:ready', () => {
   $('#d-rating').innerHTML = SC.ui.stars(cruise.rating, cruise.reviews) + ` <span>${SC.t('ui.guest_rating')}</span>`;
   $('#d-tags').innerHTML = [
     cruise.visaFree ? `<span class="tag tag-lagoon">${SC.t('ui.tags.visaFree')}</span>` : '',
-    cruise.tags.includes('family') ? `<span class="tag tag-ocean">${SC.t('ui.tags.family')}</span>` : '',
-    cruise.tags.includes('festive') ? `<span class="tag tag-sun">${SC.t('ui.tags.festive')}</span>` : ''
+    // Laravel (step 22): highlights marked "on the cruise page" in Admin → Cruises → Highlights, in their colour
+    ...SC.highlights(cruise.tags, 'onPage').map((h) => `<span class="tag tag-${h.tone}">${SC.esc(h.label)}</span>`)
   ].join('');
   $('#d-summary').textContent = cruise.summary;
   $('#d-actions').insertAdjacentHTML('afterbegin', SC.ui.favBtn(cruise.id));

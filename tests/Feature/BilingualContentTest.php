@@ -46,7 +46,7 @@ class BilingualContentTest extends TestCase
     ];
 
     /** Content tables with name_en / name_ar instead of TRANSLATABLE columns. */
-    private const NAME_EN_AR = ['cabin_categories', 'ports'];
+    private const NAME_EN_AR = ['cabin_categories', 'ports', 'highlights'];
 
     private function inArabic(): static
     {

@@ -511,10 +511,12 @@
     `<span class="inline-flex items-center gap-1 text-sm font-bold">${SC.icon('star', 'w-4 h-4 text-sun-500', true)}${rating.toFixed(1)}${reviews != null ? `<span class="font-medium text-muted">(${reviews})</span>` : ''}</span>`;
   SC.ui.route = (route, cls = '') =>
     `<p class="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-sm text-muted ${cls}">${route.map((p, i) => `<span>${SC.esc(SC.port(p.split(',')[0]))}</span>${i < route.length - 1 ? SC.icon('chevron-right', 'w-3.5 h-3.5 text-ocean-300 rtl:rotate-180') : ''}`).join('')}</p>`;
+  /* Laravel (step 22): highlights come from Admin → Cruises → Highlights (SC_DATA.highlights); a cruise's tags are
+     their keys. Card photos show the ones marked "on cards", the cruise page the ones marked "on the cruise page". */
+  SC.highlights = (tags, where) => (D.highlights || []).filter((h) => h[where] && (tags || []).includes(h.key));
   SC.ui.tags = (v) => [
     v.visaFree ? `<span class="tag tag-white">${SC.t('ui.tags.visaFree')}</span>` : '',
-    v.tags.includes('festive') ? `<span class="tag tag-white">${SC.t('ui.tags.festive')}</span>` : '',
-    v.tags.includes('weekend') ? `<span class="tag tag-white">${SC.t('ui.tags.weekend')}</span>` : ''
+    ...SC.highlights(v.tags, 'onCards').map((h) => `<span class="tag tag-white">${SC.esc(h.label)}</span>`)
   ].join('');
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 
@@ -536,7 +538,7 @@
     // The photo opens the cruise too (a second link to the same page, so it is skipped by keyboard and screen readers)
     const media = `<div class="relative img-zoom ${layout === 'list' ? 'md:w-[38%] aspect-[16/10] md:aspect-auto' : 'aspect-[16/10]'}">
         <a href="${SC.detailsUrl(v)}" class="absolute inset-0" tabindex="-1" aria-hidden="true"><img src="${v.image}" alt="${SC.esc(SC.t('ui.card.image_alt', { cruise: v.name, ship: v.ship }))}" loading="lazy" class="absolute inset-0 w-full h-full object-cover"></a>
-        <div class="absolute top-3 start-3 flex flex-wrap gap-1.5">${SC.ui.tags(v)}</div>
+        <div class="absolute top-3 start-3 end-[60px] flex flex-wrap gap-1.5 pointer-events-none">${SC.ui.tags(v)}</div>
         <div class="absolute top-3 end-3">${SC.ui.favBtn(v.cruiseId, 'bg-white/95 border-transparent')}</div>
       </div>`;
     const body = `<p class="text-xs font-bold text-lagoon-600 flex items-center gap-1.5">${SC.icon('ship', 'w-4 h-4')} ${SC.t('ui.card.ship_from', { ship: v.ship, port: SC.port(v.departurePort) })}</p>

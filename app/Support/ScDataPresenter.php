@@ -9,6 +9,7 @@ use App\Models\CabinCategory;
 use App\Models\Cruise;
 use App\Models\Destination;
 use App\Models\Facility;
+use App\Models\Highlight;
 use App\Models\Port;
 use App\Models\Sailing;
 use App\Models\SiteSetting;
@@ -50,6 +51,8 @@ class ScDataPresenter
             'ships' => $this->ships(),
             'cabins' => $this->cabins(),
             'cruises' => $this->cruises(),
+            // Admin → Cruises → Highlights: the filter on the cruises list and the tags on cards / cruise pages
+            'highlights' => $this->highlights(),
             'destinations' => $this->destinations(),
             'facilities' => $this->facilities(),
             'testimonials' => $this->testimonials(),
@@ -296,6 +299,18 @@ class ScDataPresenter
             ])
             ->values()
             ->all();
+    }
+
+    /** Active highlights in order; cruises[].tags hold their keys. */
+    private function highlights(): array
+    {
+        return Highlight::where('is_active', true)->ordered()->get()->map(fn (Highlight $h) => [
+            'key' => $h->key,
+            'label' => $h->label(),
+            'onCards' => $h->show_on_cards,
+            'onPage' => $h->show_on_cruise_page,
+            'tone' => $h->tone,
+        ])->all();
     }
 
     private function destinations(): array

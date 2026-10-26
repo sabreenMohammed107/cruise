@@ -40,11 +40,7 @@ return [
     ],
 
     'tags' => [
-        'visaFree' => 'No visa needed',
-        'family' => 'Family friendly',
-        'excursions' => 'Shore excursions',
-        'weekend' => 'Weekend',
-        'festive' => 'Festive sailing',
+        'visaFree' => 'No visa needed', // other tags: Admin → Cruises → Highlights (step 22)
     ],
 
     'favorites' => [
@@ -59,11 +55,7 @@ return [
         'visiting' => 'Visiting',
         'any_port' => 'Any port',
         'highlights' => [
-            'visaFree' => 'No visa needed',
-            'family' => 'Family friendly',
-            'excursions' => 'Shore excursions',
-            'weekend' => 'Weekend breaks',
-            'festive' => 'Festive sailings',
+            'visaFree' => 'No visa needed', // the rest: Admin → Cruises → Highlights (step 22)
         ],
         'chip_from_port' => 'From :port',
         'chip_visiting' => 'Visiting :port',
