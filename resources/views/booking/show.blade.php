@@ -96,7 +96,14 @@
   </main>
 @endsection
 
+{{-- Date-of-birth picker that shows dd/mm/yyyy in every browser (booking.js) --}}
+@push('head')
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+@endpush
+
 @push('scripts')
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ar.min.js"></script>
   @include('partials.phone-widget')
   <script src="@asset('assets/js/pages/booking.js')"></script>
 @endpush

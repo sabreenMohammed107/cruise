@@ -117,7 +117,7 @@ document.addEventListener('sc:ready', () => {
       <div class="grid gap-4 sm:grid-cols-2">
         ${field(`${k}-first`, t('first_name'), `<input id="${k}-first" class="field" data-key="${k}" data-f="first" data-rule="name" autocomplete="${s.primary ? 'given-name' : 'off'}" value="${val(k, 'first')}">`)}
         ${field(`${k}-last`, t('last_name'), `<input id="${k}-last" class="field" data-key="${k}" data-f="last" data-rule="name" autocomplete="${s.primary ? 'family-name' : 'off'}" value="${val(k, 'last')}">`)}
-        ${field(`${k}-dob`, t('dob'), `<input id="${k}-dob" type="date" class="field" data-key="${k}" data-f="dob" data-rule="dob" data-band="${s.band}" min="${dobBounds[s.band].min}" max="${dobBounds[s.band].max}" value="${val(k, 'dob')}">`)}
+        ${field(`${k}-dob`, t('dob'), `<div class="relative"><input id="${k}-dob" type="text" class="field pe-11" data-key="${k}" data-f="dob" data-rule="dob" data-band="${s.band}" placeholder="dd/mm/yyyy" value="${val(k, 'dob')}">${SC.icon('calendar', 'pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted')}</div>`)}
         ${field(`${k}-gender`, t('gender'), `<select id="${k}-gender" class="field" data-key="${k}" data-f="gender" data-rule="required"><option value="">${t('select')}</option>${['Male', 'Female'].map((g) => `<option value="${g}" ${tr.gender === g ? 'selected' : ''}>${SC.genderLabel(g)}</option>`).join('')}</select>`, err('gender'))}
         ${field(`${k}-nat`, t('nationality'), `<select id="${k}-nat" class="field" data-key="${k}" data-f="nationality" data-rule="required"><option value="">${t('select_nationality')}</option>${D.nationalities.map((n) => `<option value="${SC.esc(n)}" ${tr.nationality === n ? 'selected' : ''}>${SC.esc(SC.natLabel(n))}</option>`).join('')}</select>`, err('nationality'), 'sm:col-span-2')}
       </div>
@@ -166,12 +166,28 @@ document.addEventListener('sc:ready', () => {
       default: return null;
     }
   };
+  // A date of birth is typed / picked in the picker's own visible field; the original field keeps the ISO date
+  const shownField = (el) => el._flatpickr?.altInput || el;
+  const focusField = (el, opts) => shownField(el).focus(opts);
   const showError = (el, msg) => {
-    el.classList.toggle('is-invalid', !!msg);
-    el.setAttribute('aria-invalid', !!msg);
+    [el, shownField(el)].forEach((f) => { f.classList.toggle('is-invalid', !!msg); f.setAttribute('aria-invalid', !!msg); });
     const box = $(`#${el.id}-err`);
-    if (box) { if (msg) box.textContent = msg; box.classList.toggle('show', !!msg); el.setAttribute('aria-describedby', box.id); }
+    if (box) { if (msg) box.textContent = msg; box.classList.toggle('show', !!msg); shownField(el).setAttribute('aria-describedby', box.id); }
   };
+  // Date of birth as dd/mm/yyyy in every browser and on phones (a native date field shows the browser's own
+  // order, e.g. mm/dd/yyyy). The field itself still holds yyyy-mm-dd, which the rules and the server read.
+  $$('#traveller-forms [data-rule=dob]').forEach((el) => flatpickr(el, {
+    dateFormat: 'Y-m-d', altInput: true, altFormat: 'd/m/Y', allowInput: true, disableMobile: true,
+    minDate: dobBounds[el.dataset.band].min, maxDate: dobBounds[el.dataset.band].max,
+    locale: SC.lang() === 'ar' ? 'ar' : 'default',
+    onReady: (_, __, fp) => {
+      fp.altInput.id = `${el.id}-shown`; fp.altInput.dir = 'ltr'; fp.altInput.autocomplete = 'off';
+      $(`label[for="${el.id}"]`).htmlFor = fp.altInput.id;
+    },
+    // Saved like any typed field; checked once the calendar closes
+    onChange: () => el.dispatchEvent(new Event('input', { bubbles: true })),
+    onClose: () => { if (el.value) { showError(el, errorFor(el)); paintTabs(); } }
+  }));
   // Laravel (step 25): flag + country-code picker on the mobile number, like safer.travel; keeps #c-dial and the
   // booking's contact.dial up to date, and re-checks a typed number for the new country (Saudi / Egyptian rules)
   SC.phoneWidget($('#c-phone'), b.contact.dial, (dial) => {
@@ -212,7 +228,7 @@ document.addEventListener('sc:ready', () => {
     const tab = $(`#tab-${s.key}`);
     if (scroll) tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
     if (focus === 'tab') tab.focus({ preventScroll: true });
-    else if (focus) focus.focus({ preventScroll: true });
+    else if (focus) focusField(focus, { preventScroll: true });
   };
   // Arrow keys move along a cabin's tabs (reversed in Arabic, where the row runs right to left)
   $('#traveller-forms').addEventListener('keydown', (e) => {
@@ -232,7 +248,7 @@ document.addEventListener('sc:ready', () => {
     if (step > 0) {
       let firstBad = null;
       panelInputs(i).forEach((el) => { const m = errorFor(el); showError(el, m); if (m) firstBad ||= el; });
-      if (firstBad) { paintTabs(); firstBad.focus(); return; }
+      if (firstBad) { paintTabs(); focusField(firstBad); return; }
     }
     openTab(i + step, panelInputs(i + step)[0]);
   });
@@ -260,7 +276,7 @@ document.addEventListener('sc:ready', () => {
       paintTabs();
       const badSlot = firstBad && slots[+firstBad.closest('[data-idx]').dataset.idx];
       if (badSlot && tabbed(badSlot)) openTab(badSlot.idx, firstBad);
-      else firstBad?.focus();
+      else if (firstBad) focusField(firstBad);
     }
     return !bad && !mix;
   };
