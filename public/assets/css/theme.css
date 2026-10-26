@@ -82,6 +82,16 @@ select.field {
   background-repeat: no-repeat; background-position: right .8rem center;
 }
 [dir="rtl"] select.field { background-position: left .8rem center; }
+/* Mobile number widget (intl-tel-input, step 25): flag + country code inside the field, like safer.travel.
+   Its wrapper is dir="ltr", so the code sits on the left on Arabic pages too. */
+.iti { display: block; width: 100%; }
+.iti--separate-dial-code .iti__selected-flag { background: var(--ocean-50); border-inline-end: 1.5px solid var(--line); border-radius: 12px 0 0 12px; }
+.iti--separate-dial-code .iti__selected-dial-code { font-weight: 600; color: var(--ink); }
+/* ".iti .iti__…": the library's CSS loads after this file and wraps the list on phones (max-width: 500px) */
+.iti .iti__country-list { z-index: 60; white-space: nowrap; border-radius: 12px; border-color: var(--line); box-shadow: 0 12px 32px rgba(15,58,100,.15); text-align: left; }
+.iti__country { padding: 8px 14px; }
+/* Entries are "SA +966" (SC.phoneWidget): code in the ink colour, dial code muted */
+.iti__country-name { font-weight: 600; color: var(--ink); margin-right: 8px; }
 .err { display: none; color: var(--danger); font-size: .8rem; margin-top: .35rem; font-weight: 600; }
 .err.show { display: block; }
 .check { width: 1.15rem; height: 1.15rem; accent-color: var(--ocean-600); flex-shrink: 0; }

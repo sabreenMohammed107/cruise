@@ -90,7 +90,8 @@
           <div><label class="label" for="p-last">{{ __('site.booking.last_name') }}</label><input id="p-last" class="field" autocomplete="family-name"><p class="err">{{ __('site.account.last_required') }}</p></div>
           <div><label class="label" for="p-email">{{ __('site.booking.email') }}</label><input id="p-email" type="email" class="field" dir="ltr" autocomplete="email"><p class="err">{{ __('site.booking.errors.email_invalid') }}</p></div>
           <div><label class="label" for="p-phone">{{ __('site.booking.mobile') }}</label>
-            <div class="flex gap-2" dir="ltr"><select id="p-dial" class="field !w-28 shrink-0" aria-label="{{ __('site.booking.country_code') }}"></select><input id="p-phone" type="tel" class="field tabular" autocomplete="tel-national"></div>
+            {{-- Country flag + code (phone widget, step 25); the chosen code is kept in #p-dial --}}
+            <div dir="ltr"><input type="hidden" id="p-dial"><input id="p-phone" type="tel" inputmode="tel" class="field tabular" autocomplete="tel-national"></div>
             <p class="err">{{ __('site.booking.errors.phone_length') }}</p></div>
           <div><label class="label" for="p-dob">{{ __('site.booking.dob') }}</label><input id="p-dob" type="date" class="field"></div>
           <div><label class="label" for="p-nat">{{ __('site.booking.nationality') }}</label><select id="p-nat" class="field"></select></div>
@@ -115,5 +116,6 @@
 @endsection
 
 @push('scripts')
+  @include('partials.phone-widget')
   <script src="@asset('assets/js/pages/dashboard.js')"></script>
 @endpush

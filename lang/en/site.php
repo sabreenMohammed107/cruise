@@ -20,7 +20,7 @@ return [
         'sign_in' => 'Sign in',
         'sign_out' => 'Sign out',
         'switch_language' => 'عربي',            // label of the language button: shows the other language
-        'switch_language_long' => 'عربي (RTL)',
+        'switch_language_long' => 'عربي',
         'main' => 'Main',
         'mobile' => 'Mobile',
         'menu' => 'Menu',

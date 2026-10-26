@@ -131,14 +131,21 @@ document.addEventListener('sc:ready', () => {
   document.addEventListener('sc:favs', () => { renderFavs(); renderOverview(by); });
 
   /* ---------- Profile forms ---------- */
-  D.dialCodes.forEach(([c, iso]) => $('#p-dial').add(new Option(`${iso} ${c}`, c)));
   $('#p-nat').add(new Option(SC.t('booking.select_nationality'), ''));
   D.nationalities.forEach((n) => $('#p-nat').add(new Option(SC.natLabel(n), n)));
-  const fill = () => { $('#p-first').value = profile.first; $('#p-last').value = profile.last; $('#p-email').value = profile.email; $('#p-dial').value = profile.dial; $('#p-phone').value = profile.phone; $('#p-dob').value = profile.dob; $('#p-nat').value = profile.nationality; };
-  // Shows/hides the .err line under a field (phone input sits inside a .flex row, so its error is one level up)
+  // Laravel (step 25): flag + country code widget, like safer.travel; the chosen code goes to #p-dial
+  const phone = SC.phoneWidget($('#p-phone'), profile.dial, (dial) => { $('#p-dial').value = dial; });
+  const fill = () => {
+    $('#p-first').value = profile.first; $('#p-last').value = profile.last; $('#p-email').value = profile.email;
+    $('#p-dial').value = profile.dial || ''; phone?.setDial(profile.dial); $('#p-phone').value = profile.phone;
+    $('#p-dob').value = profile.dob; $('#p-nat').value = profile.nationality;
+  };
+  // Shows/hides the .err line under a field (the phone input sits inside the widget, so its error is further up)
   const flag = (el, bad, msg) => {
     el.classList.toggle('is-invalid', bad);
-    const err = el.parentElement.classList.contains('flex') ? el.parentElement.nextElementSibling : el.nextElementSibling;
+    let box = el;
+    while (box && !box.nextElementSibling?.classList.contains('err') && box.parentElement !== el.form) box = box.parentElement;
+    const err = box?.nextElementSibling?.classList.contains('err') ? box.nextElementSibling : null;
     if (err && msg) err.textContent = msg;
     err?.classList.toggle('show', bad);
     return bad;

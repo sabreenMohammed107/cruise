@@ -96,5 +96,6 @@
 @endsection
 
 @push('scripts')
+  @include('partials.phone-widget')
   <script src="@asset('assets/js/pages/booking.js')"></script>
 @endpush

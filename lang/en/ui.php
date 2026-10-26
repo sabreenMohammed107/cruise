@@ -9,10 +9,10 @@
 return [
 
     'error' => 'Something went wrong. Please try again.',
-    'per_person_short' => 'pp',
-    'from' => 'from',
+    'per_person_short' => 'per person',
+    'from' => 'Starting from',
     'from_price' => 'From :price',
-    'from_per_person' => 'From, per person',
+    'from_per_person' => 'Starting from per person',
     'photo_n' => 'Photo :n',
     'photo_of' => ':n of :total',
     'previous_photo' => 'Previous photo',
@@ -116,7 +116,7 @@ return [
         'sailings_count' => '{1} :count upcoming sailing|[2,*] :count upcoming sailings',
         'showing_next' => 'The next :shown of :total sailings',
         'see_all' => 'See all :count sailings to :port',
-        'from_pp' => 'From, per person',
+        'from_pp' => 'Starting from per person',
     ],
 
     'details' => [
@@ -130,7 +130,7 @@ return [
         'days' => '{1} :count day|[2,*] :count days',
         'ship' => 'Ship',
         'sailing_code' => 'Sailing :code',
-        'from_pp' => 'from :price pp',
+        'from_pp' => 'Starting from :price per person',
         'sold_out_change' => ':cabin is sold out on this date. Choose another cabin.',
         'day' => 'Day',
         'expand_all' => 'Expand all',

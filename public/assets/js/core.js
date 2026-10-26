@@ -170,6 +170,32 @@
     }
     return null;
   };
+  /* Laravel (step 25): mobile number with a flag + country-code picker, like safer.travel (intl-tel-input 17.0.19,
+     loaded by partials/phone-widget.blade.php; every country). input = the number field; dial = the saved code
+     ("+966"); onCountry(dial, iso2) runs when the guest picks a country. Countries sharing a code (+1) open on the
+     main one. Returns { setDial(dial) }, or null if the library didn't load (the field still works for the number). */
+  SC.phoneWidget = (input, dial, onCountry) => {
+    if (!input || !window.intlTelInput) return null;
+    const cfg = D.phone || {};
+    const all = window.intlTelInputGlobals.getCountryData();
+    const isoFor = (d) => all.filter((c) => '+' + c.dialCode === d).sort((a, b) => (a.priority || 0) - (b.priority || 0))[0]?.iso2;
+    const iti = window.intlTelInput(input, {
+      initialCountry: isoFor(dial) || cfg.initialCountry || 'sa',
+      preferredCountries: cfg.preferredCountries || [],
+      separateDialCode: true,
+      autoPlaceholder: 'off',
+      // Short entries ("SA +966") instead of full country names, so the list stays narrow, one line per country
+      localizedCountries: Object.fromEntries(all.map((c) => [c.iso2, c.iso2.toUpperCase()])),
+    });
+    input.addEventListener('countrychange', () => {
+      const c = iti.getSelectedCountryData();
+      if (c && c.dialCode) onCountry('+' + c.dialCode, c.iso2);
+    });
+    const c = iti.getSelectedCountryData();
+    if (c && c.dialCode) onCountry('+' + c.dialCode, c.iso2);
+    return { setDial: (d) => { const iso = isoFor(d); if (iso) iti.setCountry(iso); } };
+  };
+
   /* Traveller-form values are stored in English (the server checks them); shown in the page language */
   SC.genderLabel = (g) => SC.t(`genders.${g}`);
   SC.natLabel = (n) => ((SC.t('nationalities') || {})[n]) || n;

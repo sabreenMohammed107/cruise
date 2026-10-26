@@ -57,7 +57,8 @@ class ScDataPresenter
             'facilities' => $this->facilities(),
             'testimonials' => $this->testimonials(),
             'nationalities' => config('cruise.nationalities'),
-            'dialCodes' => config('cruise.dial_codes'),
+            // Phone widget (SC.phoneWidget, step 25); the server accepts every code of config/dial_codes.php
+            'phone' => ['initialCountry' => config('cruise.phone_initial_country'), 'preferredCountries' => config('cruise.phone_preferred_countries')],
             'terms' => $this->terms(),
             // Fixed website words in both languages (lang/{en,ar}/site.php), read by SC.t() / SC.tc()
             'i18n' => Bi::scriptStrings(),

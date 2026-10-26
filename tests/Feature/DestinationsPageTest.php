@@ -37,7 +37,7 @@ class DestinationsPageTest extends TestCase
             ->assertSee('/cruises/saudi-coast-weekend?sailing=SCW-261029', false)  // nearest Jeddah sailing first
             ->assertSee('/cruises?port=Al%20Wajh', false)
             ->assertSee('data-country="Egypt"', false)
-            ->assertSee('From, per person');
+            ->assertSee('Starting from per person');
 
         $jeddah = DestinationsPage::ports()->firstWhere('destination.slug', 'jeddah');
         $this->assertSame(17, $jeddah['total']);                       // every seeded sailing calls at Jeddah

@@ -7,10 +7,10 @@
 return [
 
     'error' => 'حدث خطأ ما. يُرجى المحاولة مرة أخرى.',
-    'per_person_short' => 'للشخص',
-    'from' => 'من',
+    'per_person_short' => 'للفرد',
+    'from' => 'ابتداءً من',
     'from_price' => 'من :price',
-    'from_per_person' => 'يبدأ من، للشخص',
+    'from_per_person' => 'سعر الفرد يبدأ من',
     'photo_n' => 'الصورة :n',
     'photo_of' => ':n من :total',
     'previous_photo' => 'الصورة السابقة',
@@ -114,7 +114,7 @@ return [
         'sailings_count' => '{1} رحلة قادمة واحدة|{2} رحلتان قادمتان|[3,10] :count رحلات قادمة|[11,*] :count رحلة قادمة',
         'showing_next' => 'أقرب :shown من :total رحلة',
         'see_all' => 'عرض كل الرحلات إلى :port (:count)',
-        'from_pp' => 'يبدأ من، للشخص',
+        'from_pp' => 'سعر الفرد يبدأ من',
     ],
 
     'details' => [
@@ -128,7 +128,7 @@ return [
         'days' => '{1} يوم واحد|{2} يومان|[3,10] :count أيام|[11,*] :count يومًا',
         'ship' => 'السفينة',
         'sailing_code' => 'الرحلة :code',
-        'from_pp' => 'من :price للشخص',
+        'from_pp' => 'ابتداءً من :price للفرد',
         'sold_out_change' => ':cabin محجوزة بالكامل في هذا الموعد. اختر كابينة أخرى.',
         'day' => 'اليوم',
         'expand_all' => 'توسيع الكل',

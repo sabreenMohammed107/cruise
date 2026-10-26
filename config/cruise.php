@@ -37,13 +37,12 @@ return [
         'Germany', 'France', 'Italy', 'Spain', 'Netherlands', 'Russia', 'China', 'Other',
     ],
 
-    // [dial code, ISO country code]
-    'dial_codes' => [
-        ['+966', 'SA'], ['+20', 'EG'], ['+971', 'AE'], ['+965', 'KW'], ['+974', 'QA'], ['+973', 'BH'], ['+968', 'OM'],
-        ['+962', 'JO'], ['+961', 'LB'], ['+964', 'IQ'], ['+970', 'PS'], ['+967', 'YE'], ['+249', 'SD'], ['+218', 'LY'],
-        ['+216', 'TN'], ['+213', 'DZ'], ['+212', 'MA'], ['+90', 'TR'], ['+92', 'PK'], ['+91', 'IN'], ['+44', 'GB'],
-        ['+1', 'US'], ['+49', 'DE'], ['+33', 'FR'],
-    ],
+    // [dial code, ISO country code, English name]: every country of the phone widget (config/dial_codes.php, step 25)
+    'dial_codes' => require __DIR__.'/dial_codes.php',
+
+    // Phone widget (intl-tel-input, as on safer.travel): country chosen at first, then these at the top of the list
+    'phone_initial_country' => 'sa',
+    'phone_preferred_countries' => ['sa', 'ae', 'eg', 'kw', 'qa', 'bh', 'om'],
 
     'terms' => [
         'text' => [

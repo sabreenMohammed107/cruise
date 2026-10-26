@@ -112,9 +112,8 @@ document.addEventListener('sc:ready', () => {
         <p class="text-sm text-muted mt-0.5 mb-4">${t('contact_intro')}</p>
         <div class="grid gap-4 sm:grid-cols-2">
           ${field('c-email', t('email'), `<input id="c-email" type="email" class="field" dir="ltr" data-contact="email" data-rule="email" autocomplete="email" placeholder="name@example.com" value="${SC.esc(b.contact.email)}">`)}
-          ${field('c-phone', t('mobile'), `<div class="flex gap-2" dir="ltr">
-              <label for="c-dial" class="sr-only">${t('country_code')}</label>
-              <select id="c-dial" class="field !w-28 shrink-0" data-contact="dial" autocomplete="tel-country-code">${D.dialCodes.map(([c, iso]) => `<option value="${c}" ${b.contact.dial === c ? 'selected' : ''}>${iso} ${c}</option>`).join('')}</select>
+          ${field('c-phone', t('mobile'), `<div dir="ltr">
+              <input type="hidden" id="c-dial" value="${SC.esc(b.contact.dial)}">
               <input id="c-phone" type="tel" inputmode="tel" class="field tabular" data-contact="phone" data-rule="phone" autocomplete="tel-national" placeholder="5X XXX XXXX" value="${SC.esc(b.contact.phone)}">
             </div>`)}
         </div>
@@ -151,6 +150,12 @@ document.addEventListener('sc:ready', () => {
     const box = $(`#${el.id}-err`);
     if (box) { if (msg) box.textContent = msg; box.classList.toggle('show', !!msg); el.setAttribute('aria-describedby', box.id); }
   };
+  // Laravel (step 25): flag + country-code picker on the mobile number, like safer.travel; keeps #c-dial and the
+  // booking's contact.dial up to date, and re-checks a typed number for the new country (Saudi / Egyptian rules)
+  SC.phoneWidget($('#c-phone'), b.contact.dial, (dial) => {
+    $('#c-dial').value = dial; b.contact.dial = dial; save();
+    if ($('#c-phone').value && $('#c-phone').classList.contains('is-invalid')) showError($('#c-phone'), errorFor($('#c-phone')));
+  });
   // Guest mix from the details page, cabin by cabin: an adult in every cabin (with any infant), everyone (infants
   // included) within that cabin's limit, and no more cabins than allowed
   const guestErr = () => {
@@ -189,7 +194,6 @@ document.addEventListener('sc:ready', () => {
   $('#guests-form').addEventListener('change', (e) => {
     const el = e.target;
     if (el.tagName === 'SELECT' && el.dataset.key) { (b.travellers[el.dataset.key] ||= {})[el.dataset.f] = el.value; save(); }
-    if (el.id === 'c-dial' && $('#c-phone').value) showError($('#c-phone'), errorFor($('#c-phone')));
   });
   // Pressing "Review booking" blurs the field first; showing its error then would push the button down before the
   // mouse is released and the click would be lost. The submit check validates every field anyway.

@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 151 tests
+C:\xampp\php\php.exe artisan test                     # 155 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1663,6 +1663,60 @@ results column (a grid item) grew to fit it. Locally there were only 3 pages, so
   Arabic, on the first, a middle and the last page: page width = screen width, pagination on one row.
   Tests: 151 passed. **Deploy:** upload `public/assets/js/pages/catalog.js` and `resources/views/pages/catalog.blade.php`,
   then `php artisan view:clear`.
+
+### Step 24: Wording of the "from … per person" price (2026-10-26)
+
+Only the words changed (`lang/{en,ar}/ui.php`); keys, `:price` placeholders, markup and styles are the same.
+
+| Key | Where | Before (EN / AR) | Now (EN / AR) |
+| --- | --- | --- | --- |
+| `ui.from_per_person` | above the price on sailing cards, cruise-page cabin cards, homepage cabins | From, per person / يبدأ من، للشخص | Starting from per person / سعر الفرد يبدأ من |
+| `ui.destinations.from_pp` | sailing cards on the destinations page | From, per person / يبدأ من، للشخص | Starting from per person / سعر الفرد يبدأ من |
+| `ui.details.from_pp` | under each date in the cruise-page date picker | from :price pp / من :price للشخص | Starting from :price per person / ابتداءً من :price للفرد |
+| `ui.from` + `ui.per_person_short` | cabin cards on the ship page | from … pp / من … للشخص | Starting from … per person / ابتداءً من … للفرد |
+
+The cruises-list filter heading "Price per person" / "السعر للشخص" (`pages.catalog.price`) was left as it is. Code
+comments that name the rule "From, per person" were not changed. Checked locally in both languages on the cruises
+list (phone and desktop), cruise page, ship page, destinations page; `DestinationsPageTest` updated; 151 tests pass.
+**Deploy:** upload `lang/en/ui.php` and `lang/ar/ui.php`.
+
+### Step 25: Every country code in the mobile number fields, like safer.travel (2026-10-26)
+
+The mobile number fields (booking page contact details, My account → profile) had a plain list of 24 codes. They now
+use the same phone widget as safer.travel (`C:\xampp\htdocs\safeer`): **intl-tel-input 17.0.19** from cdnjs, with
+the same settings (`initialCountry: "sa"`, preferred `sa, ae, eg, kw, qa, bh, om`, `separateDialCode`): a flag and
+code inside the field, and a dropdown of all **244 countries** (the 7 preferred ones first, as on safer.travel).
+- `config/dial_codes.php` (new): the widget's 244 countries as `[code, ISO, name, order within the code]`
+  (`config('cruise.dial_codes')`). The server checks the code against it (`ConfirmBookingRequest`,
+  `AccountController`, Admin → Customers / staff), so +81, +1, … are accepted; unknown codes are rejected.
+  `config/cruise.php`: `phone_initial_country`, `phone_preferred_countries`.
+- `partials/phone-widget.blade.php` loads the library (CSS + JS) on the booking page and My account.
+  `core.js` `SC.phoneWidget(input, dial, onCountry)` sets it up; the chosen code is kept in a hidden `#c-dial` /
+  `#p-dial`, so saving, the booking payload and the phone checks are unchanged (Saudi and Egyptian number rules
+  follow the chosen country). Countries sharing a code open on the main one (+1 → United States).
+- `SC_DATA.dialCodes` (the list) was replaced by `SC_DATA.phone` (the widget settings).
+- Admin phone field (`Options::dialCodes()`): one choice per code, preferred countries first, e.g.
+  "+966 Saudi Arabia", "+1 United States, Canada, Dominican Republic, …".
+- `theme.css`: the widget matches the site's fields (full width, rounded, light flag area, dropdown above the page).
+- Tests: **155 passed**. New `PhoneCodesTest` (244 countries, +81 booking and +1 profile accepted, +999 rejected,
+  widget settings in SC_DATA and the library on the booking page, admin choices). Checked locally in a headless
+  browser, English desktop and Arabic phone: Saudi flag and +966 first, 251 entries (244 + the 7 preferred on top),
+  choosing Japan saves +81 in the booking, the Saudi number rule still shows, page fits the screen; My account shows
+  the saved +966 and switches to +20 for Egypt.
+- Needs cdnjs.cloudflare.com (as safer.travel does). If the library can't load, the number field still works and the
+  saved code (default +966) is used.
+- **Deploy:** upload the files, then `php artisan config:clear` and `php artisan view:clear` (no migration).
+- **Change (same day):** the dropdown shows short entries, flag + "SA +966", instead of full country names (they
+  wrapped to three lines on phones). `SC.phoneWidget()` passes `localizedCountries` = each country's ISO code, so the
+  list is narrow and sorted by code (the 7 preferred stay on top). `theme.css`: `.iti .iti__country-list` keeps one
+  line per country (the library's own CSS wraps the list below 500 px and loads after `theme.css`). Deploy: upload
+  `public/assets/js/core.js` and `public/assets/css/theme.css`.
+
+### Step 26: Mobile menu language button without "(RTL)" / "(LTR)" (2026-10-26)
+
+The language button in the mobile menu said "عربي (RTL)" on English pages and "English (LTR)" on Arabic pages. It now
+says just "عربي" / "English", like the header button (`site.nav.switch_language_long` in `lang/{en,ar}/site.php`).
+Checked at 390 px: the button still switches the language. Deploy: upload `lang/en/site.php` and `lang/ar/site.php`.
 
 **Open items (next):**
 

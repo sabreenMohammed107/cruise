@@ -3,6 +3,7 @@
 namespace App\Admin\Resources;
 
 use App\Admin\Field;
+use App\Admin\Options;
 use App\Admin\Resource;
 use App\Enums\UserRole;
 use App\Models\User;
@@ -59,7 +60,7 @@ class UserResource extends Resource
             Field::text('first_name', 'First name')->rules(['required', 'string', 'max:255']),
             Field::text('last_name', 'Last name')->rules(['required', 'string', 'max:255']),
             Field::email('email', 'Email')->rules(fn (?Model $r) => ['required', 'email:rfc,strict', 'max:255', Rule::unique('users', 'email')->ignore($r?->id)])->index(),
-            Field::select('phone_dial', 'Country code', ['' => '—'] + collect(config('cruise.dial_codes'))->mapWithKeys(fn ($d) => [$d[0] => "$d[1] $d[0]"])->all())
+            Field::select('phone_dial', 'Country code', ['' => '—'] + Options::dialCodes())
                 ->rules(['nullable', Rule::in(array_column(config('cruise.dial_codes'), 0))]),
             Field::text('phone', 'Mobile number')->rules(['nullable', 'regex:/^\d{7,12}$/']),
             Field::select('nationality', 'Nationality', ['' => '—'] + array_combine(config('cruise.nationalities'), config('cruise.nationalities')))

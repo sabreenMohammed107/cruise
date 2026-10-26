@@ -17,7 +17,7 @@ return [
         'sign_in' => 'تسجيل الدخول',
         'sign_out' => 'تسجيل الخروج',
         'switch_language' => 'English',
-        'switch_language_long' => 'English (LTR)',
+        'switch_language_long' => 'English',
         'main' => 'القائمة الرئيسية',
         'mobile' => 'قائمة الجوال',
         'menu' => 'القائمة',
