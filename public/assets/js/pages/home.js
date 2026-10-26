@@ -186,15 +186,19 @@ document.addEventListener('sc:ready', () => {
     $('#testimonials-arrows').classList.toggle('hidden', fits);
     $('#testimonials-progress').classList.toggle('hidden', fits);
     reviewArrows[0].disabled = at <= 1; reviewArrows[1].disabled = at >= max - 1;
+    // The bar follows the cards frame by frame (a transform, not an animated margin, so it never lags behind)
     const bar = $('#testimonials-progress > div'), shown = reviews.clientWidth / reviews.scrollWidth;
+    const rtl = document.documentElement.dir === 'rtl' ? -1 : 1;
     bar.style.width = `${shown * 100}%`;
-    bar.style.marginInlineStart = `${fits ? 0 : (at / max) * (1 - shown) * 100}%`;
+    bar.style.transform = `translateX(${fits ? 0 : rtl * (at / max) * ((1 - shown) / shown) * 100}%)`;
   };
+  let reviewsFrame = 0;
+  const paintReviewsSoon = () => { if (!reviewsFrame) reviewsFrame = requestAnimationFrame(() => { reviewsFrame = 0; paintReviews(); }); };
   reviewArrows.forEach((b) => b.addEventListener('click', () => {
     const dir = document.documentElement.dir === 'rtl' ? -1 : 1;
     reviews.scrollBy({ left: Number(b.dataset.reviewSlide) * dir * reviews.clientWidth, behavior: 'smooth' });
   }));
-  reviews.addEventListener('scroll', paintReviews, { passive: true });
+  reviews.addEventListener('scroll', paintReviewsSoon, { passive: true });
   // Re-measured whenever the row or a card changes size: the Tailwind CDN styles the new cards a moment after
   // they are added (before that they are much wider), and fonts or "Read more" change heights and widths too
   const reviewsResize = new ResizeObserver(() => { markLongReviews(); paintReviews(); });

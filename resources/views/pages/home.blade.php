@@ -243,7 +243,7 @@
       </div>
       {{-- One row of review cards that slides sideways (3 on desktop, 2 on tablets, 1 and a bit on phones) --}}
       <div id="testimonials" class="mt-8 -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-6 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2" tabindex="0" aria-label="{{ $testimonialsSec->bi('title') }}"></div>
-      <div id="testimonials-progress" class="mt-6 h-1 rounded-full bg-line overflow-hidden" aria-hidden="true"><div class="h-full rounded-full bg-ocean-500 transition-[width,margin] duration-300"></div></div>
+      <div id="testimonials-progress" class="mt-6 h-1 rounded-full bg-line overflow-hidden" aria-hidden="true"><div class="h-full rounded-full bg-ocean-500 transition-[width] duration-300 will-change-transform"></div></div>
     </section>
 
     <!-- =========================================================
