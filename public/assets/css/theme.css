@@ -66,6 +66,7 @@ body.no-scroll { overflow: hidden; }
   transition: border-color .2s, background .2s, color .2s;
 }
 .icon-btn:hover { border-color: var(--ocean-500); }
+.icon-btn:disabled { opacity: .4; cursor: default; border-color: var(--line); }
 
 /* ---------- Form fields ---------- */
 .label { display: block; font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: .4rem; }

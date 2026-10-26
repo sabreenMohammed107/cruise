@@ -153,16 +153,53 @@ document.addEventListener('sc:ready', () => {
     track.scrollBy({ left: Number(b.dataset.slide) * dir * track.clientWidth * 0.8, behavior: 'smooth' });
   }));
 
-  /* ---------- Testimonials ---------- */
-  $('#testimonials').innerHTML = D.testimonials.map((t) => `
-    <figure class="card p-6 flex flex-col">
-      <div class="flex gap-0.5 text-sun-500" aria-label="${SC.t('ui.stars', { rating: t.rating })}">${Array.from({ length: 5 }, (_, i) => SC.icon('star', `w-4 h-4 ${i < t.rating ? '' : 'opacity-25'}`, true)).join('')}</div>
-      <blockquote class="mt-4 text-[1.02rem] leading-relaxed flex-1">“${t.text}”</blockquote>
-      <figcaption class="mt-6 flex items-center gap-3">
-        <span class="grid place-items-center w-10 h-10 rounded-full bg-ocean-100 text-ocean-700 font-bold">${t.name[0]}</span>
-        <span><span class="block font-bold">${t.name}${SC.lang() === 'ar' ? '، ' : ', '}${t.from}</span><span class="text-sm text-muted">${t.cruise}</span></span>
+  /* ---------- Testimonials slider ---------- */
+  const reviews = $('#testimonials');
+  const stars = (rating, size) => Array.from({ length: 5 }, (_, i) => SC.icon('star', `${size} ${i < Math.round(rating) ? '' : 'opacity-25'}`, true)).join('');
+  reviews.innerHTML = D.testimonials.map((t) => `
+    <figure class="card p-6 flex flex-col snap-start shrink-0 w-[86%] sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)]">
+      <div class="flex gap-0.5 text-sun-500" aria-label="${SC.t('ui.stars', { rating: t.rating })}">${stars(t.rating, 'w-4 h-4')}</div>
+      <blockquote class="mt-4 text-[1.02rem] leading-relaxed line-clamp-6" data-review-text>“${SC.esc(t.text)}”</blockquote>
+      <button type="button" class="hidden self-start mt-2 text-sm font-bold text-ocean-600 hover:underline" data-review-more aria-expanded="false">${SC.t('ui.read_more')}</button>
+      <figcaption class="mt-auto pt-6 flex items-center gap-3">
+        <span class="grid place-items-center shrink-0 w-10 h-10 rounded-full bg-ocean-100 text-ocean-700 font-bold">${SC.esc(t.name[0])}</span>
+        <span class="min-w-0"><span class="block font-bold">${SC.esc([t.name, t.from].filter(Boolean).join(SC.lang() === 'ar' ? '، ' : ', '))}</span>${t.cruise ? `<span class="block text-sm text-muted truncate" title="${SC.esc(t.cruise)}">${SC.esc(t.cruise)}</span>` : ''}</span>
       </figcaption>
     </figure>`).join('');
+  // Summary next to the title: average stars and how many reviews
+  if (D.testimonials.length) {
+    const avg = D.testimonials.reduce((s, t) => s + Number(t.rating), 0) / D.testimonials.length;
+    $('#testimonials-score').innerHTML = `<span class="flex gap-0.5 text-sun-500">${stars(avg, 'w-4 h-4')}</span><span class="font-bold text-ink tabular">${avg.toFixed(1)}</span><span>· ${SC.tc('ui.reviews_count', D.testimonials.length)}</span>`;
+  }
+  // "Read more" only on reviews longer than the 6 lines shown
+  const markLongReviews = () => $$('[data-review-text].line-clamp-6', reviews).forEach((q) => q.nextElementSibling.classList.toggle('hidden', q.scrollHeight <= q.clientHeight + 1));
+  reviews.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-review-more]'); if (!b) return;
+    const open = b.previousElementSibling.classList.toggle('line-clamp-6') === false;
+    b.setAttribute('aria-expanded', open); b.textContent = SC.t(open ? 'ui.read_less' : 'ui.read_more');
+  });
+  // Arrows move one page of cards; they and the progress bar hide when every card already fits
+  const reviewArrows = $$('[data-review-slide]');
+  const paintReviews = () => {
+    const max = reviews.scrollWidth - reviews.clientWidth, at = Math.abs(reviews.scrollLeft); // scrollLeft is negative in RTL
+    const fits = max <= 1;
+    $('#testimonials-arrows').classList.toggle('hidden', fits);
+    $('#testimonials-progress').classList.toggle('hidden', fits);
+    reviewArrows[0].disabled = at <= 1; reviewArrows[1].disabled = at >= max - 1;
+    const bar = $('#testimonials-progress > div'), shown = reviews.clientWidth / reviews.scrollWidth;
+    bar.style.width = `${shown * 100}%`;
+    bar.style.marginInlineStart = `${fits ? 0 : (at / max) * (1 - shown) * 100}%`;
+  };
+  reviewArrows.forEach((b) => b.addEventListener('click', () => {
+    const dir = document.documentElement.dir === 'rtl' ? -1 : 1;
+    reviews.scrollBy({ left: Number(b.dataset.reviewSlide) * dir * reviews.clientWidth, behavior: 'smooth' });
+  }));
+  reviews.addEventListener('scroll', paintReviews, { passive: true });
+  // Re-measured whenever the row or a card changes size: the Tailwind CDN styles the new cards a moment after
+  // they are added (before that they are much wider), and fonts or "Read more" change heights and widths too
+  const reviewsResize = new ResizeObserver(() => { markLongReviews(); paintReviews(); });
+  [reviews, ...reviews.children].forEach((el) => reviewsResize.observe(el));
+  markLongReviews(); paintReviews();
 
   /* ---------- Newsletter ---------- */
   $('#newsletter').addEventListener('submit', (e) => {

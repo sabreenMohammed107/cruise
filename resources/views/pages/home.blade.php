@@ -230,8 +230,20 @@
          TESTIMONIALS
          ========================================================= -->
     <section class="max-w-site mx-auto px-4 sm:px-6 pt-20 sm:pt-28" @unless ($testimonialsSec->is_visible) hidden @endunless>
-      <h2 class="font-display font-bold text-3xl sm:text-4xl">{{ $testimonialsSec->bi('title') }}</h2>
-      <div id="testimonials" class="mt-8 grid gap-6 md:grid-cols-3"></div>
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 class="font-display font-bold text-3xl sm:text-4xl">{{ $testimonialsSec->bi('title') }}</h2>
+          {{-- Average rating and number of reviews (home.js) --}}
+          <p id="testimonials-score" class="mt-2 flex items-center gap-2 text-sm text-muted"></p>
+        </div>
+        <div class="flex items-center gap-2" id="testimonials-arrows">
+          <button class="icon-btn" data-review-slide="-1" aria-label="{{ __('ui.previous_reviews') }}"><i data-icon="chevron-left" class="w-5 h-5 rtl:rotate-180"></i></button>
+          <button class="icon-btn" data-review-slide="1" aria-label="{{ __('ui.next_reviews') }}"><i data-icon="chevron-right" class="w-5 h-5 rtl:rotate-180"></i></button>
+        </div>
+      </div>
+      {{-- One row of review cards that slides sideways (3 on desktop, 2 on tablets, 1 and a bit on phones) --}}
+      <div id="testimonials" class="mt-8 -mx-4 px-4 sm:mx-0 sm:px-0 flex gap-6 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-2" tabindex="0" aria-label="{{ $testimonialsSec->bi('title') }}"></div>
+      <div id="testimonials-progress" class="mt-6 h-1 rounded-full bg-line overflow-hidden" aria-hidden="true"><div class="h-full rounded-full bg-ocean-500 transition-[width,margin] duration-300"></div></div>
     </section>
 
     <!-- =========================================================
