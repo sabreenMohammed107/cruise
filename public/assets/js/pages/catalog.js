@@ -7,6 +7,8 @@ document.addEventListener('sc:ready', () => {
   const D = window.SC_DATA, { $, $$ } = SC;
   const ALL = SC.allSailings();
   const PER_PAGE = 6;
+  // Soonest departure first unless the link asks for another order (?sort=popular, price-asc, …)
+  const DEFAULT_SORT = 'date';
   // Laravel (step 22): "No visa needed" (a cruise setting), then the active highlights of Admin → Cruises → Highlights
   const HIGHLIGHTS = [['visaFree', SC.t('ui.catalog.highlights.visaFree')], ...(D.highlights || []).map((h) => [h.key, h.label])];
   const priceMin = Math.floor(Math.min(...ALL.map((s) => s.fromPrice)) / 50) * 50;
@@ -29,7 +31,7 @@ document.addEventListener('sc:ready', () => {
     ships: listParam('ships'),
     // codes of highlights deleted or hidden since the link was made are ignored
     highlights: listParam('hl').filter((k) => HIGHLIGHTS.some(([key]) => key === k)),
-    sort: qs.get('sort') || 'popular',
+    sort: qs.get('sort') || DEFAULT_SORT,
     view: SC.local.get('sc_view', 'grid'),
     page: Number(qs.get('page')) || 1
   };
@@ -162,7 +164,7 @@ document.addEventListener('sc:ready', () => {
     if (state.cabins.length) p.set('cabins', state.cabins.join(','));
     if (state.ships.length) p.set('ships', state.ships.join(','));
     if (state.highlights.length) p.set('hl', state.highlights.join(','));
-    if (state.sort !== 'popular') p.set('sort', state.sort);
+    if (state.sort !== DEFAULT_SORT) p.set('sort', state.sort);
     if (state.page > 1) p.set('page', state.page);
     history.replaceState(null, '', location.pathname + (p.toString() ? '?' + p : ''));
   };

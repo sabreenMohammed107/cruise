@@ -103,8 +103,8 @@
             <button id="filters-open" class="btn btn-outline btn-sm lg:hidden"><i data-icon="filter" class="w-4 h-4"></i> {{ __('pages.catalog.filters') }} <span id="f-badge" class="hidden min-w-5 h-5 px-1.5 rounded-full bg-ocean-600 text-white text-xs grid place-items-center"></span></button>
             <label for="sort" class="sr-only">{{ __('pages.catalog.sort_by') }}</label>
             <select id="sort" class="field !py-2 !rounded-full !w-auto text-sm font-semibold">
-              <option value="popular">{{ __('pages.catalog.sort.popular') }}</option>
               <option value="date">{{ __('pages.catalog.sort.date') }}</option>
+              <option value="popular">{{ __('pages.catalog.sort.popular') }}</option>
               <option value="price-asc">{{ __('pages.catalog.sort.price_asc') }}</option>
               <option value="price-desc">{{ __('pages.catalog.sort.price_desc') }}</option>
               <option value="rating">{{ __('pages.catalog.sort.rating') }}</option>
