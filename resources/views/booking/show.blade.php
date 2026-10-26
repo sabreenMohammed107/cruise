@@ -42,6 +42,7 @@
           <h1 class="font-display font-bold text-2xl sm:text-3xl">{{ __('site.booking.whos_sailing') }}</h1>
           <p class="text-muted mt-2 max-w-[62ch]">{{ __('site.booking.whos_sailing_intro') }}</p>
           <form id="guests-form" class="mt-6 grid gap-5" novalidate>
+            {{-- booking.js: one section per cabin, each with a row of traveller tabs that scrolls sideways when it doesn't fit --}}
             <div id="traveller-forms" class="grid gap-5"></div>
             <div id="form-error" class="hidden rounded-2xl border border-[#C42F2F]/30 bg-[#FDF0F0] p-4 text-sm text-[#8E1F1F] font-semibold" role="alert"></div>
             <div class="flex flex-wrap justify-between gap-3">

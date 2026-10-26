@@ -85,12 +85,27 @@ document.addEventListener('sc:ready', () => {
   /* ---------- Step 1: render traveller forms ---------- */
   const field = (id, label, control, errText = '', span = '') => `<div class="${span}"><label class="label" for="${id}">${label}</label>${control}<p class="err" id="${id}-err">${errText}</p></div>`;
   const val = (key, f) => SC.esc(b.travellers[key]?.[f] || '');
-  $('#traveller-forms').innerHTML = slots.map((s, idx) => {
+  // Each cabin has its own heading, its own row of tabs (one per traveller) and shows one form at a time.
+  // A cabin with a single traveller gets no tabs.
+  const roomSlots = rooms.map((r) => slots.filter((s) => s.room === r.i));
+  slots.forEach((s, i) => { s.idx = i; s.pos = roomSlots[s.room].indexOf(s); });
+  const tabbed = (s) => roomSlots[s.room].length > 1;
+  const tabHtml = (s) => `
+    <button type="button" role="tab" id="tab-${s.key}" aria-controls="panel-${s.key}" data-tab="${s.idx}" class="shrink-0 snap-start scroll-mx-1 scroll-mt-28 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition">
+      <span data-tab-mark class="grid place-items-center w-6 h-6 rounded-full text-xs tabular"></span>
+      <span class="whitespace-nowrap">${D.ageBands[s.band].label} ${s.n}</span>
+      <span class="sr-only" data-tab-state></span>
+    </button>`;
+  const panelHtml = (s) => {
     const B = D.ageBands[s.band]; const k = s.key; const tr = b.travellers[k] || {};
-    const r = rooms[s.room];
-    const roomHead = several && slots[idx - 1]?.room !== s.room
-      ? `<h2 class="font-display font-semibold text-xl ${idx ? 'mt-4' : ''}">${r.label} · ${SC.esc(r.cabin.nameEn)} <span class="text-sm font-normal text-muted">(${SC.guestText(r.guests)})</span></h2>` : '';
-    return `${roomHead}<fieldset class="card p-5 sm:p-6" data-traveller="${k}">
+    const count = roomSlots[s.room].length;
+    const nav = tabbed(s) ? `
+      <div class="mt-6 pt-5 border-t border-line flex items-center justify-between gap-3">
+        ${s.pos ? `<button type="button" class="btn btn-outline btn-sm" data-tab-step="-1">${SC.icon('arrow-left', 'w-4 h-4 rtl:rotate-180')} ${t('prev_guest')}</button>` : '<span></span>'}
+        <span class="text-xs font-semibold text-muted tabular">${s.pos + 1} / ${count}</span>
+        ${s.pos < count - 1 ? `<button type="button" class="btn btn-primary btn-sm" data-tab-step="1">${t('next_guest')} ${SC.icon('arrow-right', 'w-4 h-4 rtl:rotate-180')}</button>` : '<span></span>'}
+      </div>` : '';
+    return `<fieldset class="card p-5 sm:p-6" data-traveller="${k}" data-idx="${s.idx}" id="panel-${k}" ${tabbed(s) ? `role="tabpanel" aria-labelledby="tab-${k}"` : ''}>
       <legend class="sr-only">${B.label} ${s.n}</legend>
       <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div class="flex items-center gap-3">
@@ -118,8 +133,15 @@ document.addEventListener('sc:ready', () => {
             </div>`)}
         </div>
       </div>` : ''}
+      ${nav}
     </fieldset>`;
-  }).join('');
+  };
+  $('#traveller-forms').innerHTML = rooms.map((r) => `
+    <section class="grid gap-3 ${r.i ? 'mt-4' : ''}" data-room="${r.i}">
+      ${several ? `<h2 class="font-display font-semibold text-xl">${r.label} · ${SC.esc(r.cabin.nameEn)} <span class="text-sm font-normal text-muted">(${SC.guestText(r.guests)})</span></h2>` : ''}
+      ${roomSlots[r.i].length > 1 ? `<div role="tablist" aria-label="${several ? r.label : t('guest_tabs')}" class="-mx-1 px-1 pb-1 flex gap-2 overflow-x-auto snap-x [scrollbar-width:thin]">${roomSlots[r.i].map(tabHtml).join('')}</div>` : ''}
+      ${roomSlots[r.i].map(panelHtml).join('')}
+    </section>`).join('');
 
   /* ---------- Validation (same rules and words as App\Http\Requests\ConfirmBookingRequest) ---------- */
   const NAME = /^[\p{L}][\p{L}\s'’\-]{0,48}$/u;
@@ -156,6 +178,65 @@ document.addEventListener('sc:ready', () => {
     $('#c-dial').value = dial; b.contact.dial = dial; save();
     if ($('#c-phone').value && $('#c-phone').classList.contains('is-invalid')) showError($('#c-phone'), errorFor($('#c-phone')));
   });
+
+  /* ---------- Traveller tabs: done (✓) once every field passes, red once a field is flagged ---------- */
+  // The open traveller of each cabin, by position within that cabin
+  const current = rooms.map(() => 0);
+  const panelInputs = (i) => $$(`#panel-${slots[i].key} [data-rule]`);
+  const slotState = (i) => {
+    const inputs = panelInputs(i);
+    if (inputs.some((el) => el.classList.contains('is-invalid'))) return 'error';
+    return inputs.every((el) => !errorFor(el)) ? 'done' : 'todo';
+  };
+  const paintTabs = () => {
+    $$('#traveller-forms [role=tab]').forEach((tab) => {
+      const s = slots[+tab.dataset.tab], i = s.pos;
+      const on = current[s.room] === s.pos, state = slotState(s.idx);
+      tab.setAttribute('aria-selected', on);
+      tab.tabIndex = on ? 0 : -1;
+      tab.classList.toggle('bg-ocean-600', on); tab.classList.toggle('border-ocean-600', on); tab.classList.toggle('text-white', on);
+      tab.classList.toggle('bg-white', !on); tab.classList.toggle('border-line', !on); tab.classList.toggle('hover:border-ocean-300', !on);
+      const mark = $('[data-tab-mark]', tab);
+      mark.className = `grid place-items-center w-6 h-6 rounded-full text-xs tabular ${state === 'done' ? 'bg-[#12805C] text-white' : state === 'error' ? 'bg-[#C42F2F] text-white' : on ? 'bg-white/20' : 'bg-page text-muted'}`;
+      mark.innerHTML = state === 'done' ? SC.icon('check', 'w-3.5 h-3.5') : state === 'error' ? '!' : i + 1;
+      $('[data-tab-state]', tab).textContent = state === 'done' ? `(${t('guest_done')})` : state === 'error' ? `(${t('guest_errors')})` : '';
+    });
+  };
+  // Opens traveller i (index in slots) inside its own cabin; the other cabins keep their open traveller
+  const openTab = (i, focus, scroll = true) => {
+    const s = slots[i];
+    if (!tabbed(s)) return;
+    current[s.room] = s.pos;
+    roomSlots[s.room].forEach((o) => ($(`#panel-${o.key}`).hidden = o !== s));
+    paintTabs();
+    const tab = $(`#tab-${s.key}`);
+    if (scroll) tab.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    if (focus === 'tab') tab.focus({ preventScroll: true });
+    else if (focus) focus.focus({ preventScroll: true });
+  };
+  // Arrow keys move along a cabin's tabs (reversed in Arabic, where the row runs right to left)
+  $('#traveller-forms').addEventListener('keydown', (e) => {
+    const tab = e.target.closest('[role=tab]'); if (!tab) return;
+    const s = slots[+tab.dataset.tab], list = roomSlots[s.room];
+    const rtl = getComputedStyle(tab).direction === 'rtl';
+    const step = { ArrowRight: rtl ? -1 : 1, ArrowLeft: rtl ? 1 : -1 }[e.key];
+    const pos = step ? s.pos + step : e.key === 'Home' ? 0 : e.key === 'End' ? list.length - 1 : null;
+    if (pos === null || !list[pos]) return;
+    e.preventDefault(); openTab(list[pos].idx, 'tab');
+  });
+  // Tabs open their traveller; "Next guest" checks this traveller first; "Previous" always goes back
+  $('#traveller-forms').addEventListener('click', (e) => {
+    const tab = e.target.closest('[data-tab]'); if (tab) { openTab(+tab.dataset.tab); return; }
+    const btn = e.target.closest('[data-tab-step]'); if (!btn) return;
+    const i = +btn.closest('[data-idx]').dataset.idx, step = +btn.dataset.tabStep;
+    if (step > 0) {
+      let firstBad = null;
+      panelInputs(i).forEach((el) => { const m = errorFor(el); showError(el, m); if (m) firstBad ||= el; });
+      if (firstBad) { paintTabs(); firstBad.focus(); return; }
+    }
+    openTab(i + step, panelInputs(i + step)[0]);
+  });
+
   // Guest mix from the details page, cabin by cabin: an adult in every cabin (with any infant), everyone (infants
   // included) within that cabin's limit, and no more cabins than allowed
   const guestErr = () => {
@@ -175,7 +256,11 @@ document.addEventListener('sc:ready', () => {
       const box = $('#form-error');
       box.classList.toggle('hidden', !bad && !mix);
       box.innerHTML = mix ? `${SC.esc(mix)} <a href="${detailsUrl}" class="underline">${t('change')}</a>` : bad ? SC.esc(SC.tc('booking.errors.fields', bad)) : '';
-      firstBad?.focus();
+      // The first wrong field may sit in another traveller's tab
+      paintTabs();
+      const badSlot = firstBad && slots[+firstBad.closest('[data-idx]').dataset.idx];
+      if (badSlot && tabbed(badSlot)) openTab(badSlot.idx, firstBad);
+      else firstBad?.focus();
     }
     return !bad && !mix;
   };
@@ -189,18 +274,22 @@ document.addEventListener('sc:ready', () => {
     if (el.dataset.contact) b.contact[el.dataset.contact] = el.value.trim();
     save();
     if (el.classList.contains('is-invalid')) showError(el, errorFor(el));
+    paintTabs();
   });
   // <select> changes don't always fire "input"
   $('#guests-form').addEventListener('change', (e) => {
     const el = e.target;
     if (el.tagName === 'SELECT' && el.dataset.key) { (b.travellers[el.dataset.key] ||= {})[el.dataset.f] = el.value; save(); }
+    paintTabs();
   });
-  // Pressing "Review booking" blurs the field first; showing its error then would push the button down before the
-  // mouse is released and the click would be lost. The submit check validates every field anyway.
+  // Pressing "Review booking" (or "Next guest" / a tab) blurs the field first; showing its error then would push the
+  // button down before the mouse is released and the click would be lost. Those buttons check the fields themselves.
   let pressingSubmit = false;
-  $('#guests-form button[type=submit]').addEventListener('pointerdown', () => { pressingSubmit = true; setTimeout(() => (pressingSubmit = false), 1000); });
-  $('#guests-form').addEventListener('focusout', (e) => { if (!pressingSubmit && e.target.dataset.rule && e.target.value) showError(e.target, errorFor(e.target)); });
+  $('#guests-form').addEventListener('pointerdown', (e) => { if (e.target.closest('button')) { pressingSubmit = true; setTimeout(() => (pressingSubmit = false), 1000); } });
+  $('#guests-form').addEventListener('focusout', (e) => { if (!pressingSubmit && e.target.dataset.rule && e.target.value) { showError(e.target, errorFor(e.target)); paintTabs(); } });
   $('#guests-form').addEventListener('submit', (e) => { e.preventDefault(); if (validateAll(true)) go('review'); });
+  // Each cabin starts on its first traveller still missing details
+  roomSlots.forEach((list) => { const todo = list.find((s) => slotState(s.idx) !== 'done') || list[0]; if (todo) openTab(todo.idx, null, false); });
 
   /* ---------- Step 2: review ---------- */
   const CAT_CODE = { interior: 'IN', balcony: 'BC', suite: 'SK' };

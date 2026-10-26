@@ -131,6 +131,11 @@ return [
 
         'band_hint_on' => ':hint في :date',
         'primary_guest' => 'الضيف الرئيسي',
+        'guest_tabs' => 'المسافرون',
+        'prev_guest' => 'السابق',
+        'next_guest' => 'الضيف التالي',
+        'guest_done' => 'مكتمل',
+        'guest_errors' => 'يحتاج إلى مراجعة',
         'first_name' => 'الاسم الأول',
         'last_name' => 'اسم العائلة',
         'dob' => 'تاريخ الميلاد',

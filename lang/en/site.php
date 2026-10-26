@@ -143,6 +143,11 @@ return [
         // Traveller forms
         'band_hint_on' => ':hint on :date',
         'primary_guest' => 'Primary guest',
+        'guest_tabs' => 'Travellers',
+        'prev_guest' => 'Previous',
+        'next_guest' => 'Next guest',
+        'guest_done' => 'complete',
+        'guest_errors' => 'needs attention',
         'first_name' => 'First name',
         'last_name' => 'Last name',
         'dob' => 'Date of birth',
