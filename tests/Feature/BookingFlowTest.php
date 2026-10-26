@@ -57,8 +57,8 @@ class BookingFlowTest extends TestCase
         $this->assertMatchesRegularExpression('/^SC2612-[A-Z0-9]{5}$/', $booking->reference);
         $this->assertSame(BookingStatus::Confirmed, $booking->status);
         $this->assertSame(PaymentStatus::Unpaid, $booking->payment_status);
-        // double 7280 + 3rd guest 1680 = 8960 fare; fees 3×35×7 = 735; discount round5(896) = 895
-        $this->assertSame(['8960.00', '735.00', '895.00', '8800.00'], [$booking->fare_total, $booking->fees_total, $booking->discount_total, $booking->grand_total]);
+        // double 7280 + 3rd guest 1680 = 8960 fare; no fees (tax included, step 21); discount round5(896) = 895
+        $this->assertSame(['8960.00', '0.00', '895.00', '8065.00'], [$booking->fare_total, $booking->fees_total, $booking->discount_total, $booking->grand_total]);
         $this->assertSame(['double', 'extra'], array_column($booking->price_snapshot['lines'], 'band'));
         $this->assertSame('551234567', $booking->contact_phone);
         $this->assertCount(3, $booking->travellers);
@@ -151,7 +151,7 @@ class BookingFlowTest extends TestCase
         // 1 adult + 2 infants: full cabin, single price
         $ref = $this->postJson('/booking/confirm', $this->party(1, 0, 2))->assertCreated()->json('reference');
         $booking = Booking::where('reference', $ref)->firstOrFail();
-        $this->assertSame(['5460.00', '245.00', '5705.00'], [$booking->fare_total, $booking->fees_total, $booking->grand_total]); // single; fees 1×35×7
+        $this->assertSame(['5460.00', '0.00', '5460.00'], [$booking->fare_total, $booking->fees_total, $booking->grand_total]); // single, tax included
         $this->assertSame([1, 0, 2], [$booking->adults, $booking->children, $booking->infants]);
 
         // 2 adults + 1 infant: double price

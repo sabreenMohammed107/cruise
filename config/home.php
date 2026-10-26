@@ -133,8 +133,8 @@ return [
                 [
                     'icon' => 'tag', 'tone' => 'lagoon',
                     'title' => 'A price for every guest', 'title_ar' => 'سعر لكل ضيف',
-                    'text' => 'Adults, children and infants are priced separately, with taxes and port fees shown before you pay.',
-                    'text_ar' => 'يُسعَّر البالغون والأطفال والرضّع كلٌّ على حدة، مع عرض الضرائب ورسوم الموانئ قبل الدفع.',
+                    'text' => 'Adults, children and infants are priced separately, and every price includes tax.',
+                    'text_ar' => 'يُسعَّر البالغون والأطفال والرضّع كلٌّ على حدة، وكل الأسعار شاملة الضريبة.',
                 ],
                 [
                     'icon' => 'check', 'tone' => 'sun',

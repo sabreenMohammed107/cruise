@@ -65,11 +65,13 @@ final class BookingEmailData
             'cabins' => static::cabins($booking),
             'prices' => array_filter([
                 __('emails.fare') => static::money($booking->fare_total),
-                __('emails.fees') => static::money($booking->fees_total),
+                // Prices include tax since step 21; only older bookings have separate taxes and port fees
+                __('emails.fees') => (float) $booking->fees_total > 0 ? static::money($booking->fees_total) : null,
                 ($booking->promoCode ? __('emails.discount_code', ['code' => $booking->promoCode->code]) : __('emails.discount'))
                     => (float) $booking->discount_total > 0 ? '−'.static::money($booking->discount_total) : null,
             ]),
             'total' => static::money($booking->grand_total),
+            'tax_included' => (float) $booking->fees_total <= 0,
             'paid' => static::money($booking->amount_paid),
             'due' => static::money($booking->amountDue()),
             'guests' => static::guests($booking->guestCounts()),

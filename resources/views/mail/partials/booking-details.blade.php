@@ -63,7 +63,10 @@
     </tr>
   @endforeach
   <tr>
-    <td style="padding:12px 0 6px;border-top:2px solid #124A80;font-size:16px;font-weight:700;color:#124A80;text-align:{{ $start }};">{{ __('emails.total') }}</td>
+    <td style="padding:12px 0 6px;border-top:2px solid #124A80;font-size:16px;font-weight:700;color:#124A80;text-align:{{ $start }};">
+      {{ __('emails.total') }}
+      @if ($d['tax_included'])<div style="font-size:12px;font-weight:600;color:#0E8AA0;">{{ __('emails.tax_included') }}</div>@endif
+    </td>
     <td style="padding:12px 0 6px;border-top:2px solid #124A80;font-size:18px;font-weight:700;color:#124A80;text-align:{{ $end }};white-space:nowrap;" dir="ltr">{{ $d['total'] }}</td>
   </tr>
   @if ($team)

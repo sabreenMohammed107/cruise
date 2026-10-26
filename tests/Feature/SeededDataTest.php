@@ -79,14 +79,14 @@ class SeededDataTest extends TestCase
 
         $this->assertSame('USD', $booking('SC2611-K4P2Q')->currency);
         $this->assertSame(PaymentStatus::Unpaid, $booking('SC2611-K4P2Q')->payment_status);
-        $this->assertSame(4155.0, $booking('SC2611-K4P2Q')->amountDue());
+        $this->assertSame(3840.0, $booking('SC2611-K4P2Q')->amountDue()); // tax included, no fees (step 21)
 
         $this->assertSame(PaymentStatus::Paid, $booking('SC2603-H7M1Z')->payment_status);
         $this->assertSame(0.0, $booking('SC2603-H7M1Z')->amountDue());
 
         // Cancelled 35 days out: half refunded, half kept as the cancellation penalty.
         $this->assertSame(PaymentStatus::Refunded, $booking('SC2605-T9R3B')->payment_status);
-        $this->assertSame('8610.00', $booking('SC2605-T9R3B')->amount_paid);
+        $this->assertSame('8260.00', $booking('SC2605-T9R3B')->amount_paid); // half of 16,520 (tax included, step 21)
 
         $this->assertSame(['SC2611-K4P2Q'], Booking::awaitingPayment()->pluck('reference')->all());
     }

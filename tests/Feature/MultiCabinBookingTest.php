@@ -67,9 +67,9 @@ class MultiCabinBookingTest extends TestCase
 
         $booking = Booking::where('reference', $response->json('reference'))->with(['cabins.cabinCategory', 'cabins.travellers', 'travellers'])->firstOrFail();
 
-        // balcony: double 7280 + 3rd guest 1680, fees 3 × 35 × 7 = 735; interior: single 3465, fees 1 × 35 × 7 = 245
-        // fare 12425; discount round5(1242.5) = 1245; total 12425 + 980 − 1245 = 12160
-        $this->assertSame(['12425.00', '980.00', '1245.00', '12160.00'], [$booking->fare_total, $booking->fees_total, $booking->discount_total, $booking->grand_total]);
+        // balcony: double 7280 + 3rd guest 1680; interior: single 3465; no fees (tax included, step 21)
+        // fare 12425; discount round5(1242.5) = 1245; total 12425 − 1245 = 11180
+        $this->assertSame(['12425.00', '0.00', '1245.00', '11180.00'], [$booking->fare_total, $booking->fees_total, $booking->discount_total, $booking->grand_total]);
 
         $this->assertSame([1, 2], $booking->cabins->pluck('position')->all());
         $this->assertSame(['balcony', 'interior'], $booking->cabins->map(fn ($c) => $c->cabinCategory->slug)->all());

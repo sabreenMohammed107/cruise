@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\HomeSection;
+use App\Support\DestinationsPage;
 use App\Support\ScDataPresenter;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * Template pages whose content is rendered by their page script from SC_DATA (decision D1).
+ * Template pages whose content is rendered by their page script from SC_DATA (decision D1), except the destinations
+ * page, which is rendered on the server since step 21.
  */
 class PageController extends Controller
 {
@@ -25,9 +27,17 @@ class PageController extends Controller
         return $this->page('pages.ship', $request)->with('sections', HomeSection::forPage('ship'));
     }
 
+    /**
+     * Rendered on the server (step 21): the ports and their nearest sailings are in the HTML, so the page shows at once
+     * and only needs the small SC_DATA core.js uses (no cruises, cabins or prices for the page script to draw).
+     */
     public function destinations(Request $request): View
     {
-        return $this->page('pages.destinations', $request)->with('sections', HomeSection::forPage('destinations'));
+        return view('pages.destinations', [
+            'scData' => $this->presenter->minimal($request->user('web')),
+            'sections' => HomeSection::forPage('destinations'),
+            'ports' => DestinationsPage::ports(),
+        ]);
     }
 
     public function catalog(Request $request): View

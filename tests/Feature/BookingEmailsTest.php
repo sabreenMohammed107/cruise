@@ -77,7 +77,7 @@ class BookingEmailsTest extends TestCase
         $this->assertStringContainsString('<html lang="en" dir="ltr">', $html);
         foreach (['Hello Noura,', 'Red Sea Discovery', 'RSD-261213', 'Sunday 13 December 2026', 'Jeddah → Safaga → Sokhna',
             'Cabin 1 · Balcony Cabin', 'Cabin 2 · Interior Cabin', '2 adults + 1 child', '1 adult + 1 infant',
-            'Khalid Alqahtani', 'Omar Saleh', 'Infant', 'Primary guest', 'Discount (SAFER10)', '−$1,245', '$12,160',
+            'Khalid Alqahtani', 'Omar Saleh', 'Infant', 'Primary guest', 'Discount (SAFER10)', '−$1,245', '$11,180', 'Tax included',
             'within 24 hours'] as $text) {
             $this->assertStringContainsString(e($text), $html, $text);
         }

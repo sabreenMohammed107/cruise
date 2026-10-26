@@ -59,7 +59,7 @@
           Price of the whole cabin for the {{ $cruise->nights }}-night cruise, in US dollars, by the number of paying guests (adults and children):
           <b>Single</b> = 1 guest, <b>Double</b> = 2 guests, <b>3rd guest</b> = added to the double price for a third adult or child.
           A cabin holds at most {{ config('cruise.max_cabin_guests') }} guests, infants included. Infants travel free and must be with at least one adult.
-          Taxes and port fees per guest come from Age bands.
+          Prices include tax: there are no separate taxes or port fees.
         </p>
         @if (! $sailing && $prices->isNotEmpty())
           <p class="text-sm text-muted mt-2">Filled in from this cruise's latest sailing. Change them as needed.</p>

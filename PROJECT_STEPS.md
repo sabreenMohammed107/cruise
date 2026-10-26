@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 142 tests
+C:\xampp\php\php.exe artisan test                     # 146 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1560,6 +1560,57 @@ the `safeer` project: the Mailable sets its locale in the constructor, and every
   `<head>` rule `a.sc-white-link` (Apple Mail, Outlook.com), plus a rule that stops Apple Mail's data detectors.
   Checked with a "links are blue and underlined" stylesheet added: still white, no underline, in all four emails.
 - Tests: **142 passed** (2 new in `BookingEmailsTest`).
+
+### Step 21: Clickable card photos, faster destinations page, tax-included prices, cabin text (2026-10-26)
+
+**1. Card photos open the cruise.** `SC.ui.sailingCard()` (`core.js`) wraps the photo in a link to the cruise page
+(the same address as the title; `tabindex="-1"` + `aria-hidden` so keyboards and screen readers get one link per
+card). The heart and the tags stay clickable on top. Used by every card: cruises list, homepage.
+
+**2. Destinations page rebuilt on the server.** On the live site a port listed every cruise calling there (55 for
+Alexandria, 61 for Istanbul), so each port was ~6,500 px tall next to an empty column, some rows said "$0", and the
+page waited for 412 KB of SC_DATA plus the page script before showing anything.
+- New `App\Support\DestinationsPage::ports()`: one query for the active cruises with their upcoming sailings and
+  prices; per active port, every sailing of the cruises that call there, nearest first; the first
+  `PREVIEW` (6) are shown, plus the total.
+- `PageController::destinations()` renders it in `pages/destinations.blade.php` and sends only the small SC_DATA
+  (`ScDataPresenter::minimal()`), so the ports are in the HTML. Locally: HTML 168 KB instead of ~525 KB, page ready
+  in ~0.6 s, each port ~760 px.
+- New layout per port: photo | name (+ Arabic name), "N upcoming sailings" tag, description, things to do in two
+  columns, visa note; then "Cruises that call here" as a 3-column grid of compact cards (photo, name, date ·
+  nights, "From, per person"), "The next 6 of N sailings" and a "See all N sailings to {port}" button to
+  `/cruises?port={port}`. A sailing with no prices shows no price (never "$0").
+- `destinations.js` now only does the country filter (chips and the port bar) and `#slug` jumps.
+- New words in `lang/{en,ar}/ui.php` → `destinations`: `sailings_count`, `showing_next`, `see_all`, `from_pp`.
+
+**3. Prices include tax: no separate taxes or port fees.**
+- `PricingService::quote()` / `quoteBooking()` and `SC.quote()` / `SC.quoteRooms()`: `total = fare − discount`;
+  `fees` stays in the quote, always 0, so stored snapshots keep their shape. `SC_DATA.fees` was removed.
+- Cruise page summary (one or several cabins): no fees line; the total says **"Tax included"**.
+- Booking page: no fees line in the price breakdown or the summary; the total is **"Net total"** with a
+  **"Tax included"** tag (`site.booking.net_total`, `tax_included`; the unused `site.booking.fees` and
+  `ui.details.fees` keys were replaced).
+- Emails, My account and Admin → Bookings show "Taxes and port fees" only for bookings made before this step (when
+  `fees_total` > 0); otherwise the total says "Tax included".
+- Admin → **Age bands** (was "Age bands & fees"): the per-night fee field was removed (the `fee_per_night` column
+  stays, unused). The sailing price grid says "Prices include tax".
+- Default copy in `config/home.php` ("A price for every guest") and `config/pages.php` (cruise page "Included in your
+  fare") now says prices include tax. **The live text of those two cards is saved in the database:** change it in
+  Admin → Homepage → Why Safer Cruise and Admin → Cruise pages → Cruise details → Included in your fare.
+
+**4. Cabin cards: text no longer cut off.** On desktop the four cabin cards are narrow, and the bed line had
+`truncate` inside a flex row without `min-w-0`, so it ran past the card and was clipped ("Twin beds convertible to
+a quee…"). The size / guests / beds lines now wrap (icon `shrink-0`, text `min-w-0`), and prices like "+ $920" stay
+on one line.
+
+- Tests: **146 passed**. New `DestinationsPageTest` (ports and nearest sailings in the HTML with no page-script
+  data, 6 shown of 17 / of 43 after adding 40 sailings, no "$0", Arabic) and
+  `PricingServiceTest::test_prices_include_tax_whatever_the_age_band_fees_say`. Totals in `BookingFlowTest`,
+  `MultiCabinBookingTest`, `PricingServiceTest`, `SeededDataTest` and `BookingEmailsTest` no longer include fees.
+  Checked locally in a headless browser: a card photo opens the cruise, no clipped text in the cabin cards, "Tax
+  included" on the cruise page and "Net total · Tax included" on the booking page, destinations layout on desktop
+  and mobile, country filter.
+- **Deploy:** upload the files, `php artisan view:clear` and `php artisan config:clear` (no migration).
 
 **Open items (next):**
 

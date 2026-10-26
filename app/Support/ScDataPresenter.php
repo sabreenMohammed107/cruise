@@ -45,7 +45,6 @@ class ScDataPresenter
             'maxCabinGuests' => (int) config('cruise.max_cabin_guests'),
             // Cabins in one booking (step 15)
             'maxCabinsPerBooking' => (int) config('cruise.max_cabins_per_booking'),
-            'fees' => ['perGuestPerNight' => $this->fees()],
             // Promo codes are checked on the server (POST /booking/promo), never published here.
             'promos' => (object) [],
             'ships' => $this->ships(),
@@ -207,11 +206,6 @@ class ScDataPresenter
                 TravellerBand::Infant => $base + ['minMonths' => $band->min_months, 'maxMonthsExclusive' => $max],
             }];
         })->all();
-    }
-
-    private function fees(): array
-    {
-        return AgeBand::all()->mapWithKeys(fn (AgeBand $band) => [$band->key->value => (float) $band->fee_per_night])->all();
     }
 
     private function ships(): array

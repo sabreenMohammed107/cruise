@@ -120,6 +120,11 @@ return [
         'next_departure' => ':nights, next departure :date',
         'none' => 'No upcoming sailings call here yet.',
         'all_sailings_to' => 'All sailings to :port',
+        // Step 21: server-rendered page, nearest sailings first
+        'sailings_count' => '{1} :count upcoming sailing|[2,*] :count upcoming sailings',
+        'showing_next' => 'The next :shown of :total sailings',
+        'see_all' => 'See all :count sailings to :port',
+        'from_pp' => 'From, per person',
     ],
 
     'details' => [
@@ -167,7 +172,7 @@ return [
         'guests' => 'Guests',
         'cabin' => 'Cabin',
         'not_chosen' => 'Not chosen yet',
-        'fees' => 'Taxes & port fees',
+        'tax_included' => 'Tax included',
         'total' => 'Total',
         'choose_to_see_total' => 'Choose a cabin to see your total price.',
         'continue_guests' => 'Continue to guest details',

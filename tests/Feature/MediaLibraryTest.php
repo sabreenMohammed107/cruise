@@ -155,7 +155,7 @@ class MediaLibraryTest extends TestCase
 
         $image = $destination->fresh()->image;
         $this->assertMatchesRegularExpression('#^uploads/media/yanbu-photo-[a-z0-9]{6}\.jpg$#', $image);
-        $this->assertSame(asset($image), collect($this->get('/destinations')->viewData('scData')['destinations'])->firstWhere('slug', 'yanbu')['image']);
+        $this->get('/destinations')->assertOk()->assertSee('src="'.asset($image).'"', false); // server-rendered since step 21
 
         // Clearing the photo
         $this->put("/admin/destinations/{$destination->id}", ['image' => ''] + $form)->assertSessionHasNoErrors();

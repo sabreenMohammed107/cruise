@@ -85,9 +85,9 @@ document.addEventListener('sc:ready', () => {
       <h3 class="font-bold mt-6 mb-2">${t('price')}</h3>
       <dl class="grid gap-1.5 text-sm tabular">
         ${q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
-        <div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>
+        ${q.fees > 0 ? `<div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>` : '' /* bookings made before step 21 only */}
         ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
-        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}</dt><dd>${SC.money(q.total)}</dd></div>
+        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}${q.fees > 0 ? '' : ` <span class="block text-xs font-semibold text-lagoon-600">${SC.t('booking.tax_included')}</span>`}</dt><dd>${SC.money(q.total)}</dd></div>
         <div class="flex justify-between"><dt class="text-muted">${t('paid_so_far')}</dt><dd>${SC.money(b.amountPaid)} ${paymentTag(b)}</dd></div>
       </dl>
       <div class="mt-6 flex flex-wrap justify-end gap-2">

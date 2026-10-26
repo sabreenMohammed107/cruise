@@ -40,8 +40,8 @@ class PricingServiceTest extends TestCase
 
         $this->assertSame([['band' => 'single', 'label' => 'Single occupancy (1 guest)', 'unit' => 1485.0, 'qty' => 1, 'total' => 1485.0]], $quote['lines']);
         $this->assertSame(1485.0, $quote['fare']);
-        $this->assertSame(105.0, $quote['fees']);   // 1 × 35 × 3 nights
-        $this->assertSame(1590.0, $quote['total']);
+        $this->assertSame(0.0, $quote['fees']);     // tax included: no separate fees (step 21)
+        $this->assertSame(1485.0, $quote['total']);
     }
 
     public function test_two_adults_pay_the_double_price_not_twice_a_rate(): void
@@ -50,9 +50,9 @@ class PricingServiceTest extends TestCase
 
         $this->assertSame(['double'], array_column($quote['lines'], 'band'));
         $this->assertSame(1980.0, $quote['fare']);
-        $this->assertSame(210.0, $quote['fees']);
+        $this->assertSame(0.0, $quote['fees']);
         $this->assertSame(0.0, $quote['discount']);
-        $this->assertSame(2190.0, $quote['total']);
+        $this->assertSame(1980.0, $quote['total']);
     }
 
     public function test_a_child_as_second_guest_shares_the_double_price(): void
@@ -74,7 +74,7 @@ class PricingServiceTest extends TestCase
         $this->assertSame(['single', 'infant'], array_column($quote['lines'], 'band'));
         $this->assertSame(0.0, $quote['lines'][1]['total']);
         $this->assertSame(1485.0, $quote['fare']);
-        $this->assertSame(105.0, $quote['fees']);   // infants pay no fees (Age bands)
+        $this->assertSame(0.0, $quote['fees']);
         $this->assertSame(2, $quote['count']);
 
         $this->assertSame(1980.0, $this->quote(['adult' => 2, 'infant' => 1])['fare']);
@@ -85,9 +85,9 @@ class PricingServiceTest extends TestCase
         $quote = $this->quote(['adult' => 2, 'child' => 1], 'RSD-261213', 'balcony', PromoCode::findRedeemable('safer10'));
 
         $this->assertSame(8960.0, $quote['fare']);      // double 7280 + 3rd guest 1680
-        $this->assertSame(735.0, $quote['fees']);       // 3 guests × 35 × 7
+        $this->assertSame(0.0, $quote['fees']);         // tax included (step 21)
         $this->assertSame(895.0, $quote['discount']);   // round5(10% of 8960 = 896)
-        $this->assertSame(8800.0, $quote['total']);
+        $this->assertSame(8065.0, $quote['total']);
         $this->assertSame(3, $quote['count']);
         $this->assertSame('SAFER10', $quote['promo']['code']);
         $this->assertSame(['single' => 5460.0, 'double' => 7280.0, 'extra' => 1680.0, 'infant' => 0.0], $quote['prices']);
@@ -99,6 +99,17 @@ class PricingServiceTest extends TestCase
 
         PromoCode::where('code', 'SAFER10')->update(['is_active' => false]);
         $this->assertNull(PromoCode::findRedeemable('SAFER10'));
+    }
+
+    public function test_prices_include_tax_whatever_the_age_band_fees_say(): void
+    {
+        // The old per-night fees of Admin → Age bands no longer change any price (step 21)
+        \App\Models\AgeBand::query()->update(['fee_per_night' => 99]);
+
+        $quote = $this->quote(['adult' => 2, 'child' => 1, 'infant' => 1]);
+        $this->assertSame(0.0, $quote['fees']);
+        $this->assertSame($quote['fare'], $quote['total']);
+        $this->assertArrayNotHasKey('fees', $this->get('/cruises')->viewData('scData'));
     }
 
     public function test_sold_out_cabins_are_flagged_from_the_template(): void

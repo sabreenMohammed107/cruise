@@ -85,15 +85,18 @@
             @foreach ($quote['lines'] ?? [] as $line)
               @if (count($quote['cabins'] ?? []) > 1 && ($loop->first || ($quote['lines'][$loop->index - 1]['cabin'] ?? null) !== ($line['cabin'] ?? null)))
                 @php($part = collect($quote['cabins'])->firstWhere('position', $line['cabin'] ?? 1))
-                <tr class="border-b border-line bg-page"><td class="py-2 font-bold" colspan="3">Cabin {{ $part['position'] ?? '' }} · {{ $part['name'] ?? '' }} <span class="font-normal text-muted">({{ Format::guests($part['guests']['adult'] ?? 0, $part['guests']['child'] ?? 0, $part['guests']['infant'] ?? 0) }}, fees {{ Format::money($part['fees'] ?? 0) }})</span></td></tr>
+                <tr class="border-b border-line bg-page"><td class="py-2 font-bold" colspan="3">Cabin {{ $part['position'] ?? '' }} · {{ $part['name'] ?? '' }} <span class="font-normal text-muted">({{ Format::guests($part['guests']['adult'] ?? 0, $part['guests']['child'] ?? 0, $part['guests']['infant'] ?? 0) }}@if ((float) ($part['fees'] ?? 0) > 0), fees {{ Format::money($part['fees']) }}@endif)</span></td></tr>
               @endif
               <tr class="border-b border-line"><td class="py-2">{{ $line['label'] ?? ucfirst($line['band']) }}</td><td class="text-end">{{ Format::money($line['unit']) }} × {{ $line['qty'] }}</td><td class="text-end font-bold">{{ Format::money($line['total']) }}</td></tr>
             @endforeach
-            <tr class="border-b border-line"><td class="py-2">Taxes, port charges & fees</td><td></td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>
+            {{-- Prices include tax since step 21; only older bookings have separate taxes and port fees --}}
+            @if ((float) $booking->fees_total > 0)
+              <tr class="border-b border-line"><td class="py-2">Taxes, port charges & fees</td><td></td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>
+            @endif
             @if ((float) $booking->discount_total)
               <tr class="border-b border-line text-[#12805C]"><td class="py-2">Discount ({{ $quote['promo']['code'] ?? $booking->promoCode?->code }})</td><td></td><td class="text-end font-bold">− {{ Format::money($booking->discount_total) }}</td></tr>
             @endif
-            <tr><td class="pt-3 font-bold text-base">Total</td><td></td><td class="pt-3 text-end font-display font-bold text-xl text-ocean-800">{{ Format::money($booking->grand_total) }}</td></tr>
+            <tr><td class="pt-3 font-bold text-base">Total @if ((float) $booking->fees_total <= 0)<span class="block text-xs font-semibold text-lagoon-600">Tax included</span>@endif</td><td></td><td class="pt-3 text-end font-display font-bold text-xl text-ocean-800">{{ Format::money($booking->grand_total) }}</td></tr>
           </tbody>
         </table>
       </section>

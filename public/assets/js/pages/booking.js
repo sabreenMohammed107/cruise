@@ -260,7 +260,6 @@ document.addEventListener('sc:ready', () => {
                 ${several ? `<tr class="border-t border-line bg-page"><td class="py-2 font-bold" colspan="4">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)} <span class="font-normal text-muted">(${SC.guestText(p.guests)})</span></td></tr>` : ''}
                 ${p.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
                 <tr class="border-t border-line"><td class="py-2.5">${t('cabin_line', { cabin: rooms[p.position - 1].cabin.nameEn })}</td><td class="text-end text-muted" colspan="2">${t('included')}</td><td class="text-end font-bold">${SC.money(0)}</td></tr>`).join('')}
-              <tr class="border-t border-line"><td class="py-2.5">${t('fees')}</td><td></td><td></td><td class="text-end font-bold">${SC.money(q.fees)}</td></tr>
               ${q.discount ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${t('discount', { code: q.promo.code })}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(q.discount)}</td></tr>` : ''}
             </tbody>
           </table>
@@ -274,7 +273,7 @@ document.addEventListener('sc:ready', () => {
         <p class="err" id="promo-err">${t('promo_error')}</p>
 
         <div class="mt-6 rounded-2xl bg-ocean-50 p-5 flex flex-wrap items-end justify-between gap-3">
-          <div><p class="font-bold">${t('total')}</p><p class="text-xs text-muted">${t('total_note', { guests: several ? `${SC.tc('ui.details.cabins_count', rooms.length)}${comma}${SC.guestText(guestsTotal)}` : SC.guestText(guestsTotal) })}</p></div>
+          <div><p class="font-bold">${t('net_total')} <span class="tag tag-lagoon ms-1 align-middle">${t('tax_included')}</span></p><p class="text-xs text-muted mt-1">${t('total_note', { guests: several ? `${SC.tc('ui.details.cabins_count', rooms.length)}${comma}${SC.guestText(guestsTotal)}` : SC.guestText(guestsTotal) })}</p></div>
           <p class="font-display font-bold text-3xl sm:text-4xl text-ocean-800 tabular">${SC.money(q.total)}</p>
         </div>
       </section>`;
@@ -335,9 +334,8 @@ document.addEventListener('sc:ready', () => {
         ${several
           ? q.rooms.map((p) => `<div class="flex justify-between gap-3"><dt class="text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd>${SC.money(p.fare)}</dd></div>`).join('')
           : q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
-        <div class="flex justify-between gap-3"><dt class="text-muted">${t('fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>
         ${q.discount ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${t('discount', { code: q.promo.code })}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
-        <div class="flex items-end justify-between pt-3 mt-1 border-t border-line"><dt class="font-bold text-base">${t('total')}</dt><dd class="font-display font-bold text-2xl text-ocean-800">${SC.money(q.total)}</dd></div>
+        <div class="flex items-end justify-between gap-3 pt-3 mt-1 border-t border-line"><dt><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></dt><dd class="font-display font-bold text-2xl text-ocean-800">${SC.money(q.total)}</dd></div>
       </dl>`;
     $('#summary').innerHTML = html;
     $('#summary-mobile').innerHTML = html;

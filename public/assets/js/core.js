@@ -207,7 +207,8 @@
      Each Sailing × Cabin has three cabin prices for the whole cruise, set in Admin → Sailings:
        single = 1 paying guest · double = 2 paying guests · extra = the 3rd guest (adult or child)
      Infants are free, but they count towards the cabin limit (see SC.guestLimits below).
-     Total = fare lines + fees − discount. The server recalculates it when the booking is confirmed.
+     Total = fare lines − discount: prices include tax, there are no separate taxes or port fees (step 21; `fees` stays
+     0 in the quote for older screens). The server recalculates it when the booking is confirmed.
      ------------------------------------------------------------------ */
   const r5 = (n) => Math.round(n / 5) * 5;
   SC.prices = (cruise, sailing, cabinId) => {
@@ -238,7 +239,7 @@
     const bands = ['adult', 'child', 'infant'];
     const lines = SC.fareLines(prices, guests);
     const fare = lines.reduce((s, l) => s + l.total, 0);
-    const fees = bands.reduce((s, b) => s + (guests[b] || 0) * D.fees.perGuestPerNight[b] * cruise.nights, 0);
+    const fees = 0; // tax included in the cabin prices (step 21)
     const promo = promoCode && D.promos[promoCode.toUpperCase()];
     const discount = SC.promoDiscount(promo, fare);
     return { prices, lines, fare, fees, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
@@ -246,7 +247,7 @@
   // Laravel: percent codes are rounded to $5; fixed codes take at most the fare (PricingService::discount)
   SC.promoDiscount = (promo, fare) => (!promo ? 0 : promo.type === 'fixed' ? Math.min(promo.value, fare) : r5(fare * promo.value / 100));
   /* Several cabins in one booking (step 15; PricingService::quoteBooking): every cabin priced on its own
-     (tiers + fees), the promo once on the total fare. rooms = [{ cabinId, guests }, …] */
+     (tiers, tax included), the promo once on the total fare. rooms = [{ cabinId, guests }, …] */
   SC.quoteRooms = ({ cruise, sailing, rooms, promoCode }) => {
     const parts = rooms.map((r, i) => ({ position: i + 1, cabinId: r.cabinId, guests: r.guests, ...SC.quote({ cruise, sailing, cabinId: r.cabinId, guests: r.guests }) }));
     const fare = parts.reduce((s, p) => s + p.fare, 0);
@@ -532,8 +533,9 @@
         <a href="${SC.whatsapp(SC.t('ui.card.whatsapp_message', { cruise: v.name, date: SC.fmtDate(v.departure) }))}" target="_blank" rel="noopener" class="icon-btn" aria-label="${SC.t('ui.card.ask_whatsapp')}">${SC.icon('chat', 'w-5 h-5')}</a>
         <a href="${SC.detailsUrl(v)}" class="btn btn-accent btn-sm">${SC.t('ui.card.select')}</a>
       </div>`;
+    // The photo opens the cruise too (a second link to the same page, so it is skipped by keyboard and screen readers)
     const media = `<div class="relative img-zoom ${layout === 'list' ? 'md:w-[38%] aspect-[16/10] md:aspect-auto' : 'aspect-[16/10]'}">
-        <img src="${v.image}" alt="${SC.esc(SC.t('ui.card.image_alt', { cruise: v.name, ship: v.ship }))}" loading="lazy" class="absolute inset-0 w-full h-full object-cover">
+        <a href="${SC.detailsUrl(v)}" class="absolute inset-0" tabindex="-1" aria-hidden="true"><img src="${v.image}" alt="${SC.esc(SC.t('ui.card.image_alt', { cruise: v.name, ship: v.ship }))}" loading="lazy" class="absolute inset-0 w-full h-full object-cover"></a>
         <div class="absolute top-3 start-3 flex flex-wrap gap-1.5">${SC.ui.tags(v)}</div>
         <div class="absolute top-3 end-3">${SC.ui.favBtn(v.cruiseId, 'bg-white/95 border-transparent')}</div>
       </div>`;

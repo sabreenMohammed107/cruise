@@ -197,7 +197,9 @@ document.addEventListener('sc:ready', () => {
       const soldOut = (sailing.soldOut || []).includes(c.id) || !(sailing.prices || {})[c.id];
       const tooSmall = c.maxGuests < n;
       const selected = state.cabinId === c.id;
-      const priceRow = (label, val) => `<div class="flex justify-between gap-3"><dt class="text-muted">${label}</dt><dd class="font-bold tabular">${val}</dd></div>`;
+      const priceRow = (label, val) => `<div class="flex justify-between gap-3"><dt class="text-muted">${label}</dt><dd class="font-bold tabular whitespace-nowrap">${val}</dd></div>`;
+      // Lines wrap (no truncate): long bed / size texts were cut off by the card edge on narrow desktop cards
+      const fact = (icon, text, cls = '') => `<li class="flex items-start gap-2 ${cls}">${SC.icon(icon, 'w-4 h-4 shrink-0 mt-0.5')}<span class="min-w-0">${text}</span></li>`;
       return `<article class="card overflow-hidden flex flex-col transition ${selected ? 'card-selected' : ''} ${soldOut || tooSmall ? 'opacity-70' : ''}" data-cabin-card="${c.id}">
         <div class="relative aspect-[4/3] img-zoom">
           <img src="${c.images[0]}" alt="${c.nameEn}" class="absolute inset-0 w-full h-full object-cover" loading="lazy">
@@ -210,9 +212,9 @@ document.addEventListener('sc:ready', () => {
           ${SC.lang() === 'ar' ? '' : `<p class="text-sm text-muted" lang="ar" dir="rtl">${c.nameAr}</p>`}
           <p class="text-sm mt-3 leading-relaxed">${c.short}</p>
           <ul class="mt-4 grid gap-1.5 text-sm text-muted">
-            <li class="flex items-center gap-2 ${tooSmall ? 'text-[#C42F2F] font-semibold' : ''}">${SC.icon('users', 'w-4 h-4')} ${SC.t('ui.guests_up_to_long', { count: c.maxGuests })}</li>
-            <li class="flex items-center gap-2">${SC.icon('size', 'w-4 h-4')} ${c.size}${c.balcony ? ` + ${SC.t('ui.balcony_size', { size: c.balcony })}` : ''}</li>
-            <li class="flex items-center gap-2">${SC.icon('bed', 'w-4 h-4')} <span class="truncate">${c.beds}</span></li>
+            ${fact('users', SC.t('ui.guests_up_to_long', { count: c.maxGuests }), tooSmall ? 'text-[#C42F2F] font-semibold' : '')}
+            ${fact('size', `${c.size}${c.balcony ? ` + ${SC.t('ui.balcony_size', { size: c.balcony })}` : ''}`)}
+            ${fact('bed', c.beds)}
           </ul>
           <button class="self-start mt-3 text-sm font-bold text-ocean-600 hover:underline" data-cabin-info="${c.id}">${SC.t('ui.cabin.details_photos')}</button>
           <dl class="mt-4 pt-4 border-t border-line grid gap-1.5 text-sm">
@@ -314,11 +316,8 @@ document.addEventListener('sc:ready', () => {
       <div class="p-5">
         ${q ? `<dl class="grid gap-2 text-sm">
             ${q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
-            <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.fees')}</dt><dd class="tabular">${SC.money(q.fees)}</dd></div>
           </dl>
-          <div class="flex items-end justify-between mt-4 pt-4 border-t border-line">
-            <span class="font-bold">${SC.t('ui.details.total')}</span><span class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(q.total)}</span>
-          </div>` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
+          ${totalRow(q.total)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
         ${q ? `<button type="button" class="btn btn-ghost btn-sm w-full mt-2" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : ''}
       </div>`;
@@ -326,7 +325,15 @@ document.addEventListener('sc:ready', () => {
     $('#m-sub').textContent = q ? `${SC.guestText(g)}${SC.lang() === 'ar' ? '، ' : ', '}${cab.nameEn}` : SC.guestText(g);
   };
 
-  /* Summary with several cabins: each cabin (type, guests, price, edit / remove), then fees and the total */
+  /* Total of the summary. Prices include tax: no separate taxes or port fees (step 21). */
+  function totalRow(total) {
+    return `<div class="flex items-end justify-between gap-3 mt-4 pt-4 border-t border-line">
+            <span><span class="block font-bold">${SC.t('ui.details.total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></span>
+            <span class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(total)}</span>
+          </div>`;
+  }
+
+  /* Summary with several cabins: each cabin (type, guests, price, edit / remove), then the total */
   const renderRoomsSummary = () => {
     const ret = SC.addDays(sailing.departure, cruise.nights);
     const ready = missingRoom() < 0;
@@ -358,11 +365,8 @@ document.addEventListener('sc:ready', () => {
       <div class="p-5">
         ${q ? `<dl class="grid gap-2 text-sm">
             <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.guests')}</dt><dd class="font-bold text-end">${SC.guestText(allGuests())}</dd></div>
-            <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.fees')}</dt><dd class="tabular">${SC.money(q.fees)}</dd></div>
           </dl>
-          <div class="flex items-end justify-between mt-4 pt-4 border-t border-line">
-            <span class="font-bold">${SC.t('ui.details.total')}</span><span class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(q.total)}</span>
-          </div>` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
+          ${totalRow(q.total)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
       </div>`;
     $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');

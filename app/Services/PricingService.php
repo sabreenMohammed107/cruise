@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\PromoType;
 use App\Enums\TravellerBand;
-use App\Models\AgeBand;
 use App\Models\Cruise;
 use App\Models\PromoCode;
 use App\Models\Sailing;
@@ -64,27 +63,22 @@ class PricingService
      * Full quote for a party in one cabin.
      *
      *   fare     = Σ fare lines (see fareLines())
-     *   fees     = Σ qty[band] × fee_per_night[band] × nights   (Admin → Age bands)
      *   discount = promo applied to the fare only
-     *   total    = fare + fees − discount
+     *   total    = fare − discount
+     *
+     * Cabin prices include tax: there are no separate taxes or port fees since step 21. "fees" stays in the quote
+     * (always 0) so stored snapshots and older screens keep their shape.
      *
      * @param  array{adult?: int, child?: int, infant?: int}  $guests
      */
     public function quote(SailingCabinPrice $price, array $guests, ?PromoCode $promo = null): array
     {
-        $price->loadMissing('sailing.cruise');
-        $nights = $price->sailing->cruise->nights;
-        $bands = AgeBand::all()->keyBy(fn (AgeBand $band) => $band->key->value);
-
         $lines = $this->fareLines($price, $guests);
         $fare = (float) array_sum(array_column($lines, 'total'));
-
         $feesTotal = 0.0;
         $count = 0;
         foreach (TravellerBand::cases() as $band) {
-            $qty = (int) ($guests[$band->value] ?? 0);
-            $feesTotal += $qty * (float) ($bands->get($band->value)?->fee_per_night ?? 0) * $nights;
-            $count += $qty;
+            $count += (int) ($guests[$band->value] ?? 0);
         }
 
         $discount = $promo ? $this->discount($promo, $fare) : 0.0;
@@ -103,12 +97,12 @@ class PricingService
 
     /**
      * Quote for a booking of one or more cabins on the same sailing (step 15). Each cabin is priced on its own
-     * (tiered: single / double / double + extra, infants free) with its own fees; the promo applies once, to the
+     * (tiered: single / double / double + extra, infants free, tax included); the promo applies once, to the
      * total fare. Same shape as quote() plus "cabins", so a one-cabin booking gives the same numbers.
      *
-     *   fare     = Σ cabin fares          fees = Σ cabin fees
+     *   fare     = Σ cabin fares          (fees = 0, see quote())
      *   discount = promo on the total fare
-     *   total    = fare + fees − discount
+     *   total    = fare − discount
      *
      * @param  list<array{price: SailingCabinPrice, guests: array{adult?: int, child?: int, infant?: int}}>  $cabins
      */

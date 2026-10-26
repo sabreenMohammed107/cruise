@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * The three fixed bands (adult / child / infant): labels, age limits and fees can change, the bands can't.
+ * The three fixed bands (adult / child / infant): labels and age limits can change, the bands can't.
+ * No fees since step 21 (cabin prices include tax); the age_bands.fee_per_night column is no longer used.
  */
 class AgeBandResource extends Resource
 {
@@ -17,7 +18,7 @@ class AgeBandResource extends Resource
 
     public static string $slug = 'age-bands';
 
-    public static string $label = 'Age bands & fees';
+    public static string $label = 'Age bands';
 
     public static string $singular = 'Age band';
 
@@ -38,7 +39,6 @@ class AgeBandResource extends Resource
                 ->help('Age on the departure date. 18 years = 216 months, 2 years = 24, 6 months = 6. Keep the bands touching: Adult minimum = Child "Under", Child minimum = Infant "Under".')->index(),
             Field::number('max_months_exclusive', 'Under (months)')->rules(['nullable', 'integer', 'gt:min_months', 'max:1200'])
                 ->help('Guests must be younger than this. Empty = no upper limit (adults).')->index(),
-            Field::number('fee_per_night', 'Taxes & port fees per night ($)', '0.01')->rules(['required', 'numeric', 'min:0'])->index(),
         ];
     }
 
