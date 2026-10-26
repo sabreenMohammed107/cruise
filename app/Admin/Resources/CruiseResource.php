@@ -28,6 +28,8 @@ class CruiseResource extends Resource
     {
         return Cruise::query()
             ->withCount('sailings')
+            // Sailings the website lists (open, departing after today): without one the cruise page is a 404
+            ->withCount(['sailings as bookable_sailings_count' => fn (Builder $q) => $q->upcoming()])
             // Closest departure from today on that isn't cancelled (index column "Next sailing")
             ->withMin(['sailings as next_sailing' => fn (Builder $q) => $q
                 ->whereDate('departure_date', '>=', today())
@@ -66,9 +68,16 @@ class CruiseResource extends Resource
 
     public static function rowActions(Model $record): array
     {
+        $sailings = route('admin.cruises.sailings.index', $record);
+
         return [
-            "Sailings ({$record->sailings_count})" => route('admin.cruises.sailings.index', $record),
-            'View' => route('cruises.show', $record),
+            "Sailings ({$record->sailings_count})" => $sailings,
+            // "View" only when the page exists; otherwise say why and lead to the sailings to open one
+            ...match (true) {
+                ! $record->is_active => [],
+                $record->bookable_sailings_count > 0 => ['View' => route('cruises.show', $record)],
+                default => ['Not on website: no open sailing' => $sailings],
+            },
         ];
     }
 

@@ -265,6 +265,12 @@ class ScDataPresenter
             ])
             ->get()
             ->filter(fn (Cruise $cruise) => $cruise->sailings->isNotEmpty())
+            // Same order as Admin → Cruises: closest next departure first, ties by name
+            ->sortBy([
+                fn (Cruise $a, Cruise $b) => $a->sailings->first()->departure_date <=> $b->sailings->first()->departure_date,
+                fn (Cruise $a, Cruise $b) => strcmp($a->name, $b->name),
+            ])
+            ->values()
             ->map(fn (Cruise $cruise) => [
                 'id' => $cruise->slug,
                 'shipId' => $cruise->ship->slug,

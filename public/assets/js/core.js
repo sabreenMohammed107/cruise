@@ -225,6 +225,7 @@
   };
   SC.allSailings = () => D.cruises.flatMap((c) => c.sailings.map((s) => SC.sailingView(c, s)))
     .filter((v) => SC.daysUntil(v.departure) > 0)
+    // Closest departure first; sailings on the same day keep the cruise order sent by the server (as in the admin)
     .sort((a, b) => a.departure.localeCompare(b.departure));
   SC.allPorts = () => [...new Set(D.cruises.flatMap((c) => c.route.map((p) => p.split(',')[0])))].filter((p) => p !== 'At sea');
 
