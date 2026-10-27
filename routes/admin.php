@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AgentRequestController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\ContactController;
+use App\Http\Controllers\Admin\CruiseArchiveController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HomeSectionController;
@@ -37,6 +38,9 @@ Route::middleware('can:admin')->group(function () {
     // Customers: details page and spreadsheet export (list / edit are the generic screens below)
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
     Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show')->whereNumber('customer');
+
+    // Sailings already back (return date before today), a year at a time; the cruises list keeps the rest
+    Route::get('cruises/archive', CruiseArchiveController::class)->name('cruises.archive');
 
     // Sailings of a cruise, with their tiered price grid (single / double / 3rd guest per cabin)
     Route::get('cruises/{cruise}/sailings', [SailingController::class, 'index'])->name('cruises.sailings.index');

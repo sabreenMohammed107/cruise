@@ -76,6 +76,23 @@ class Cruise extends Model
     }
 
     /**
+     * Cruises still running: a sailing not back yet, or no sailing at all (new, not scheduled yet). A cruise
+     * whose sailings are all over leaves the admin's cruises list by itself; its sailings are in the archive.
+     */
+    public function scopeCurrent(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q
+            ->whereHas('sailings', fn (Builder $s) => $s->current())
+            ->orWhereDoesntHave('sailings'));
+    }
+
+    /** Cruises whose every sailing is over (and that have at least one). */
+    public function scopeFinished(Builder $query): void
+    {
+        $query->has('sailings')->whereDoesntHave('sailings', fn (Builder $s) => $s->current());
+    }
+
+    /**
      * Saves the route as ordered stops (port ids, repeats allowed) and refreshes the `route` column.
      *
      * @param  array<int|string>  $portIds

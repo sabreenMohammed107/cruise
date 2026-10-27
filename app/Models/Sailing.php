@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class Sailing extends Model
 {
@@ -44,6 +45,46 @@ class Sailing extends Model
     {
         $query->where('status', SailingStatus::Open)
             ->whereDate('departure_date', '>', today());
+    }
+
+    /** Back from the cruise before today: shown in Admin → Cruises → Archive, not in the cruises list. */
+    public function scopeFinished(Builder $query): void
+    {
+        $query->whereDate('return_date', '<', today());
+    }
+
+    /** Not back yet (departing later, or at sea today): what keeps a cruise in the admin's cruises list. */
+    public function scopeCurrent(Builder $query): void
+    {
+        $query->whereDate('return_date', '>=', today());
+    }
+
+    /**
+     * Departing in one of these years, or in one month of them. Date ranges, not YEAR()/MONTH(), so the
+     * departure_date index is used (and it works the same on MySQL and SQLite).
+     *
+     * @param  list<int>  $years
+     */
+    public function scopeDepartingIn(Builder $query, array $years, ?int $month = null): void
+    {
+        $query->where(function (Builder $q) use ($years, $month) {
+            foreach ($years as $year) {
+                $start = $month ? Carbon::create($year, $month) : Carbon::create($year);
+                $end = $month ? $start->copy()->endOfMonth() : $start->copy()->endOfYear();
+                $q->orWhereBetween('departure_date', [$start->toDateString(), $end->toDateString()]);
+            }
+        });
+    }
+
+    /** Sailings of cruises from this departure port and / or with this many nights (deleted cruises included). */
+    public function scopeOfCruises(Builder $query, ?string $port, ?int $nights): void
+    {
+        if ($port === null && $nights === null) {
+            return;
+        }
+        $query->whereIn('cruise_id', Cruise::withTrashed()->select('id')
+            ->when($port, fn ($q) => $q->where('departure_port', $port))
+            ->when($nights, fn ($q) => $q->where('nights', $nights)));
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Admin\Resources;
 
+use App\Admin\CruiseFilters;
 use App\Admin\Field;
 use App\Admin\Options;
 use App\Admin\Resource;
@@ -38,6 +39,28 @@ class CruiseResource extends Resource
             ->orderByRaw('next_sailing is null')
             ->orderBy('next_sailing')
             ->orderBy('name');
+    }
+
+    /**
+     * Only cruises still running (Cruise::current()); finished sailings are in the archive. Year and month
+     * keep the cruises with a sailing not back yet that departs then; port and nights are the cruise's own.
+     */
+    public static function filter(Builder $query, Request $request): Builder
+    {
+        $years = CruiseFilters::currentYears();
+        $f = CruiseFilters::from($request, $years);
+
+        return $query->current()
+            ->when(isset($f['year']) || isset($f['month']), fn (Builder $q) => $q->whereHas('sailings', fn (Builder $s) => $s
+                ->current()
+                ->departingIn(isset($f['year']) ? [$f['year']] : $years, $f['month'] ?? null)))
+            ->when($f['port'] ?? null, fn (Builder $q, $v) => $q->where('departure_port', $v))
+            ->when($f['nights'] ?? null, fn (Builder $q, $v) => $q->where('nights', $v));
+    }
+
+    public static function indexToolbar(): ?string
+    {
+        return 'admin.cruises.toolbar';
     }
 
     public static function fields(): array

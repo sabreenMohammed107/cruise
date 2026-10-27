@@ -47,6 +47,7 @@ final class Menu
             self::group('Cruises', 'ship', [
                 self::link('Cruises list', null, 'admin.cruises.index', ['admin.cruises.index', 'admin.cruises.edit', 'admin.cruises.sailings.*', 'admin.sailings.*']),
                 self::link('Add cruise', null, 'admin.cruises.create', ['admin.cruises.create']),
+                self::link('Archive', null, 'admin.cruises.archive', ['admin.cruises.archive']),
                 self::resource(Resources\PortResource::class),
                 self::resource(Resources\HighlightResource::class),
                 self::resource(Resources\CabinCategoryResource::class),
