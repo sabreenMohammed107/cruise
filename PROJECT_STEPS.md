@@ -1620,13 +1620,14 @@ code. They are now records in **Admin → Cruises → Highlights** (`/admin/high
 | Field | Meaning |
 | --- | --- |
 | Name (English) / Name (Arabic) | both required; shown in the page language |
-| Code | e.g. `family`; unique, set once (stored in `cruises.tags` and in `/cruises?hl=family`), not `visaFree` |
+| Code | e.g. `family`; unique, set once (stored in `cruises.tags` and in `/cruises?hl=family`) |
 | Show as a tag on the cruise card photos | white tag on the card photo (cruises list, homepage) |
 | Show as a tag on the cruise page | tag above the cruise title, in the chosen colour (blue / turquoise / orange) |
 | Order, Active | active highlights are in the cruises-list "Highlights" filter; inactive ones are hidden on the site, still offered (marked "(hidden)") in the cruise form so a cruise keeps them |
 
-A highlight ticked on any cruise can't be deleted (untick it there, or make it inactive). "No visa needed" stays a
-cruise setting of its own.
+A highlight ticked on any cruise can't be deleted (untick it there, or make it inactive). "No visa needed" was a
+cruise setting of its own at first; it was removed from the site (migration
+`2026_10_27_000005_drop_visa_free_from_cruises` drops `cruises.visa_free`), so every highlight comes from the database.
 
 - **Database** (migration `2026_10_26_000001_create_highlights_table`): `highlights` (`key` unique, `name_en`,
   `name_ar`, `show_on_cards`, `show_on_cruise_page`, `tone`, `sort_order`, `is_active`). The four highlights the site

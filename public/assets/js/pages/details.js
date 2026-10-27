@@ -55,11 +55,8 @@ document.addEventListener('sc:ready', () => {
     ? SC.t('ui.details.round_trip', { port: SC.port(cruise.departurePort) })
     : SC.t('ui.details.route', { from: SC.port(cruise.departurePort), to: SC.port(cruise.arrivalPort) });
   $('#d-rating').innerHTML = SC.ui.stars(cruise.rating, cruise.reviews) + ` <span>${SC.t('ui.guest_rating')}</span>`;
-  $('#d-tags').innerHTML = [
-    cruise.visaFree ? `<span class="tag tag-lagoon">${SC.t('ui.tags.visaFree')}</span>` : '',
-    // Laravel (step 22): highlights marked "on the cruise page" in Admin → Cruises → Highlights, in their colour
-    ...SC.highlights(cruise.tags, 'onPage').map((h) => `<span class="tag tag-${h.tone}">${SC.esc(h.label)}</span>`)
-  ].join('');
+  // Laravel (step 22): highlights marked "on the cruise page" in Admin → Cruises → Highlights, in their colour
+  $('#d-tags').innerHTML = SC.highlights(cruise.tags, 'onPage').map((h) => `<span class="tag tag-${h.tone}">${SC.esc(h.label)}</span>`).join('');
   $('#d-summary').textContent = cruise.summary;
   $('#d-actions').insertAdjacentHTML('afterbegin', SC.ui.favBtn(cruise.id));
   $('#share-btn').addEventListener('click', async () => {

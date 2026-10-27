@@ -36,7 +36,7 @@ class HighlightResource extends Resource
         return [
             Field::text('name_en', 'Name (English)')->rules(['required', 'string', 'max:60'])->index(),
             Field::text('name_ar', 'Name (Arabic)')->rules(['required', 'string', 'max:60'])->index(),
-            Field::text('key', 'Code')->rules(fn (?Model $r) => ['required', 'alpha_dash', 'max:40', Rule::notIn(['visaFree']), Rule::unique('highlights', 'key')->ignore($r?->id)])
+            Field::text('key', 'Code')->rules(fn (?Model $r) => ['required', 'alpha_dash', 'max:40', Rule::unique('highlights', 'key')->ignore($r?->id)])
                 ->readonlyOnEdit()
                 ->help('Short code in English, e.g. "family". Used in the cruises-list address (?hl=family); it can\'t be changed later.'),
             Field::checkbox('show_on_cards', 'Show as a tag on the cruise card photos')->index(),

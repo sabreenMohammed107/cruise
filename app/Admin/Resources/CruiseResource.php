@@ -78,7 +78,6 @@ class CruiseResource extends Resource
             // The route (ordered stops from Route ports) is edited under the fields: admin.cruises.route
             Field::checkboxes('tags', 'Highlights', Options::highlights())
                 ->help('Add, rename or hide highlights in Cruises → Highlights.'),
-            Field::checkbox('visa_free', 'No visa needed'),
             Field::number('rating', 'Guest rating', '0.1')->rules(['nullable', 'numeric', 'min:0', 'max:5']),
             Field::number('reviews_count', 'Number of reviews')->rules(['nullable', 'integer', 'min:0']),
             Field::number('popularity', 'Popularity (0–100)')->rules(['nullable', 'integer', 'min:0', 'max:100'])->help('Used for "Most popular" sorting.'),

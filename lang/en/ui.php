@@ -44,10 +44,6 @@ return [
         'whatsapp_message' => "Hello, I'm interested in :cruise departing :date.",
     ],
 
-    'tags' => [
-        'visaFree' => 'No visa needed', // other tags: Admin → Cruises → Highlights (step 22)
-    ],
-
     'favorites' => [
         'save' => 'Save to favourites',
         'remove' => 'Remove from favourites',
@@ -59,9 +55,6 @@ return [
     'catalog' => [
         'visiting' => 'Visiting',
         'any_port' => 'Any port',
-        'highlights' => [
-            'visaFree' => 'No visa needed', // the rest: Admin → Cruises → Highlights (step 22)
-        ],
         'chip_from_port' => 'From :port',
         'chip_visiting' => 'Visiting :port',
         'chip_from_date' => 'From :date',

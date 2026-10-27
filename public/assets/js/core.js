@@ -224,7 +224,7 @@
     return {
       key: s.id, cruiseId: c.id, sailingId: s.id, name: c.name, ship: SC.getShip(c.shipId).name,
       nights: c.nights, days: c.nights + 1, departure: s.departure, returnDate: SC.addDays(s.departure, c.nights),
-      departurePort: c.departurePort, arrivalPort: c.arrivalPort, route: c.route, tags: c.tags, visaFree: c.visaFree,
+      departurePort: c.departurePort, arrivalPort: c.arrivalPort, route: c.route, tags: c.tags,
       rating: c.rating, reviews: c.reviews, popularity: c.popularity, image: c.image,
       soldOut: s.soldOut || [], availableCabins: available.map((x) => x.id), fromPrice, cruise: c, sailing: s
     };
@@ -547,10 +547,7 @@
   /* Laravel (step 22): highlights come from Admin → Cruises → Highlights (SC_DATA.highlights); a cruise's tags are
      their keys. Card photos show the ones marked "on cards", the cruise page the ones marked "on the cruise page". */
   SC.highlights = (tags, where) => (D.highlights || []).filter((h) => h[where] && (tags || []).includes(h.key));
-  SC.ui.tags = (v) => [
-    v.visaFree ? `<span class="tag tag-white">${SC.t('ui.tags.visaFree')}</span>` : '',
-    ...SC.highlights(v.tags, 'onCards').map((h) => `<span class="tag tag-white">${SC.esc(h.label)}</span>`)
-  ].join('');
+  SC.ui.tags = (v) => SC.highlights(v.tags, 'onCards').map((h) => `<span class="tag tag-white">${SC.esc(h.label)}</span>`).join('');
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 
   /* Sailing card — one departure, shaped like a boarding pass.

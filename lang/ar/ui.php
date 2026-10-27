@@ -42,10 +42,6 @@ return [
         'whatsapp_message' => 'مرحبًا، أنا مهتم برحلة :cruise المغادرة في :date.',
     ],
 
-    'tags' => [
-        'visaFree' => 'بدون تأشيرة', // باقي الوسوم: لوحة التحكم ← Cruises ← Highlights (الخطوة 22)
-    ],
-
     'favorites' => [
         'save' => 'أضف إلى المفضلة',
         'remove' => 'أزل من المفضلة',
@@ -57,9 +53,6 @@ return [
     'catalog' => [
         'visiting' => 'تزور',
         'any_port' => 'أي ميناء',
-        'highlights' => [
-            'visaFree' => 'بدون تأشيرة', // الباقي: لوحة التحكم ← Cruises ← Highlights (الخطوة 22)
-        ],
         'chip_from_port' => 'من :port',
         'chip_visiting' => 'تزور :port',
         'chip_from_date' => 'من :date',

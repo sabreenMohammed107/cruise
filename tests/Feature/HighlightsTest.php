@@ -6,6 +6,7 @@ use App\Models\Cruise;
 use App\Models\Highlight;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -36,14 +37,21 @@ class HighlightsTest extends TestCase
         $this->assertSame('رحلة احتفالية', Highlight::where('key', 'festive')->value('name_ar'));
     }
 
+    public function test_no_visa_needed_is_gone(): void
+    {
+        // It was a cruise setting with fixed words; the filter now lists only Admin → Cruises → Highlights
+        $this->assertFalse(Schema::hasColumn('cruises', 'visa_free'));
+        $this->assertSame(['family', 'excursions', 'weekend', 'festive'], array_column($this->get('/cruises')->assertOk()->viewData('scData')['highlights'], 'key'));
+        $this->assertArrayNotHasKey('visaFree', $this->get('/cruises')->viewData('scData')['cruises'][0]);
+    }
+
     public function test_admin_adds_a_highlight_and_ticks_it_on_a_cruise(): void
     {
         $this->admin()->get('/admin/highlights')->assertOk()->assertSee('Family friendly')->assertSee('مناسبة للعائلات');
 
-        // Both names required; the code is unique and can't be "visaFree" (a cruise setting)
+        // Both names required; the code is unique
         $this->post('/admin/highlights', ['name_en' => 'Halal dining', 'key' => 'halal'])->assertSessionHasErrors('name_ar');
         $this->post('/admin/highlights', ['name_en' => 'X', 'name_ar' => 'س', 'key' => 'family', 'tone' => 'ocean'])->assertSessionHasErrors('key');
-        $this->post('/admin/highlights', ['name_en' => 'X', 'name_ar' => 'س', 'key' => 'visaFree', 'tone' => 'ocean'])->assertSessionHasErrors('key');
         $this->post('/admin/highlights', [
             'name_en' => 'Halal dining', 'name_ar' => 'طعام حلال', 'key' => 'halal', 'tone' => 'lagoon',
             'show_on_cards' => '1', 'show_on_cruise_page' => '1', 'is_active' => '1', 'sort_order' => 5,

@@ -284,7 +284,6 @@ class ScDataPresenter
                 // English port names (the keys core.js filters on); SC.port() shows them in Arabic via portNames
                 'route' => $cruise->routeNames(),
                 'tags' => $cruise->tags ?? [],
-                'visaFree' => $cruise->visa_free,
                 'rating' => (float) $cruise->rating,
                 'reviews' => $cruise->reviews_count,
                 'popularity' => $cruise->popularity,

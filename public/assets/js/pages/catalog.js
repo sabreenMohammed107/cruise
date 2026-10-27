@@ -9,8 +9,8 @@ document.addEventListener('sc:ready', () => {
   const PER_PAGE = 6;
   // Soonest departure first unless the link asks for another order (?sort=popular, price-asc, …)
   const DEFAULT_SORT = 'date';
-  // Laravel (step 22): "No visa needed" (a cruise setting), then the active highlights of Admin → Cruises → Highlights
-  const HIGHLIGHTS = [['visaFree', SC.t('ui.catalog.highlights.visaFree')], ...(D.highlights || []).map((h) => [h.key, h.label])];
+  // Laravel (step 22): the active highlights of Admin → Cruises → Highlights, in their order
+  const HIGHLIGHTS = (D.highlights || []).map((h) => [h.key, h.label]);
   const priceMin = Math.floor(Math.min(...ALL.map((s) => s.fromPrice)) / 50) * 50;
   // Laravel: top of the price slider from the cabins each sailing really has (a fixed 'suite' id crashed the page when that cabin was renamed or removed)
   const topPrice = (s) => Math.max(s.fromPrice, ...Object.keys(s.sailing.prices || {}).map((id) => SC.prices(s.cruise, s.sailing, id).perPerson));
@@ -69,7 +69,7 @@ document.addEventListener('sc:ready', () => {
   // Effective price: "From, per person" (lowest Double ÷ 2, SC.fromPrice) among the selected (and available) cabin types
   const priceFor = (s) => SC.fromPrice(s.cruise, s.sailing,
     state.cabins.length ? s.availableCabins.filter((c) => state.cabins.includes(c)) : s.availableCabins);
-  const hasHighlight = (s, h) => (h === 'visaFree' ? s.visaFree : s.tags.includes(h));
+  const hasHighlight = (s, h) => s.tags.includes(h);
 
   const filtered = () => {
     const q = state.q.trim().toLowerCase();
