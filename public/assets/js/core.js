@@ -131,11 +131,17 @@
   /* Laravel: named routes injected by the layout (SC_DATA.routes), e.g. SC.route('details', { cruise: 'red-sea-discovery' }) */
   SC.route = (name, params = {}) => Object.entries(params).reduce(
     (url, [k, v]) => url.replace(`__${k}__`, encodeURIComponent(v)), (D.routes || {})[name] || '#');
-  /* JSON request with the CSRF token. Resolves to { ok, status, data }. */
+  /* JSON request with the CSRF token. Resolves to { ok, status, data }.
+     PUT/PATCH/DELETE go out as POST + X-HTTP-Method-Override (Laravel routes them as the real method):
+     IIS on the live server answers real PUT/DELETE with 405. */
   SC.api = async (method, url, body) => {
+    const override = method !== 'GET' && method !== 'POST';
     const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+      method: override ? 'POST' : method,
+      headers: {
+        'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+        ...(override ? { 'X-HTTP-Method-Override': method } : {})
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
       credentials: 'same-origin'
     });

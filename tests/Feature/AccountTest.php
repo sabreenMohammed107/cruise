@@ -76,4 +76,17 @@ class AccountTest extends TestCase
         $this->deleteJson('/account/favorites/new-year-at-sea')->assertOk();
         $this->assertEqualsCanonicalizing(['red-sea-discovery', 'egypt-jordan-voyage'], $user->favorites()->pluck('slug')->all());
     }
+
+    public function test_put_and_delete_also_work_as_post_with_a_method_override(): void
+    {
+        // SC.api() sends them this way, because IIS on the live server answers real PUT/DELETE with 405
+        $user = $this->reem();
+        $this->actingAs($user);
+
+        $this->postJson('/account/notifications', ['offers' => true, 'whatsapp' => false, 'reminders' => true], ['X-HTTP-Method-Override' => 'PUT'])->assertOk();
+        $this->assertFalse($user->fresh()->notification_prefs['whatsapp']);
+
+        $this->postJson('/account/favorites/new-year-at-sea', [], ['X-HTTP-Method-Override' => 'DELETE'])->assertOk();
+        $this->assertNotContains('new-year-at-sea', $user->favorites()->pluck('slug')->all());
+    }
 }
