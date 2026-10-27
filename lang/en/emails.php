@@ -65,6 +65,15 @@ return [
     'due' => 'Amount due',
     'prices_note' => 'Prices in US dollars, for the whole cruise.',
 
+    // Customer: forgot password (App\Notifications\ResetPassword)
+    'reset_subject' => 'Reset your Safer Cruise password',
+    'reset_title' => 'Reset your password',
+    'reset_intro' => 'We received a request to reset the password for your Safer Cruise account. Click the button below to choose a new one.',
+    'reset_button' => 'Choose a new password',
+    'reset_expires' => 'This link expires in :minutes minutes.',
+    'reset_ignore' => "If you didn't ask for this, you can ignore this email: your password stays the same.",
+    'reset_footer' => 'You received this email because a password reset was requested for your account on Safer Cruise.',
+
     'footer_rights' => '© :year Safer. All rights reserved.',
     'footer_why' => 'You received this email because a booking was made on Safer Cruise with this address.',
 ];

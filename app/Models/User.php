@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
+use App\Notifications\ResetPassword;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -78,6 +79,12 @@ class User extends Authenticatable
     protected function fullPhone(): Attribute
     {
         return Attribute::get(fn () => $this->phone ? trim("{$this->phone_dial} {$this->phone}") : null);
+    }
+
+    /** Laravel's password broker calls this; our version is queued and in the site's style. */
+    public function sendPasswordResetNotification(#[\SensitiveParameter] $token): void
+    {
+        $this->notify(new ResetPassword($token));
     }
 
     public function isAdmin(): bool

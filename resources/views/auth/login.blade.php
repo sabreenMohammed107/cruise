@@ -12,9 +12,12 @@
       @csrf
       @include('auth.partials.field', ['name' => 'email', 'label' => __('site.auth.email'), 'type' => 'email', 'autocomplete' => 'email'])
       @include('auth.partials.field', ['name' => 'password', 'label' => __('site.auth.password'), 'type' => 'password', 'autocomplete' => 'current-password'])
-      <label class="flex items-center gap-3 cursor-pointer text-sm">
-        <input type="checkbox" name="remember" value="1" class="check"> {{ __('site.auth.remember') }}
-      </label>
+      <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="remember" value="1" class="check"> {{ __('site.auth.remember') }}
+        </label>
+        <a href="{{ route('password.request') }}" class="font-bold text-ocean-600 hover:underline">{{ __('site.auth.forgot_link') }}</a>
+      </div>
       <button class="btn btn-primary btn-lg w-full mt-2">{{ __('site.auth.sign_in') }}</button>
     </form>
 

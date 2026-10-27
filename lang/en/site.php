@@ -114,6 +114,27 @@ return [
         'first_name_invalid' => 'Enter your first name using letters only.',
         'last_name_invalid' => 'Enter your last name using letters only.',
         'email_taken' => 'An account with this email already exists. Sign in instead.',
+
+        // Forgot password (PasswordResetController)
+        'forgot_link' => 'Forgot password?',
+        'forgot_title' => 'Forgot password | Safer Cruise',
+        'forgot' => 'Forgot your password?',
+        'forgot_intro' => "Enter your account's email and we'll send you a link to choose a new password.",
+        'send_link' => 'Send reset link',
+        'remembered' => 'Remembered it?',
+        'check_inbox' => 'Check your email',
+        'reset_link_sent_to' => 'If an account uses this address, we have sent it a link to reset your password:',
+        'reset_link_spam' => "The link expires in 60 minutes. Can't find it? Check your spam folder.",
+        'resend_link' => 'Send the link again',
+        'other_email' => 'Use a different email',
+        'reset_title' => 'Choose a new password | Safer Cruise',
+        'reset' => 'Choose a new password',
+        'reset_intro' => 'Enter a new password for your account.',
+        'new_password' => 'New password',
+        'save_password' => 'Save new password',
+        'new_link' => 'Request a new link',
+        'reset_link_invalid' => 'This reset link is invalid or has expired, or the email does not match. Request a new link.',
+        'password_reset_done' => 'Your password has been changed. Sign in with your new password.',
     ],
 
     // Booking steps (booking/show.blade.php, pages/booking.js, ConfirmBookingRequest, BookingController)
