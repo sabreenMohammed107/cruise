@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\AgentRequestController;
 use App\Http\Controllers\Admin\BookingController;
+use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HomeSectionController;
@@ -57,6 +59,16 @@ Route::middleware('can:admin')->group(function () {
     // Footer & contact: description, phones, email, address, WhatsApp and social links (config/site.php)
     Route::get('footer', [SiteSettingController::class, 'edit'])->name('site-settings.edit');
     Route::put('footer', [SiteSettingController::class, 'update'])->name('site-settings.update');
+
+    // Messages from the website's "Contact us" page (opening one marks it as read)
+    Route::get('contact-messages', [ContactController::class, 'index'])->name('contact-messages.index');
+    Route::get('contact-messages/{contactMessage}', [ContactController::class, 'show'])->name('contact-messages.show')->whereNumber('contactMessage');
+    Route::delete('contact-messages/{contactMessage}', [ContactController::class, 'destroy'])->name('contact-messages.destroy')->whereNumber('contactMessage');
+
+    // Applications from the website's "Become an agent" page (its texts: pages.edit with page "agents")
+    Route::get('agent-requests', [AgentRequestController::class, 'index'])->name('agent-requests.index');
+    Route::get('agent-requests/{agentRequest}', [AgentRequestController::class, 'show'])->name('agent-requests.show')->whereNumber('agentRequest');
+    Route::patch('agent-requests/{agentRequest}', [AgentRequestController::class, 'update'])->name('agent-requests.update')->whereNumber('agentRequest');
 
     // Media library behind every photo field: images on the server + photo URLs in use (JSON pages)
     Route::get('media-library', MediaLibraryController::class)->name('media-library');

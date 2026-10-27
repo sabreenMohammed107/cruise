@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\AgentRequestStatus;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SailingStatus;
@@ -27,9 +28,13 @@ final class Format
     /**
      * [tag class, label] for a status badge.
      */
-    public static function badge(BookingStatus|PaymentStatus|SailingStatus $status): array
+    public static function badge(BookingStatus|PaymentStatus|SailingStatus|AgentRequestStatus $status): array
     {
         return match ($status) {
+            AgentRequestStatus::Pending => ['tag-sun', 'Pending'],
+            AgentRequestStatus::Reviewing => ['tag-ocean', 'Under review'],
+            AgentRequestStatus::Accepted => ['tag-lagoon', 'Accepted'],
+            AgentRequestStatus::Rejected => ['bg-[#FDF0F0] text-[#8E1F1F]', 'Rejected'],
             BookingStatus::Confirmed => ['tag-lagoon', 'Confirmed'],
             BookingStatus::Cancelled => ['tag-sun', 'Cancelled'],
             PaymentStatus::Unpaid => ['tag-sun', 'Unpaid'],

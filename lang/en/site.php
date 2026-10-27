@@ -14,6 +14,8 @@ return [
         'catalog' => 'Cruises',
         'ship' => 'The ship',
         'destinations' => 'Destinations',
+        'contact' => 'Contact us',
+        'agents' => 'Become our agent',
         'my_bookings' => 'My bookings',
         'my_account' => 'My account',
         'admin' => 'Admin',

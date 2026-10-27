@@ -9,6 +9,7 @@ use App\Models\PromoCode;
 use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
 use App\Services\AgeBandValidator;
+use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -123,7 +124,7 @@ class ConfirmBookingRequest extends FormRequest
             $this->checkCabin($validator, $i, $row, $several);
         }
 
-        if ($error = $this->phoneError($this->input('contact.dial'), (string) $this->input('contact.phone'))) {
+        if ($error = PhoneNumber::error($this->input('contact.dial'), $this->input('contact.phone'))) {
             $validator->errors()->add('contact.phone', $error);
         }
 
@@ -223,26 +224,9 @@ class ConfirmBookingRequest extends FormRequest
         return $ok;
     }
 
-    /** Same rules as phoneError() in booking.js. */
-    private function phoneError(?string $dial, string $raw): ?string
-    {
-        $n = ltrim(preg_replace('/[\s\-()]/', '', $raw), '0');
-
-        $key = match (true) {
-            $n === '' => 'phone_required',
-            ! ctype_digit($n) => 'phone_digits',
-            $dial === '+966' && ! preg_match('/^5\d{8}$/', $n) => 'phone_sa',
-            $dial === '+20' && ! preg_match('/^1\d{9}$/', $n) => 'phone_eg',
-            strlen($n) < 7 || strlen($n) > 12 => 'phone_length',
-            default => null,
-        };
-
-        return $key ? __("site.booking.errors.$key") : null;
-    }
-
     /** Phone number as the template normalises it (no spaces, dashes or leading zeros). */
     public function normalisedPhone(): string
     {
-        return ltrim(preg_replace('/[\s\-()]/', '', (string) $this->input('contact.phone')), '0');
+        return PhoneNumber::normalise($this->input('contact.phone'));
     }
 }

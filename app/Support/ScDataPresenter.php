@@ -86,6 +86,8 @@ class ScDataPresenter
             'imageFallbacks' => (object) [],
             'terms' => $this->terms(),
             'i18n' => Bi::scriptStrings(),
+            // Phone widget on "Contact us" and "Become an agent" (assets/js/phone-fields.js)
+            'phone' => ['initialCountry' => config('cruise.phone_initial_country'), 'preferredCountries' => config('cruise.phone_preferred_countries')],
         ];
     }
 

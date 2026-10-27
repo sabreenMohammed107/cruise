@@ -16,7 +16,7 @@
       ['site.nav.my_bookings', route('account').'#bookings'],
   ];
   // #terms / #cancellation open the policy modal (core.js), so no page is left
-  $help = [['site.footer.terms', '#terms'], ['site.footer.cancellation', '#cancellation']];
+  $help = [['site.footer.terms', '#terms'], ['site.footer.cancellation', '#cancellation'], ['site.nav.contact', route('contact')], ['site.nav.agents', route('agents')]];
   $wa = 'https://wa.me/'.SiteSetting::whatsapp().'?text='.rawurlencode(__('site.footer.whatsapp_message'));
 @endphp
 <footer class="bg-ocean-900 text-ocean-100 mt-auto">

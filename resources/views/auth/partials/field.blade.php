@@ -8,6 +8,7 @@
   {{-- Email addresses and passwords are typed left to right, also on the Arabic page --}}
   <input id="{{ $name }}" name="{{ $name }}" type="{{ $type }}" class="field {{ $error ? 'is-invalid' : '' }}" @if (in_array($type, ['email', 'password'], true)) dir="ltr" @endif
          @if ($type !== 'password') value="{{ old($name) }}" @endif
+         @if (! empty($placeholder)) placeholder="{{ $placeholder }}" @endif
          autocomplete="{{ $autocomplete ?? 'off' }}" @if ($error) aria-invalid="true" aria-describedby="{{ $name }}-err" @endif>
   @if ($error)
     <p class="err show" id="{{ $name }}-err">{{ $error }}</p>

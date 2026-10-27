@@ -42,7 +42,7 @@ class BilingualContentTest extends TestCase
     private const NOT_CONTENT = [
         'users', 'password_reset_tokens', 'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
         'migrations', 'bookings', 'booking_cabins', 'booking_travellers', 'payments', 'favorites', 'newsletter_subscribers',
-        'sailings', 'sailing_cabin_prices', 'cruise_port',
+        'contact_messages', 'agent_requests', 'sailings', 'sailing_cabin_prices', 'cruise_port',
     ];
 
     /** Content tables with name_en / name_ar instead of TRANSLATABLE columns. */

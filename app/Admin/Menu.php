@@ -2,14 +2,16 @@
 
 namespace App\Admin;
 
+use App\Models\AgentApplication;
 use App\Models\Booking;
+use App\Models\ContactMessage;
 
 /**
  * The admin sidebar (admin.partials.nav), laid out like the safeer dashboard: single links with an icon,
  * and collapsible groups whose links have a bullet. The group holding the current page starts open.
  * Admins get the whole panel; sellers their dashboard and the bookings assigned to them.
  *
- * Node: ['label', 'icon', 'href', 'active', 'badge'?] or ['label', 'icon', 'children' => [...], 'active'].
+ * Node: ['label', 'icon', 'href', 'active', 'badge'?, 'badge_title'?] or ['label', 'icon', 'children' => [...], 'active'].
  */
 final class Menu
 {
@@ -82,6 +84,14 @@ final class Menu
                 self::link('Add staff member', null, 'admin.users.create', ['admin.users.create']),
             ]),
 
+            self::group('Agents', 'award', [
+                self::link('Agent requests', null, 'admin.agent-requests.index', ['admin.agent-requests.*'])
+                    + ['badge' => AgentApplication::pending()->count() ?: null, 'badge_title' => 'Pending'],
+                ['label' => 'Agents page texts', 'icon' => null, 'href' => route('admin.pages.index').'#page-agents', 'active' => request()->is('admin/pages/agents/*')],
+            ]),
+
+            self::link('Contact messages', 'chat', 'admin.contact-messages.index', ['admin.contact-messages.*'])
+                + ['badge' => ContactMessage::unread()->count() ?: null, 'badge_title' => 'Unread'],
             self::resource(Resources\NewsletterSubscriberResource::class, 'mail'),
         ];
     }

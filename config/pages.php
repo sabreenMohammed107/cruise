@@ -258,4 +258,78 @@ return [
         ],
     ],
 
+    // "Become an agent" (AgentController); the applications are in Admin → Agents → Agent requests
+    'agents' => [
+        'name' => 'Become an agent',
+        'route' => 'agents',
+        'sections' => [
+            'head' => [
+                'name' => 'Page heading',
+                'fields' => ['eyebrow', 'title', 'body', 'primary'],
+                'can_hide' => false,
+                'content' => [
+                    'eyebrow' => 'Safer Agents Program', 'eyebrow_ar' => 'برنامج وكلاء سفر',
+                    'title' => 'Become our agent', 'title_ar' => 'كن وكيلنا',
+                    'body' => 'Join the Safer agents program and sell AROYA Red Sea cruises to your customers at competitive prices, with a dedicated team behind you.',
+                    'body_ar' => 'انضم إلى برنامج وكلاء سفر وقدّم رحلات أرويا في البحر الأحمر لعملائك بأسعار تنافسية، مع فريق مختص يدعمك.',
+                    'primary_label' => 'Apply now', 'primary_label_ar' => 'قدّم طلبك الآن', 'primary_url' => '#apply',
+                ],
+            ],
+            'program' => [
+                'name' => 'About the program',
+                'fields' => ['title', 'body'],
+                'content' => [
+                    'title' => 'Safer Agents Program', 'title_ar' => 'برنامج وكلاء سفر',
+                    'body' => 'A platform for travel agencies and travel professionals. Book cruises, cabins and travel programs for your customers at competitive prices, with remote support from our specialised team at every step.',
+                    'body_ar' => 'منصة لوكالات السفر والعاملين في مجال السياحة. احجز الرحلات البحرية والكبائن والبرامج السياحية لعملائك بأسعار تنافسية، مع دعم عن بُعد من فريقنا المختص في كل خطوة.',
+                ],
+            ],
+            'vision' => [
+                'name' => 'Our vision',
+                'fields' => ['title', 'body'],
+                'content' => [
+                    'title' => 'Our vision', 'title_ar' => 'رؤيتنا',
+                    'body' => 'To build lasting partnerships with travel agencies by offering quality trips for Arab travellers that respect their culture, values and privacy.',
+                    'body_ar' => 'بناء شراكات دائمة مع وكالات السفر من خلال تقديم رحلات عالية الجودة للمسافر العربي تحترم ثقافته وقيمه وخصوصيته.',
+                ],
+            ],
+            'benefits' => [
+                'name' => 'Benefits of joining',
+                'fields' => ['title', 'items'],
+                'content' => ['title' => 'Benefits of joining the program', 'title_ar' => 'مزايا الانضمام إلى البرنامج'],
+                'items' => [
+                    ['icon' => 'award', 'tone' => 'ocean', 'title' => 'Strong returns', 'title_ar' => 'عوائد مميزة',
+                        'text' => 'Competitive agent prices that leave you a healthy margin on every booking.',
+                        'text_ar' => 'أسعار تنافسية للوكلاء تترك لك هامش ربح جيدًا في كل حجز.'],
+                    ['icon' => 'bed', 'tone' => 'lagoon', 'title' => 'Choice for every customer', 'title_ar' => 'خيارات لكل عميل',
+                        'text' => 'Interior, ocean-view and balcony cabins on every sailing, for families, couples and groups.',
+                        'text_ar' => 'كبائن داخلية وبإطلالة على البحر وبشرفة في كل رحلة، للعائلات والأزواج والمجموعات.'],
+                    ['icon' => 'tag', 'tone' => 'sun', 'title' => 'Exclusive discounts', 'title_ar' => 'خصومات حصرية',
+                        'text' => 'Agent-only offers and promo codes that help you win more customers.',
+                        'text_ar' => 'عروض وأكواد خصم خاصة بالوكلاء تساعدك على كسب عملاء أكثر.'],
+                    ['icon' => 'calendar', 'tone' => 'ocean', 'title' => 'Sailings all year', 'title_ar' => 'رحلات طوال العام',
+                        'text' => 'New departures for every season, holiday and long weekend.',
+                        'text_ar' => 'مواعيد جديدة لكل موسم وعطلة ونهاية أسبوع طويلة.'],
+                    ['icon' => 'headset', 'tone' => 'lagoon', 'title' => 'Ongoing support', 'title_ar' => 'دعم مستمر',
+                        'text' => 'A dedicated team to answer your questions and help with every booking.',
+                        'text_ar' => 'فريق مختص للإجابة عن أسئلتك ومساعدتك في كل حجز.'],
+                    ['icon' => 'users', 'tone' => 'sun', 'title' => 'Training & workshops', 'title_ar' => 'تدريب وورش عمل',
+                        'text' => 'Regular sessions on the ship, the itineraries and how to sell them.',
+                        'text_ar' => 'جلسات دورية عن السفينة وبرامج الرحلات وطرق تسويقها.'],
+                ],
+            ],
+            'form' => [
+                'name' => 'Application form',
+                'fields' => ['title', 'body'],
+                'can_hide' => false, // the reason for the page
+                'help' => 'Heading and text next to the form. Applications arrive in Admin → Agents → Agent requests.',
+                'content' => [
+                    'title' => 'Join the Safer agents program', 'title_ar' => 'انضم إلى برنامج وكلاء سفر',
+                    'body' => 'Start your journey towards success in tourism. Leave your details and our partnerships team will contact you.',
+                    'body_ar' => 'ابدأ رحلتك نحو النجاح في عالم السياحة. اترك بياناتك وسيتواصل معك فريق الشراكات لدينا.',
+                ],
+            ],
+        ],
+    ],
+
 ];

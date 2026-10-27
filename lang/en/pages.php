@@ -16,6 +16,8 @@ return [
         'cruises' => 'Cruises',
         'ship' => 'The ship',
         'destinations' => 'Destinations',
+        'contact' => 'Contact us',
+        'agents' => 'Become our agent',
     ],
 
     'home' => [
@@ -106,5 +108,57 @@ return [
         'filter_country' => 'Filter by country',
         'ports' => 'Ports',
     ],
+
+    'contact' => [
+        'title' => 'Contact us | Safer Cruise',
+        'description' => 'Questions about an AROYA cruise or your booking? Send the Safer Cruise team a message, call or WhatsApp us.',
+        'heading' => 'Contact us',
+        'intro' => 'Questions about a cruise, a cabin or your booking? Send us a message and our team will get back to you.',
+        'form_title' => 'Send us a message',
+        'fields' => [
+            'name' => 'Full name',
+            'email' => 'Email address',
+            'phone' => 'Phone (optional)',
+            'message' => 'Message',
+        ],
+        'placeholders' => [
+            'name' => 'Your name',
+            'email' => 'you@example.com',
+            'message' => 'How can we help?',
+        ],
+        'message_hint' => '10 to 2,000 characters.',
+        'send' => 'Send message',
+        'sent_title' => 'Thank you, your message has been sent.',
+        'sent_body' => 'Our team will reply as soon as possible, usually within one working day.',
+        'other_ways' => 'Other ways to reach us',
+        'call' => 'Call us',
+        'email_us' => 'Email us',
+        'whatsapp' => 'WhatsApp',
+        'whatsapp_body' => 'Chat with our team',
+        'visit' => 'Our office',
+    ],
+
+    // Headings and texts of the page itself: Admin → Cruise pages → Become an agent
+    'agents' => [
+        'title' => 'Become our agent | Safer Cruise',
+        'description' => 'Travel agencies: join the Safer agents program and sell AROYA Red Sea cruises at agent prices, with a dedicated support team.',
+        'fields' => [
+            'company_name' => 'Company name',
+            'contact_name' => 'Contact person',
+            'email' => 'Email address',
+            'phone' => 'Mobile number',
+        ],
+        'placeholders' => [
+            'company_name' => 'Your travel agency',
+            'contact_name' => 'Full name',
+            'email' => 'you@agency.com',
+        ],
+        'send' => 'Send application',
+        'sent_title' => 'Thank you, your application has been received.',
+        'sent_body' => 'Our partnerships team will review it and contact you soon.',
+    ],
+
+    // Hidden anti-spam field on public forms (partials.honeypot)
+    'honeypot' => 'Leave this field empty',
 
 ];

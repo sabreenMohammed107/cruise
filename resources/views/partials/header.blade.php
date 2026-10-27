@@ -6,6 +6,7 @@
       ['id' => 'catalog', 'href' => route('cruises.index')],
       ['id' => 'ship', 'href' => route('ship')],
       ['id' => 'destinations', 'href' => route('destinations.index')],
+      ['id' => 'contact', 'href' => route('contact')],
   ];
   // Website customer (guard "web"); the admin panel has its own sign-in (guard "admin") and no link from the site
   $user = auth('web')->user();

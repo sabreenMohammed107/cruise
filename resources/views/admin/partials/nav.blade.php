@@ -13,7 +13,8 @@
             <a href="{{ $child['href'] }}" @if ($child['active']) aria-current="page" @endif
                class="flex items-center gap-2.5 rounded-lg px-3 py-2 font-semibold transition {{ $child['active'] ? 'bg-ocean-50 text-ocean-700' : 'text-muted hover:text-ocean-700 hover:bg-ocean-50/60' }}">
               <span class="w-1.5 h-1.5 rounded-full shrink-0 {{ $child['active'] ? 'bg-ocean-600' : 'bg-current opacity-40' }}"></span>
-              {{ $child['label'] }}
+              <span class="flex-1">{{ $child['label'] }}</span>
+              @if (! empty($child['badge']))<span class="min-w-5 h-5 px-1.5 rounded-full bg-sun-500 text-white text-xs grid place-items-center tabular" title="{{ $child['badge_title'] ?? '' }}">{{ $child['badge'] }}</span>@endif
             </a>
           @endforeach
         </div>
@@ -22,7 +23,7 @@
       <a href="{{ $node['href'] }}" class="side-link !py-2.5 {{ $node['active'] ? 'is-active' : '' }}" @if ($node['active']) aria-current="page" @endif>
         <i data-icon="{{ $node['icon'] }}" class="w-5 h-5 shrink-0"></i>
         <span class="flex-1">{{ $node['label'] }}</span>
-        @if (! empty($node['badge']))<span class="min-w-5 h-5 px-1.5 rounded-full bg-sun-500 text-white text-xs grid place-items-center tabular" title="Awaiting payment">{{ $node['badge'] }}</span>@endif
+        @if (! empty($node['badge']))<span class="min-w-5 h-5 px-1.5 rounded-full bg-sun-500 text-white text-xs grid place-items-center tabular" title="{{ $node['badge_title'] ?? 'Awaiting payment' }}">{{ $node['badge'] }}</span>@endif
       </a>
     @endif
   @endforeach

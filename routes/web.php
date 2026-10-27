@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AgentController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CruiseController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PageController;
@@ -21,6 +23,14 @@ Route::get('/cruises', [PageController::class, 'catalog'])->name('cruises.index'
 Route::get('/cruises/{cruise:slug}', [CruiseController::class, 'show'])->name('cruises.show');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])->middleware('throttle:10,1')->name('newsletter.store');
+
+// Contact us: messages land in Admin → Contact messages
+Route::get('/contact', [ContactController::class, 'show'])->name('contact');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1')->name('contact.store');
+
+// Become an agent: texts from Admin → Cruise pages, applications in Admin → Agents
+Route::get('/agents', [AgentController::class, 'show'])->name('agents');
+Route::post('/agents', [AgentController::class, 'store'])->middleware('throttle:5,1')->name('agents.store');
 
 // Booking: guests → review → confirm (no online payment)
 Route::get('/booking', [BookingController::class, 'show'])->name('booking.show');

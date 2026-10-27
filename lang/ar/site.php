@@ -11,6 +11,8 @@ return [
         'catalog' => 'الرحلات',
         'ship' => 'السفينة',
         'destinations' => 'الوجهات',
+        'contact' => 'تواصل معنا',
+        'agents' => 'كن وكيلنا',
         'my_bookings' => 'حجوزاتي',
         'my_account' => 'حسابي',
         'admin' => 'لوحة التحكم',
