@@ -61,9 +61,10 @@ Route::post('/logout', [LoginController::class, 'destroy'])->middleware('auth:we
 
 Route::middleware('auth:web')->prefix('account')->name('account')->group(function () {
     Route::get('/', [AccountController::class, 'show']);
-    Route::put('/profile', [AccountController::class, 'updateProfile'])->name('.profile');
-    Route::put('/notifications', [AccountController::class, 'updateNotifications'])->name('.notifications');
-    Route::put('/password', [AccountController::class, 'updatePassword'])->name('.password');
+    Route::put('/profile', [AccountController::class, 'updateProfile'])->middleware('throttle:20,1')->name('.profile');
+    Route::put('/notifications', [AccountController::class, 'updateNotifications'])->middleware('throttle:30,1')->name('.notifications');
+    // Low limit: the form checks the current password, so it must not allow guessing it
+    Route::put('/password', [AccountController::class, 'updatePassword'])->middleware('throttle:5,1')->name('.password');
     Route::post('/favorites/{cruise:slug}', [AccountController::class, 'addFavorite'])->name('.favorites.store');
     Route::delete('/favorites/{cruise:slug}', [AccountController::class, 'removeFavorite'])->name('.favorites.destroy');
 });

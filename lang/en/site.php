@@ -322,6 +322,8 @@ return [
         'first_required' => 'Enter your first name.',
         'last_required' => 'Enter your last name.',
         'email_taken' => 'Another account already uses this email.',
+        'dob_invalid' => 'Enter a valid date of birth.',
+        'dob_too_young' => 'You must be at least :min years old to hold an account.',
         'notifications' => 'Notifications',
         'change_password' => 'Change password',
         'current_password' => 'Current password',

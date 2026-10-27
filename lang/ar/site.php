@@ -310,6 +310,8 @@ return [
         'first_required' => 'أدخل اسمك الأول.',
         'last_required' => 'أدخل اسم العائلة.',
         'email_taken' => 'هذا البريد الإلكتروني مستخدم في حساب آخر.',
+        'dob_invalid' => 'أدخل تاريخ ميلاد صحيحًا.',
+        'dob_too_young' => 'يجب أن يكون عمرك :min سنة على الأقل لإنشاء حساب.',
         'notifications' => 'الإشعارات',
         'change_password' => 'تغيير كلمة المرور',
         'current_password' => 'كلمة المرور الحالية',

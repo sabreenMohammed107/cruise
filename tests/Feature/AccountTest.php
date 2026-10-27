@@ -77,6 +77,42 @@ class AccountTest extends TestCase
         $this->assertEqualsCanonicalizing(['red-sea-discovery', 'egypt-jordan-voyage'], $user->favorites()->pluck('slug')->all());
     }
 
+    public function test_profile_rejects_bad_phone_dob_and_names(): void
+    {
+        $user = $this->reem();
+        $this->actingAs($user);
+        $ok = ['first' => 'Reem', 'last' => 'Alotaibi', 'email' => 'reem@example.com'];
+        $put = fn (array $change) => $this->putJson('/account/profile', $change + $ok);
+
+        // Phone: per country, and needs a country code
+        $put(['dial' => '+20', 'phone' => '0111761593'])->assertJsonValidationErrors('phone');    // 9 digits after the 0
+        $put(['dial' => '+966', 'phone' => '123456789'])->assertJsonValidationErrors('phone');    // must start with 5
+        $put(['dial' => '+20', 'phone' => '01117abc935'])->assertJsonValidationErrors('phone');
+        $put(['phone' => '1117615935'])->assertJsonValidationErrors('dial');
+        $put(['dial' => '+20', 'phone' => '01117615935'])->assertOk();
+        $this->assertSame(['+20', '1117615935'], [$user->fresh()->phone_dial, $user->fresh()->phone]);
+
+        // Date of birth: a real date, 18 to 120 years ago
+        $put(['dob' => now()->addDay()->toDateString()])->assertJsonValidationErrors('dob');
+        $put(['dob' => now()->subYears(10)->toDateString()])->assertJsonValidationErrors('dob');
+        $put(['dob' => '1850-01-01'])->assertJsonValidationErrors('dob');
+        $put(['dob' => '2000-02-31'])->assertJsonValidationErrors('dob');
+
+        // Names: letters only; nationality from the list
+        $put(['first' => '<script>'])->assertJsonValidationErrors('first');
+        $put(['last' => '123'])->assertJsonValidationErrors('last');
+        $put(['nationality' => 'Atlantis'])->assertJsonValidationErrors('nationality');
+    }
+
+    public function test_password_change_is_rate_limited(): void
+    {
+        $this->actingAs($this->reem());
+        foreach (range(1, 5) as $i) {
+            $this->putJson('/account/password', ['current_password' => 'nope', 'password' => 'newpass123', 'password_confirmation' => 'newpass123'])->assertStatus(422);
+        }
+        $this->putJson('/account/password', ['current_password' => 'nope', 'password' => 'newpass123', 'password_confirmation' => 'newpass123'])->assertTooManyRequests();
+    }
+
     public function test_put_and_delete_also_work_as_post_with_a_method_override(): void
     {
         // SC.api() sends them this way, because IIS on the live server answers real PUT/DELETE with 405

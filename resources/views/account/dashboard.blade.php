@@ -93,8 +93,10 @@
             {{-- Country flag + code (phone widget, step 25); the chosen code is kept in #p-dial --}}
             <div dir="ltr"><input type="hidden" id="p-dial"><input id="p-phone" type="tel" inputmode="tel" class="field tabular" autocomplete="tel-national"></div>
             <p class="err">{{ __('site.booking.errors.phone_length') }}</p></div>
-          <div><label class="label" for="p-dob">{{ __('site.booking.dob') }}</label><input id="p-dob" type="date" class="field"></div>
-          <div><label class="label" for="p-nat">{{ __('site.booking.nationality') }}</label><select id="p-nat" class="field"></select></div>
+          {{-- Same age limits as App\Http\Requests\UpdateProfileRequest; dashboard.js reads min/max from here --}}
+          <div><label class="label" for="p-dob">{{ __('site.booking.dob') }}</label><input id="p-dob" type="date" class="field"
+                 min="{{ \App\Http\Requests\UpdateProfileRequest::earliestDob() }}" max="{{ \App\Http\Requests\UpdateProfileRequest::latestDob() }}" data-min-age="{{ \App\Http\Requests\UpdateProfileRequest::MIN_AGE }}"><p class="err">{{ __('site.account.dob_invalid') }}</p></div>
+          <div><label class="label" for="p-nat">{{ __('site.booking.nationality') }}</label><select id="p-nat" class="field"></select><p class="err">{{ __('site.booking.errors.nationality') }}</p></div>
           <div class="sm:col-span-2 flex justify-end"><button class="btn btn-primary">{{ __('site.account.save') }}</button></div>
         </form>
 

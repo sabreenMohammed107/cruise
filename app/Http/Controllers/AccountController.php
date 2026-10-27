@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\ConfirmBookingRequest;
+use App\Http\Requests\UpdateProfileRequest;
 use App\Models\Cruise;
 use App\Support\ScDataPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -27,34 +27,10 @@ class AccountController extends Controller
         ]);
     }
 
-    public function updateProfile(Request $request, ScDataPresenter $presenter): JsonResponse
+    public function updateProfile(UpdateProfileRequest $request, ScDataPresenter $presenter): JsonResponse
     {
         $user = $request->user();
-        $data = $request->validate([
-            'first' => ['required', 'string', 'regex:'.ConfirmBookingRequest::NAME_PATTERN],
-            'last' => ['required', 'string', 'regex:'.ConfirmBookingRequest::NAME_PATTERN],
-            'email' => ['required', 'string', 'email:rfc,strict', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'dial' => ['nullable', Rule::in(array_column(config('cruise.dial_codes'), 0))],
-            'phone' => ['nullable', 'regex:/^\d{7,12}$/'],
-            'dob' => ['nullable', 'date_format:Y-m-d', 'before:today'],
-            'nationality' => ['nullable', Rule::in(config('cruise.nationalities'))],
-        ], [
-            'first.*' => __('site.account.first_required'),
-            'last.*' => __('site.account.last_required'),
-            'email.unique' => __('site.account.email_taken'),
-            'email.*' => __('site.booking.errors.email_invalid'),
-            'phone.*' => __('site.booking.errors.phone_length'),
-        ]);
-
-        $user->update([
-            'first_name' => $data['first'],
-            'last_name' => $data['last'],
-            'email' => strtolower($data['email']),
-            'phone_dial' => $data['dial'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'date_of_birth' => $data['dob'] ?? null,
-            'nationality' => $data['nationality'] ?? null,
-        ]);
+        $user->update($request->toSave());
 
         return response()->json(['profile' => $presenter->account($user->fresh())['profile']]);
     }
@@ -81,7 +57,10 @@ class AccountController extends Controller
             'current_password.current_password' => __('site.account.current_password_wrong'),
         ]);
 
-        $request->user()->update(['password' => $data['password']]);
+        // A new remember token signs out "keep me signed in" on other devices; a new session id here
+        // (migrate keeps an admin-panel sign-in in the same session, as in LoginController)
+        $request->user()->forceFill(['password' => $data['password'], 'remember_token' => Str::random(60)])->save();
+        $request->session()->migrate(true);
 
         return response()->json(['updated' => true]);
     }

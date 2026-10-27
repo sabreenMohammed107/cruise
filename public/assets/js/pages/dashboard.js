@@ -151,19 +151,51 @@ document.addEventListener('sc:ready', () => {
     return bad;
   };
 
+  /* Same rules and words as App\Http\Requests\UpdateProfileRequest (names and phone as in booking.js) */
+  const NAME = /^[\p{L}][\p{L}\s'’\-]{0,48}$/u;
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  const bookingErr = (key) => SC.t(`booking.errors.${key}`);
+  const phoneError = (dial, raw) => {
+    const n = raw.replace(/[\s\-()]/g, '').replace(/^0+/, '');
+    if (!n) return null; // optional
+    if (!dial) return bookingErr('dial');
+    if (!/^\d+$/.test(n)) return bookingErr('phone_digits');
+    if (dial === '+966' && !/^5\d{8}$/.test(n)) return bookingErr('phone_sa');
+    if (dial === '+20' && !/^1\d{9}$/.test(n)) return bookingErr('phone_eg');
+    if (n.length < 7 || n.length > 12) return bookingErr('phone_length');
+    return null;
+  };
+  const dobError = (v) => {
+    if (!v) return null; // optional
+    const { min, max } = $('#p-dob');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || v <= min) return t('dob_invalid');
+    if (v > max) return t('dob_too_young', { min: $('#p-dob').dataset.minAge });
+    return null;
+  };
+  const FIELDS = { first: '#p-first', last: '#p-last', email: '#p-email', dial: '#p-phone', phone: '#p-phone', dob: '#p-dob', nationality: '#p-nat' };
+
   $('#profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const v = (id) => $(id).value.trim();
+    const phoneMsg = phoneError($('#p-dial').value, $('#p-phone').value);
+    const dobMsg = dobError($('#p-dob').value);
     const bad = [
-      flag($('#p-first'), !$('#p-first').value.trim()),
-      flag($('#p-last'), !$('#p-last').value.trim()),
-      flag($('#p-email'), !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test($('#p-email').value.trim())),
-      flag($('#p-phone'), !!$('#p-phone').value.trim() && !/^\d{7,12}$/.test($('#p-phone').value.replace(/\s/g, '')))
+      flag($('#p-first'), !NAME.test(v('#p-first'))),
+      flag($('#p-last'), !NAME.test(v('#p-last'))),
+      flag($('#p-email'), !EMAIL.test(v('#p-email')) || v('#p-email').length > 255),
+      flag($('#p-phone'), !!phoneMsg, phoneMsg),
+      flag($('#p-dob'), !!dobMsg, dobMsg),
+      flag($('#p-nat'), !!v('#p-nat') && !D.nationalities.includes(v('#p-nat')))
     ].some(Boolean);
     if (bad) return SC.toast(t('fix_fields'), 'error');
-    const next = { first: $('#p-first').value.trim(), last: $('#p-last').value.trim(), email: $('#p-email').value.trim(), dial: $('#p-dial').value, phone: $('#p-phone').value.replace(/\s/g, ''), dob: $('#p-dob').value, nationality: $('#p-nat').value };
+    const next = { first: v('#p-first'), last: v('#p-last'), email: v('#p-email'), dial: $('#p-dial').value, phone: $('#p-phone').value.replace(/[\s\-()]/g, ''), dob: $('#p-dob').value, nationality: $('#p-nat').value };
     const r = await SC.api('PUT', SC.route('accountProfile'), next);
-    if (!r.ok) return SC.toast(SC.apiError(r), 'error');
-    Object.assign(profile, r.data.profile); paintUser(); SC.toast(t('saved'));
+    if (!r.ok) {
+      // Server errors under their fields, too
+      Object.entries(r.data?.errors || {}).forEach(([k, msgs]) => FIELDS[k] && flag($(FIELDS[k]), true, msgs[0]));
+      return SC.toast(SC.apiError(r), 'error');
+    }
+    Object.assign(profile, r.data.profile); fill(); paintUser(); SC.toast(t('saved'));
   });
 
   const NOTIF = ['reminders', 'whatsapp', 'offers'].map((k) => [k, t(`notif_${k}`), t(`notif_${k}_text`)]);
