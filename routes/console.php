@@ -12,4 +12,5 @@ Artisan::command('inspire', function () {
 // works through the queue and stops, so no long-running `queue:work` process is needed on shared hosting.
 Schedule::command('queue:work --stop-when-empty --tries=3 --max-time=55')
     ->everyMinute()
-    ->withoutOverlapping();
+    // The lock expires after 10 minutes (default 24 hours), so a run that was cut off can't block the queue for a day
+    ->withoutOverlapping(10);
