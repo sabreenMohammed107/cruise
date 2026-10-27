@@ -38,6 +38,7 @@ return [
         'anchor', 'award', 'tag', 'check', 'headset', 'shield', 'lock', 'star', 'heart', 'ship', 'users', 'calendar',
         'pin', 'globe', 'sun', 'waves', 'utensils', 'coffee', 'music', 'smile', 'droplet', 'flower', 'bag', 'crown',
         'chat', 'phone', 'mail', 'clock', 'ticket', 'route', 'bell', 'buoy', 'info', 'card', 'bed',
+        'pulse', 'minus', 'x', 'alert', 'download', 'external', 'user',
     ],
 
     // Card colours used by the template (bg-{tone}-50, text-{tone}-600)

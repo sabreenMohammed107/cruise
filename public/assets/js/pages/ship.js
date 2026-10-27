@@ -75,7 +75,7 @@ document.addEventListener('sc:ready', () => {
   $('#ship-faq').innerHTML = ship.faqs.map(([q, a], i) => `
     <div class="acc-item card ${i === 0 ? 'open' : ''}">
       <button class="acc-trigger w-full flex items-center justify-between gap-4 p-5 text-start font-bold" aria-expanded="${i === 0}">${q}${SC.icon('chevron-down', 'acc-chevron w-5 h-5 text-muted shrink-0')}</button>
-      <div class="acc-body"><div><p class="px-5 pb-5 text-muted leading-relaxed">${a}</p></div></div>
+      <div class="acc-body"><div><p class="px-5 pb-5 text-muted leading-relaxed whitespace-pre-line">${a}</p></div></div>
     </div>`).join('');
 
   /* Section nav highlight */

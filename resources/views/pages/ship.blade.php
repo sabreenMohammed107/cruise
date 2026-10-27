@@ -94,7 +94,14 @@
          ========================================================= -->
     <section id="faq" class="scroll-mt-32 max-w-3xl mx-auto px-4 sm:px-6 pt-20 sm:pt-24" {{ $hide('faq') }}>
       <h2 class="font-display font-bold text-3xl sm:text-4xl">{{ $sections['faq']->bi('title') }}</h2>
-      <div id="ship-faq" class="mt-8 grid gap-3" data-accordion="single"></div>
+      <div class="relative mt-6">
+        <i data-icon="search" class="w-5 h-5 text-muted absolute top-1/2 -translate-y-1/2 start-4 pointer-events-none"></i>
+        <input type="search" class="field ps-12" aria-label="{{ __('pages.guide.search_label') }}" placeholder="{{ __('pages.guide.search_label') }}"
+               data-faq-search="#ship-faq" data-faq-empty="#ship-faq-empty" autocomplete="off">
+      </div>
+      <div id="ship-faq" class="mt-6 grid gap-3" data-accordion="single"></div>
+      <p id="ship-faq-empty" class="hidden mt-6 text-center text-muted" role="status">{{ __('pages.guide.no_results') }}</p>
+      <p class="mt-6 text-sm text-muted"><a href="{{ route('guide') }}" class="font-bold text-ocean-600 hover:text-ocean-700">{{ __('pages.breadcrumb.guide') }}</a></p>
     </section>
 
     <!-- CTA -->
@@ -112,4 +119,5 @@
 
 @push('scripts')
   <script src="@asset('assets/js/pages/ship.js')"></script>
+  <script src="@asset('assets/js/faq-search.js')"></script>
 @endpush

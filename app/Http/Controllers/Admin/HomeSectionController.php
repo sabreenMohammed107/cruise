@@ -169,7 +169,7 @@ class HomeSectionController extends Controller
                 "$prefix.*.icon" => ['nullable', Rule::in(config('home.icons'))],
                 "$prefix.*.tone" => ['nullable', Rule::in(array_keys(config('home.tones')))],
                 "$prefix.*.sort_order" => ['nullable', 'integer', 'min:0', 'max:999'],
-            ];
+            ] + ($section->config('item_links') ? ["$prefix.*.url" => $link] : []);
             $rules += ['items' => ['array'], 'items.*.delete' => ['boolean'], 'new_items' => ['array']];
             $rules += $item('items', 'required_unless:items.*.delete,1');
             $rules += $item('new_items', 'required_with:new_items.*.text');
@@ -212,19 +212,19 @@ class HomeSectionController extends Controller
                 $item->delete();
                 continue;
             }
-            $item->update($this->itemValues($values));
+            $item->update($this->itemValues($section, $values));
         }
 
         foreach ($data['new_items'] ?? [] as $values) {
             if (filled($values['title'] ?? null)) {
-                $section->items()->create($this->itemValues($values) + [
+                $section->items()->create($this->itemValues($section, $values) + [
                     'sort_order' => $values['sort_order'] ?? ($section->items()->max('sort_order') + 1),
                 ]);
             }
         }
     }
 
-    private function itemValues(array $values): array
+    private function itemValues(HomeSection $section, array $values): array
     {
         return [
             'title' => $values['title'] ?? null,
@@ -233,7 +233,8 @@ class HomeSectionController extends Controller
             'text_ar' => $values['text_ar'] ?? null,
             'icon' => $values['icon'] ?? null,
             'tone' => $values['tone'] ?? 'ocean',
-        ] + (isset($values['sort_order']) ? ['sort_order' => (int) $values['sort_order']] : []);
+        ] + (isset($values['sort_order']) ? ['sort_order' => (int) $values['sort_order']] : [])
+          + ($section->config('item_links') ? ['url' => $values['url'] ?? null] : []);
     }
 
     private function deleteUpload(HomeSection $section): void

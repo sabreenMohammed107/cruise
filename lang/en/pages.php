@@ -18,6 +18,7 @@ return [
         'destinations' => 'Destinations',
         'contact' => 'Contact us',
         'agents' => 'Become our agent',
+        'guide' => 'Pre-boarding guide',
     ],
 
     'home' => [
@@ -156,6 +157,28 @@ return [
         'send' => 'Send application',
         'sent_title' => 'Thank you, your application has been received.',
         'sent_body' => 'Our partnerships team will review it and contact you soon.',
+    ],
+
+    // Headings and texts of the page itself: Admin → Cruise pages → Pre-boarding guide
+    'guide' => [
+        'title' => 'Pre-boarding guide | Safer Cruise',
+        'description' => 'Everything to do before you board AROYA: visas for Türkiye, Egypt and Greece, check-in times, the terminal, prohibited items and travelling with children.',
+        'sections' => 'Sections',
+        'nav' => [
+            'visas' => 'Visas',
+            'steps' => 'Steps',
+            'checkin' => 'Check-in',
+            'terminal' => 'Terminal',
+            'prohibited' => 'Prohibited items',
+            'kids' => 'Kids & teens',
+            'faq' => 'Questions',
+        ],
+        'mandatory' => 'Mandatory',
+        'step' => 'Step :number',
+        'open_link' => 'Official page',
+        'download_form' => 'Download form',
+        'search_label' => 'Search the questions',
+        'no_results' => 'No question matches your search.',
     ],
 
     // Hidden anti-spam field on public forms (partials.honeypot)

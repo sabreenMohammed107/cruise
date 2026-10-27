@@ -36,7 +36,7 @@ class SeededDataTest extends TestCase
         $ship = Ship::where('slug', 'aroya')->firstOrFail();
         $this->assertSame("Saudi Arabia's first cruise ship", $ship->tagline);
         $this->assertCount(2, $ship->story);
-        $this->assertSame([7, 4, 6, 4, 9], [
+        $this->assertSame([7, 4, 6, 14, 9], [ // 4 ship FAQs + 10 from the pre-boarding guide
             $ship->specs()->count(), $ship->zones()->count(), $ship->essentials()->count(),
             $ship->faqs()->count(), $ship->facilities()->count(),
         ]);

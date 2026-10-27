@@ -108,6 +108,9 @@
       <fieldset class="mt-8 pt-6 border-t border-line">
         <legend class="font-display font-semibold text-lg">Cards</legend>
         <p class="text-sm text-muted mt-1">Shown in order (lowest number first). Tick “Delete” to remove a card when you save.</p>
+        @if ($section->config('item_links'))
+          <p class="text-sm text-muted mt-1">A card with a link becomes clickable. Same link for both languages: a page on this site (/contact), a section (#visas) or a full https:// address.</p>
+        @endif
 
         <div class="mt-4 grid gap-4" id="items">
           @foreach ($section->items as $item)
@@ -135,6 +138,13 @@
                   @endforeach
                 </select>
               </div>
+              @if ($section->config('item_links'))
+                <div class="sm:col-span-4">
+                  <label class="label" for="i-{{ $item->id }}-url">Link (optional)</label>
+                  <input id="i-{{ $item->id }}-url" name="items[{{ $item->id }}][url]" class="field {{ $invalid($p.'.url') }}" value="{{ old($p.'.url', $item->url) }}" placeholder="https://">
+                  @if ($e = $err($p.'.url'))<p class="err show">{{ $e }}</p>@endif
+                </div>
+              @endif
               <label class="flex items-center gap-2 cursor-pointer mt-8 text-sm text-[#C42F2F] font-semibold">
                 <input type="hidden" name="items[{{ $item->id }}][delete]" value="0">
                 <input type="checkbox" name="items[{{ $item->id }}][delete]" value="1" class="check" @checked(old($p.'.delete'))> Delete

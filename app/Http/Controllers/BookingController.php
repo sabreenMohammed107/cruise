@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ConfirmBookingRequest;
 use App\Models\Booking;
+use App\Models\HomeSection;
 use App\Models\PromoCode;
 use App\Services\BookingService;
 use App\Support\ScDataPresenter;
@@ -24,7 +25,11 @@ class BookingController extends Controller
 
     public function show(Request $request, ScDataPresenter $presenter): View
     {
-        return view('booking.show', ['scData' => $presenter->make($request->user('web'))]);
+        return view('booking.show', [
+            'scData' => $presenter->make($request->user('web')),
+            // "Important before you confirm" box: Admin → Cruise pages → Pre-boarding guide
+            'notice' => HomeSection::forPage('guide')['booking_notice'],
+        ]);
     }
 
     /**

@@ -60,6 +60,33 @@
           <p class="text-muted mt-2">{{ __('site.booking.review_intro') }}</p>
           <div id="review" class="mt-6 grid gap-5"></div>
 
+          {{-- Visas, check-in, prohibited items: Admin → Cruise pages → Pre-boarding guide → Booking page --}}
+          @if ($notice->is_visible)
+            <details class="group mt-5 rounded-[20px] border border-sun-300 bg-sun-50" id="booking-notice" open>
+              <summary class="list-none flex items-center justify-between gap-4 p-5 sm:p-6 cursor-pointer">
+                <span class="flex items-center gap-3">
+                  <span class="grid place-items-center w-10 h-10 rounded-xl bg-white text-sun-600 shrink-0"><i data-icon="alert" class="w-5 h-5"></i></span>
+                  <span class="font-display font-bold text-lg">{{ $notice->bi('title') }}</span>
+                </span>
+                <i data-icon="chevron-down" class="w-5 h-5 text-muted shrink-0 transition group-open:rotate-180"></i>
+              </summary>
+              <div class="px-5 sm:px-6 pb-5 sm:pb-6">
+                @if ($notice->filledBi('body'))<p class="text-ink/80 leading-relaxed">{{ $notice->bi('body') }}</p>@endif
+                <ul class="mt-4 grid gap-4 sm:grid-cols-2">
+                  @foreach ($notice->items as $item)
+                    <li class="flex gap-3 items-start">
+                      <span class="grid place-items-center w-9 h-9 rounded-lg bg-white text-{{ $item->tone }}-600 shrink-0"><i data-icon="{{ $item->icon ?: 'info' }}" class="w-5 h-5"></i></span>
+                      <span class="min-w-0"><span class="block font-bold">{{ $item->bi('title') }}</span>@if ($item->filledBi('text'))<span class="block text-sm text-muted mt-0.5 leading-relaxed">{{ $item->bi('text') }}</span>@endif</span>
+                    </li>
+                  @endforeach
+                </ul>
+                @if ($notice->filledBi('primary_label'))
+                  <a href="{{ $notice->primaryHref() }}" target="_blank" class="inline-flex items-center gap-1.5 mt-5 font-bold text-ocean-600 hover:text-ocean-700">{{ $notice->bi('primary_label') }} <i data-icon="external" class="w-4 h-4"></i></a>
+                @endif
+              </div>
+            </details>
+          @endif
+
           <div class="card p-5 sm:p-6 mt-5">
             <label class="flex items-start gap-3 cursor-pointer">
               <input type="checkbox" id="agree" class="check mt-0.5">

@@ -10,6 +10,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CruiseController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PreBoardingGuideController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,6 +23,9 @@ Route::get('/ship', [PageController::class, 'ship'])->name('ship');
 Route::get('/destinations', [PageController::class, 'destinations'])->name('destinations.index');
 Route::get('/cruises', [PageController::class, 'catalog'])->name('cruises.index');
 Route::get('/cruises/{cruise:slug}', [CruiseController::class, 'show'])->name('cruises.show');
+
+// Visas, check-in, prohibited items, kids policy: Admin → Cruise pages → Pre-boarding guide
+Route::get('/pre-boarding-guide', PreBoardingGuideController::class)->name('guide');
 
 Route::post('/newsletter', [NewsletterController::class, 'store'])->middleware('throttle:10,1')->name('newsletter.store');
 

@@ -18,4 +18,11 @@
       @foreach ($tones as $tone => $toneLabel)<option value="{{ $tone }}" @selected(($values['tone'] ?? null) === $tone)>{{ $toneLabel }}</option>@endforeach
     </select>
   </div>
+  @if ($section->config('item_links'))
+    <div class="sm:col-span-4">
+      <label class="label">Link (optional)</label>
+      <input name="new_items[{{ $n }}][url]" class="field {{ $errors->has("new_items.$n.url") ? 'is-invalid' : '' }}" value="{{ $values['url'] ?? '' }}" placeholder="https://">
+      @if ($e = $errors->first("new_items.$n.url"))<p class="err show">{{ $e }}</p>@endif
+    </div>
+  @endif
 </div>

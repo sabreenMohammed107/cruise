@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AgeBandSeeder::class,
             ShipSeeder::class,
+            PreBoardingFaqSeeder::class, // visa, check-in and packing questions after the ship's own FAQs
             CabinCategorySeeder::class,
             PortSeeder::class, // before cruises: their routes are made of these ports
             CruiseSeeder::class,

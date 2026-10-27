@@ -37,6 +37,7 @@ return [
         'help' => 'Help',
         'terms' => 'Terms & conditions',
         'cancellation' => 'Cancellation policy',
+        'guide' => 'Pre-boarding guide',
         'contact' => 'Contact us',
         'rights' => '© :year Safer. All rights reserved.',
         'prices_usd' => 'All prices in US dollars (USD).',
