@@ -133,22 +133,43 @@ document.addEventListener('sc:ready', () => {
   $('#cs-info').addEventListener('click', (e) => { const b = e.target.closest('[data-cabin-info]'); if (b) SC.ui.openCabin(b.dataset.cabinInfo); });
   renderCabin();
 
-  /* ---------- Destinations slider ---------- */
+  /* ---------- Destinations ----------
+     Laravel: the layout follows how many ports there are (Admin → Destinations). Up to 3 fill the width as a grid
+     (1 = one wide banner, 2 = two large cards, the usual case); 4 or more stay a slider. The arrows only show when
+     there is more to scroll to. */
   const track = $('#dest-track');
-  track.innerHTML = D.destinations.map((d) => {
+  const dests = D.destinations;
+  const slider = dests.length > 3;
+  const GRID = { 1: '', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-2 lg:grid-cols-3' }[dests.length] ?? '';
+  // Card shape and text size per layout
+  const SHAPE = slider ? 'snap-start shrink-0 w-[78%] sm:w-[46%] lg:w-[31%] xl:w-[23.5%] aspect-[3/4]'
+    : { 1: 'aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9]', 2: 'aspect-[4/3] sm:aspect-[4/5] lg:aspect-[16/11]', 3: 'aspect-[4/3] sm:aspect-[4/5] lg:aspect-[3/4]' }[dests.length] ?? '';
+  const big = !slider && dests.length <= 2;
+  if (!slider) track.className = `max-w-site mx-auto px-4 sm:px-6 grid gap-5 ${GRID}`;
+  track.innerHTML = dests.map((d) => {
     const n = D.cruises.filter((c) => c.route.some((p) => p.startsWith(d.name))).length;
-    return `<a href="${SC.route('destinations')}#${d.slug}" class="group snap-start shrink-0 w-[78%] sm:w-[46%] lg:w-[31%] xl:w-[23.5%] relative rounded-[22px] overflow-hidden aspect-[3/4]">
-      <img src="${d.image}" alt="${SC.port(d.name)}, ${d.country}" loading="lazy" class="absolute inset-0 w-full h-full object-cover transition duration-700 group-hover:scale-105">
-      <div class="absolute inset-0 bg-gradient-to-t from-ocean-900/90 via-ocean-900/20 to-transparent"></div>
-      <div class="absolute bottom-0 inset-x-0 p-5 text-white">
-        <p class="text-sm text-ocean-100">${d.country}</p>
-        <h3 class="font-display font-semibold text-2xl">${SC.port(d.name)}</h3>
-        <p class="text-sm text-ocean-100 mt-1">${d.blurb}</p>
-        <p class="mt-3 inline-flex text-xs font-bold bg-white/20 backdrop-blur px-2.5 py-1 rounded-full">${SC.tc('ui.cruises', n)}</p>
+    return `<a href="${SC.route('destinations')}#${encodeURIComponent(d.slug)}" class="group relative block rounded-[22px] overflow-hidden ${SHAPE}">
+      <img src="${SC.esc(d.image)}" alt="${SC.esc(SC.port(d.name))}, ${SC.esc(d.country)}" loading="lazy" class="absolute inset-0 w-full h-full object-cover transition duration-700 group-hover:scale-105">
+      <div class="absolute inset-0 bg-gradient-to-t from-ocean-900/90 via-ocean-900/25 to-transparent"></div>
+      <div class="absolute bottom-0 inset-x-0 ${big ? 'p-6 sm:p-8' : 'p-5'} text-white">
+        <p class="text-sm font-semibold text-ocean-100">${SC.esc(d.country)}</p>
+        <h3 class="font-display font-semibold ${big ? 'text-3xl sm:text-4xl' : 'text-2xl'}">${SC.esc(SC.port(d.name))}</h3>
+        ${d.blurb ? `<p class="${big ? 'text-base max-w-xl' : 'text-sm'} text-ocean-100 mt-1.5 line-clamp-2">${SC.esc(d.blurb)}</p>` : ''}
+        <div class="mt-4 flex items-center justify-between gap-3">
+          <p class="inline-flex text-xs font-bold bg-white/20 backdrop-blur px-2.5 py-1 rounded-full">${SC.tc('ui.cruises', n)}</p>
+          ${big ? `<span class="grid place-items-center w-10 h-10 rounded-full bg-white/20 backdrop-blur transition group-hover:bg-white group-hover:text-ocean-700">${SC.icon('chevron-right', 'w-5 h-5 rtl:rotate-180')}</span>` : ''}
+        </div>
       </div>
     </a>`;
   }).join('');
-  $$('[data-slide]').forEach((b) => b.addEventListener('click', () => {
+
+  const arrows = $$('[data-slide]');
+  const paintArrows = () => arrows.forEach((b) => { b.hidden = !slider || track.scrollWidth <= track.clientWidth + 1; });
+  // Re-check when the cards get their size: the Tailwind CDN styles them a moment after they are added, and on resize
+  const sized = new ResizeObserver(paintArrows);
+  sized.observe(track);
+  if (track.firstElementChild) sized.observe(track.firstElementChild);
+  arrows.forEach((b) => b.addEventListener('click', () => {
     const dir = document.documentElement.dir === 'rtl' ? -1 : 1;
     track.scrollBy({ left: Number(b.dataset.slide) * dir * track.clientWidth * 0.8, behavior: 'smooth' });
   }));
