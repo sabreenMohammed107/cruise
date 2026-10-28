@@ -20,6 +20,7 @@
       @endforeach
     </nav>
     <div class="ms-auto flex items-center gap-2">
+      @include('partials.currency-switch', ['class' => 'hidden sm:inline-flex'])
       <button class="hidden sm:inline-flex btn btn-ghost btn-sm" data-dir-toggle title="عربي / English">@bi('site.nav.switch_language')</button>
       <a href="{{ route('account') }}#bookings" class="hidden md:inline-flex btn btn-ghost btn-sm {{ $active === 'dashboard' ? 'bg-ocean-50' : '' }}"><i data-icon="ticket" class="w-4 h-4"></i> @bi('site.nav.my_bookings')</a>
       @auth('web')
@@ -48,6 +49,7 @@
         <a href="{{ route('login') }}" class="btn btn-primary">@bi('site.nav.sign_in')</a>
       @endauth
       <button class="btn btn-outline" data-dir-toggle>@bi('site.nav.switch_language_long')</button>
+      @include('partials.currency-switch', ['class' => 'flex justify-center'])
     </div>
   </aside>
 </div>

@@ -10,9 +10,19 @@
 
 return [
 
-    // All prices are shown in US dollars (data.js: currency / currencySymbol).
+    // Prices are stored and booked in US dollars (data.js: currency / currencySymbol).
     'currency' => 'USD',
     'currency_symbol' => '$',
+
+    // Currencies a visitor can show prices in (header switcher, App\Services\CurrencyService). Display only: the
+    // database, quotes and bookings stay in USD. EGP uses the live rate or the admin's rate (Admin → Currency).
+    'display_currencies' => [
+        'USD' => ['symbol' => '$'],
+        'EGP' => ['symbol' => 'EGP '],
+    ],
+
+    // EGP per 1 USD until an admin saves one; also the fallback when the live rate can't be fetched
+    'default_exchange_rate' => 50.00,
 
     // Cabin capacity (PROJECT_STEPS.md step 11): the most guests any cabin can take, counting adults, children AND
     // infants. Each cabin's own "Maximum guests" (Admin → Cabin categories) applies up to this number.

@@ -94,8 +94,13 @@
   SC.$ = (s, r = document) => r.querySelector(s);
   SC.$$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   SC.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  // All prices are shown in US dollars, e.g. $2,310
-  SC.money = (n) => `${n < 0 ? '−' : ''}${D.currencySymbol}${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+  // Amounts are USD; shown in the visitor's currency (header USD / EGP switch), e.g. $2,310 or EGP 115,500.
+  // Laravel: SC_DATA.exchangeRate / displaySymbol from App\Services\CurrencyService (1 and $ for USD)
+  SC.moneyAt = (n, rate, symbol) => {
+    const v = Math.round(n * (rate || 1));
+    return `${v < 0 ? '−' : ''}${symbol ?? D.currencySymbol}${Math.abs(v).toLocaleString('en-US')}`;
+  };
+  SC.money = (n) => SC.moneyAt(n, D.exchangeRate, D.displaySymbol);
   SC.parseDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
   SC.toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   SC.addDays = (iso, n) => { const d = SC.parseDate(iso); d.setDate(d.getDate() + n); return SC.toISO(d); };

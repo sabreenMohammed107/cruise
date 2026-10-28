@@ -41,8 +41,14 @@ final class BookingEmailData
             ->join(__('site.guests.join'));
     }
 
-    public static function make(Booking $booking): array
+    /**
+     * @param  bool  $team  the team email: amounts in USD (what payments are recorded in); the guest email shows the
+     *                      currency the guest booked in (bookings.display_currency, at the rate of the booking day)
+     */
+    public static function make(Booking $booking, bool $team = false): array
     {
+        $money = $team ? static::money(...) : $booking->money(...);
+        $rate = ['currency' => $booking->display_currency, 'rate' => number_format((float) $booking->exchange_rate, 2)];
         $sailing = $booking->sailing;
         $cruise = $sailing->cruise;
         $date = fn ($d) => $d->translatedFormat('l j F Y');
@@ -62,18 +68,25 @@ final class BookingEmailData
                 __('emails.duration') => trans_choice('site.nights', $cruise->nights, ['count' => $cruise->nights]),
                 __('emails.route') => $route->join(Bi::isArabic() ? ' ← ' : ' → '),
             ],
-            'cabins' => static::cabins($booking),
+            'cabins' => static::cabins($booking, $money),
             'prices' => array_filter([
-                __('emails.fare') => static::money($booking->fare_total),
+                __('emails.fare') => $money($booking->fare_total),
                 // Prices include tax since step 21; only older bookings have separate taxes and port fees
-                __('emails.fees') => (float) $booking->fees_total > 0 ? static::money($booking->fees_total) : null,
+                __('emails.fees') => (float) $booking->fees_total > 0 ? $money($booking->fees_total) : null,
                 ($booking->promoCode ? __('emails.discount_code', ['code' => $booking->promoCode->code]) : __('emails.discount'))
-                    => (float) $booking->discount_total > 0 ? '−'.static::money($booking->discount_total) : null,
+                    => (float) $booking->discount_total > 0 ? '−'.$money($booking->discount_total) : null,
             ]),
-            'total' => static::money($booking->grand_total),
+            'total' => $money($booking->grand_total),
             'tax_included' => (float) $booking->fees_total <= 0,
-            'paid' => static::money($booking->amount_paid),
-            'due' => static::money($booking->amountDue()),
+            'paid' => $money($booking->amount_paid),
+            'due' => $money($booking->amountDue()),
+            'prices_note' => $team || ! $booking->inDisplayCurrency()
+                ? __('emails.prices_note')
+                : __('emails.prices_note_display', $rate + ['usd' => static::money($booking->grand_total)]),
+            // Team email, booked in EGP: shown at the top, next to the amount to collect
+            'guest_currency' => $team && $booking->inDisplayCurrency()
+                ? __('emails.guest_currency', $rate + ['total' => $booking->money($booking->grand_total)])
+                : null,
             'guests' => static::guests($booking->guestCounts()),
             'contact' => ['email' => $booking->contact_email, 'phone' => trim($booking->contact_dial.' '.$booking->contact_phone)],
         ];
@@ -85,7 +98,7 @@ final class BookingEmailData
      *
      * @return list<array{title: string, guests: string, fare: ?string, travellers: list<array>}>
      */
-    private static function cabins(Booking $booking): array
+    private static function cabins(Booking $booking, callable $money): array
     {
         $traveller = fn (BookingTraveller $t) => [
             'name' => trim("{$t->first_name} {$t->last_name}"),
@@ -112,7 +125,7 @@ final class BookingEmailData
         return $booking->cabins->map(fn (BookingCabin $c) => [
             'title' => ($several ? __('emails.cabin_n', ['n' => $c->position]).' · ' : '').$c->name(),
             'guests' => static::guests($c->guestCounts()),
-            'fare' => static::money((float) $c->fare_total + (float) $c->fees_total),
+            'fare' => $money((float) $c->fare_total + (float) $c->fees_total),
             'travellers' => $c->travellers->map($traveller)->all(),
         ])->all();
     }

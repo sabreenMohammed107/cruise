@@ -64,6 +64,9 @@ return [
     'paid' => 'Paid',
     'due' => 'Amount due',
     'prices_note' => 'Prices in US dollars, for the whole cruise.',
+    // Guest email of a booking made in EGP (bookings.display_currency); the team email stays in USD
+    'prices_note_display' => 'Prices for the whole cruise in :currency, at 1 USD = :rate :currency on the booking day. Charged in US dollars: :usd.',
+    'guest_currency' => 'The guest booked seeing :currency prices: :total at 1 USD = :rate :currency.',
 
     // Customer: forgot password (App\Notifications\ResetPassword)
     'reset_subject' => 'Reset your Safer Cruise password',

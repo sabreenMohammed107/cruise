@@ -66,7 +66,12 @@
   <div class="border-t border-ocean-800">
     <div class="max-w-site mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row gap-3 items-center justify-between text-xs text-ocean-300">
       <p>@bi('site.footer.rights', ['year' => now()->year])</p>
-      <p>@bi('site.footer.prices_usd')</p>
+      @php($currency = app(\App\Services\CurrencyService::class))
+      @if ($currency->active() === 'EGP')
+        <p>@bi('site.footer.prices_egp', ['rate' => number_format($currency->rate(), 2)])</p>
+      @else
+        <p>@bi('site.footer.prices_usd')</p>
+      @endif
     </div>
   </div>
 </footer>

@@ -20,9 +20,9 @@
           <td class="p-3"><a href="{{ route('admin.bookings.show', $b) }}" class="font-bold text-ocean-700 hover:underline tabular">{{ $b->reference }}</a><p class="text-xs text-muted">{{ $b->contact_email }}</p></td>
           <td class="p-3">{{ $b->sailing->cruise->name }}<p class="text-xs text-muted">{{ Format::date($b->sailing->departure_date) }} · {{ $b->cabinSummary() }}</p></td>
           <td class="p-3 whitespace-nowrap">{{ Format::guests($b->adults, $b->children, $b->infants) }}</td>
-          <td class="p-3 text-end tabular">{{ Format::money($b->grand_total) }}</td>
+          <td class="p-3 text-end tabular">{{ Format::money($b->grand_total) }}@if ($b->inDisplayCurrency())<p class="text-xs font-semibold text-[#5B2A86] whitespace-nowrap" title="What the guest saw, at the rate of the booking day">{{ $b->money($b->grand_total) }}</p>@endif</td>
           <td class="p-3 text-end tabular font-bold">{{ $b->status === \App\Enums\BookingStatus::Cancelled ? '—' : Format::money($b->amountDue()) }}</td>
-          <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b->status])@include('admin.partials.badge', ['status' => $b->payment_status])</div></td>
+          <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b->status])@include('admin.partials.badge', ['status' => $b->payment_status])@include('admin.partials.currency-tag', ['booking' => $b])</div></td>
           <td class="p-3">
             @if ($sellers->isNotEmpty())
               <form method="POST" action="{{ route('admin.bookings.seller', $b) }}">

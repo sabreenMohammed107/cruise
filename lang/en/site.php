@@ -29,6 +29,7 @@ return [
         'open_menu' => 'Open menu',
         'close_menu' => 'Close menu',
         'logo' => 'Safer Cruise home',
+        'currency' => 'Currency',
     ],
 
     'footer' => [
@@ -41,6 +42,7 @@ return [
         'contact' => 'Contact us',
         'rights' => '© :year Safer. All rights reserved.',
         'prices_usd' => 'All prices in US dollars (USD).',
+        'prices_egp' => 'Prices shown in Egyptian pounds at 1 USD = :rate EGP. Bookings are charged in US dollars.',
         'chat' => 'Chat with us',
         'chat_label' => 'Chat with us on WhatsApp',
         'whatsapp_message' => 'Hello, I would like to ask about AROYA cruises on Safer Cruise.',
@@ -292,6 +294,7 @@ return [
         'cancelled' => 'Cancelled',
         'total' => 'Total',
         'download' => 'Download voucher',
+        'charged_usd' => 'Charged in US dollars: :usd (1 USD = :rate :currency on the booking day)',
         'view_in_account' => 'View in my bookings',
         'home' => 'Back to home',
     ],

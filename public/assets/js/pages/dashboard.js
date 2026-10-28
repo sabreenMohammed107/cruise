@@ -32,6 +32,8 @@ document.addEventListener('sc:ready', () => {
     roomsOf(b).forEach((r) => { counts[r.cabinId] = (counts[r.cabinId] || 0) + 1; });
     return Object.entries(counts).map(([id, n]) => `${n > 1 ? `${n} × ` : ''}${SC.esc(SC.getCabin(id)?.nameEn || id)}`).join(SC.lang() === 'ar' ? '، ' : ', ');
   };
+  // A booking's amounts in the currency it was booked in, at that day's rate (as on its voucher), not today's switch
+  const bookedMoney = (b) => (n) => SC.moneyAt(n, b.exchangeRate, b.displaySymbol);
   const bookingCard = (b) => {
     const g = group(b); const cab = SC.getCabin(b.cabinId); const days = SC.daysUntil(b.departure);
     return `<article class="card overflow-hidden flex flex-col md:flex-row ${g === 'cancelled' ? 'opacity-80' : ''}">
@@ -44,7 +46,7 @@ document.addEventListener('sc:ready', () => {
           <div><dt class="text-xs text-muted font-semibold">${t('reference')}</dt><dd class="font-bold tabular" dir="ltr">${b.ref}</dd></div>
           <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.cabin')}</dt><dd class="font-bold">${cabinNames(b)}</dd></div>
           <div><dt class="text-xs text-muted font-semibold">${SC.t('booking.guests')}</dt><dd class="font-bold">${SC.guestText(b.guests)}</dd></div>
-          <div><dt class="text-xs text-muted font-semibold">${t('total')}</dt><dd class="font-bold tabular">${SC.money(b.amountDue)}</dd></div>
+          <div><dt class="text-xs text-muted font-semibold">${t('total')}</dt><dd class="font-bold tabular">${bookedMoney(b)(b.amountDue)}</dd></div>
         </dl>
       </div>
       <div class="p-5 pt-0 md:pt-5 md:w-48 flex md:flex-col gap-2 md:border-s md:border-line md:justify-center">
@@ -76,7 +78,7 @@ document.addEventListener('sc:ready', () => {
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-booking]'); if (!btn) return;
     const b = bookings.find((x) => x.ref === btn.dataset.booking); const cab = SC.getCabin(b.cabinId); const q = b.quote;
-    const several = roomsOf(b).length > 1;
+    const several = roomsOf(b).length > 1; const money = bookedMoney(b);
     const body = SC.ensureModal('booking-modal', { title: t('booking_title', { ref: b.ref }), width: '720px' });
     body.innerHTML = `
       <div class="flex gap-4 items-center"><img src="${cab ? cab.images[0] : imgFor(b)}" alt="" class="w-24 h-20 rounded-xl object-cover"><div><p class="font-display font-semibold text-lg">${SC.esc(b.cruiseName)}</p><p class="text-sm text-muted">${SC.fmtDate(b.departure)} – ${SC.fmtDate(b.returnDate)}</p><p class="text-sm text-muted">${cabinNames(b)}${SC.lang() === 'ar' ? '، ' : ', '}${SC.esc(SC.t('booking.route', { from: SC.port(b.departurePort), to: SC.port(b.arrivalPort) }))}</p></div></div>
@@ -84,11 +86,11 @@ document.addEventListener('sc:ready', () => {
       <ul class="grid gap-2 text-sm">${Object.entries(b.travellers).sort(([, x], [, y]) => (x.cabin || 1) - (y.cabin || 1)).map(([k, t], i, all) => `${several && (all[i - 1]?.[1].cabin || 1) !== (t.cabin || 1) ? `<li class="pt-2 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: t.cabin || 1 })} · ${SC.esc(SC.getCabin(roomsOf(b)[(t.cabin || 1) - 1]?.cabinId)?.nameEn || '')}</li>` : ''}<li class="flex justify-between rounded-xl bg-page px-3 py-2"><span class="font-semibold">${SC.esc(t.first)} ${SC.esc(t.last)}</span><span class="text-muted">${D.ageBands[k.split('-')[0]].label}</span></li>`).join('')}</ul>
       <h3 class="font-bold mt-6 mb-2">${t('price')}</h3>
       <dl class="grid gap-1.5 text-sm tabular">
-        ${q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
-        ${q.fees > 0 ? `<div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${SC.money(q.fees)}</dd></div>` : '' /* bookings made before step 21 only */}
-        ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
-        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}${q.fees > 0 ? '' : ` <span class="block text-xs font-semibold text-lagoon-600">${SC.t('booking.tax_included')}</span>`}</dt><dd>${SC.money(q.total)}</dd></div>
-        <div class="flex justify-between"><dt class="text-muted">${t('paid_so_far')}</dt><dd>${SC.money(b.amountPaid)} ${paymentTag(b)}</dd></div>
+        ${q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${money(l.total)}</dd></div>`).join('')}
+        ${q.fees > 0 ? `<div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${money(q.fees)}</dd></div>` : '' /* bookings made before step 21 only */}
+        ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${money(q.discount)}</dd></div>` : ''}
+        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}${q.fees > 0 ? '' : ` <span class="block text-xs font-semibold text-lagoon-600">${SC.t('booking.tax_included')}</span>`}</dt><dd>${money(q.total)}</dd></div>
+        <div class="flex justify-between"><dt class="text-muted">${t('paid_so_far')}</dt><dd>${money(b.amountPaid)} ${paymentTag(b)}</dd></div>
       </dl>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
         <button class="btn btn-ghost" data-terms-link>${t('cancellation_policy')}</button>

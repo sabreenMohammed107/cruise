@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
+use App\Services\CurrencyService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,7 @@ class Booking extends Model
     protected $fillable = [
         'reference', 'user_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
         'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
-        'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency', 'locale',
+        'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency', 'display_currency', 'exchange_rate', 'locale',
         'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes', 'seller_id',
     ];
 
@@ -31,6 +32,7 @@ class Booking extends Model
             'discount_total' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'amount_paid' => 'decimal:2',
+            'exchange_rate' => 'decimal:4',
             'price_snapshot' => 'array',
             'confirmed_at' => 'datetime',
             'paid_at' => 'datetime',
@@ -154,6 +156,21 @@ class Booking extends Model
     public function primaryTraveller(): ?BookingTraveller
     {
         return $this->travellers->firstWhere('is_primary', true) ?? $this->travellers->first();
+    }
+
+    /** Booked while the website showed another currency than USD (EGP): guest screens show that currency. */
+    public function inDisplayCurrency(): bool
+    {
+        return ($this->display_currency ?: CurrencyService::BASE) !== CurrencyService::BASE;
+    }
+
+    /**
+     * A USD amount of this booking as the guest saw it: "EGP 129,563" at the rate frozen when booking, or "$2,310".
+     * Guest voucher, guest email, "My bookings". The panel and the team email use Format::money (USD).
+     */
+    public function money(float|int|string|null $usd): string
+    {
+        return app(CurrencyService::class)->format($usd, $this->display_currency ?: CurrencyService::BASE, (float) $this->exchange_rate ?: 1.0);
     }
 
     public function amountDue(): float

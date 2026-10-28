@@ -8,7 +8,8 @@
 @php
   $sailing = $booking->sailing;
   $cruise = $sailing->cruise;
-  $money = fn ($n) => config('cruise.currency_symbol').number_format((float) $n);
+  // In the currency the guest booked in, at that day's rate (bookings.display_currency / exchange_rate)
+  $money = fn ($n) => $booking->money($n);
   // Dates with month names in the page language (Carbon follows the app locale), Western digits as on the rest of the site
   $date = fn ($d) => $d->translatedFormat('j M Y');
   $guestText = collect(['adult' => $booking->adults, 'child' => $booking->children, 'infant' => $booking->infants])
@@ -58,6 +59,9 @@
               <span class="inline-flex items-center gap-1.5 rounded-full bg-[#E3F5EE] text-[#0E6B4C] px-3 py-1 text-sm font-bold"><i data-icon="check" class="w-4 h-4"></i> {{ __('site.confirmation.confirmed') }}</span>
             @endif
             <p class="text-sm text-ocean-100 mt-2">{{ __('site.confirmation.total') }} <b class="text-white tabular">{{ $money($booking->grand_total) }}</b></p>
+            @if ($booking->inDisplayCurrency())
+              <p class="text-xs text-ocean-200 mt-1 tabular">{{ __('site.confirmation.charged_usd', ['usd' => \App\Support\Format::money($booking->grand_total), 'rate' => number_format((float) $booking->exchange_rate, 2), 'currency' => $booking->display_currency]) }}</p>
+            @endif
           </div>
         </div>
         <div class="p-6 sm:p-7">

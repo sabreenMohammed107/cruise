@@ -80,4 +80,4 @@
     </tr>
   @endif
 </table>
-<p style="margin:8px 0 0;font-size:12px;color:#8494A5;">{{ __('emails.prices_note') }}</p>
+<p style="margin:8px 0 0;font-size:12px;color:#8494A5;">{{ $d['prices_note'] }}</p>

@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AgentRequestController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\CruiseArchiveController;
+use App\Http\Controllers\Admin\CurrencySettingController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HomeSectionController;
@@ -65,6 +66,11 @@ Route::middleware('can:manage-content')->group(function () {
     // Footer & contact: description, phones, email, address, WhatsApp and social links (config/site.php)
     Route::get('footer', [SiteSettingController::class, 'edit'])->name('site-settings.edit');
     Route::put('footer', [SiteSettingController::class, 'update'])->name('site-settings.update');
+
+    // Currency: EGP rate of the website's USD / EGP switch (live API or the admin's rate)
+    Route::get('currency', [CurrencySettingController::class, 'edit'])->name('currency.edit');
+    Route::put('currency', [CurrencySettingController::class, 'update'])->name('currency.update');
+    Route::post('currency/refresh', [CurrencySettingController::class, 'refresh'])->middleware('throttle:10,1')->name('currency.refresh');
 
     // Messages from the website's "Contact us" page (opening one marks it as read)
     Route::get('contact-messages', [ContactController::class, 'index'])->name('contact-messages.index');

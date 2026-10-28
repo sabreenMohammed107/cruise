@@ -22,7 +22,7 @@ use Throwable;
  */
 class BookingService
 {
-    public function __construct(private PricingService $pricing) {}
+    public function __construct(private PricingService $pricing, private CurrencyService $currency) {}
 
     /**
      * A booking of one or more cabins on the same sailing (step 15).
@@ -68,6 +68,9 @@ class BookingService
                 'discount_total' => $quote['discount'],
                 'grand_total' => $quote['total'],
                 'currency' => config('cruise.currency'),
+                // What the guest saw (header USD / EGP switch), at today's rate: the voucher and guest email keep it
+                'display_currency' => $this->currency->active(),
+                'exchange_rate' => $this->currency->rate(),
                 // Website language at booking time (sc_lang cookie): the booking emails are written in it
                 'locale' => app()->getLocale(),
                 'price_snapshot' => $quote,

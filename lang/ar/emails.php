@@ -64,6 +64,8 @@ return [
     'paid' => 'المدفوع',
     'due' => 'المبلغ المستحق',
     'prices_note' => 'الأسعار بالدولار الأمريكي للرحلة كاملة.',
+    'prices_note_display' => 'الأسعار للرحلة كاملة بعملة :currency، بسعر 1 USD = :rate :currency يوم الحجز. المبلغ المستحق بالدولار الأمريكي: :usd.',
+    'guest_currency' => 'حجز الضيف وهو يرى الأسعار بعملة :currency: :total بسعر 1 USD = :rate :currency.',
 
     'reset_subject' => 'إعادة تعيين كلمة مرور Safer Cruise',
     'reset_title' => 'إعادة تعيين كلمة المرور',

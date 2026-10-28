@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CruiseController;
+use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\PreBoardingGuideController;
@@ -27,7 +28,10 @@ Route::get('/cruises/{cruise:slug}', [CruiseController::class, 'show'])->name('c
 // Visas, check-in, prohibited items, kids policy: Admin → Cruise pages → Pre-boarding guide
 Route::get('/pre-boarding-guide', PreBoardingGuideController::class)->name('guide');
 
-Route::post('/newsletter', [NewsletterController::class, 'store'])->middleware('throttle:10,1')->name('newsletter.store');
+// Header USD / EGP switch (display only; App\Services\CurrencyService)
+Route::post('/currency', CurrencyController::class)->middleware('throttle:30,1')->name('currency.update');
+
+Route::post('/newsletter',[NewsletterController::class, 'store'])->middleware('throttle:10,1')->name('newsletter.store');
 
 // Contact us: messages land in Admin → Contact messages
 Route::get('/contact', [ContactController::class, 'show'])->name('contact');

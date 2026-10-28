@@ -16,7 +16,7 @@
   <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
       <h1 class="font-display font-bold text-2xl sm:text-3xl tabular">{{ $booking->reference }}</h1>
-      <div class="mt-2 flex flex-wrap gap-1.5">@include('admin.partials.badge', ['status' => $booking->status])@include('admin.partials.badge', ['status' => $booking->payment_status])</div>
+      <div class="mt-2 flex flex-wrap gap-1.5">@include('admin.partials.badge', ['status' => $booking->status])@include('admin.partials.badge', ['status' => $booking->payment_status])@include('admin.partials.currency-tag')</div>
     </div>
     <div class="flex flex-wrap gap-2">
       <a href="{{ route('booking.confirmation', $booking) }}" target="_blank" class="btn btn-outline btn-sm"><i data-icon="download" class="w-4 h-4"></i> Guest voucher</a>
@@ -29,6 +29,15 @@
       @endif
     </div>
   </div>
+
+  @if ($booking->inDisplayCurrency())
+    {{-- The guest's voucher and email show this currency: quote the same figure when arranging payment --}}
+    <div class="mt-5 rounded-2xl border border-[#5B2A86]/25 bg-[#F1E9FB] p-4 text-sm text-[#3E1C5C]" role="note">
+      <p class="font-bold">The guest booked in {{ $booking->display_currency === 'EGP' ? 'Egyptian pounds' : $booking->display_currency }} ({{ $booking->display_currency }})</p>
+      <p class="mt-1 tabular">Their voucher and email show <b>{{ $booking->money($booking->grand_total) }}</b>, at 1 USD = {{ number_format((float) $booking->exchange_rate, 2) }} {{ $booking->display_currency }} on the booking day.
+        Amounts on this page and payments are in USD: total <b>{{ Format::money($booking->grand_total) }}</b>@if (! $cancelled && $booking->amountDue() > 0), still due <b>{{ Format::money($booking->amountDue()) }}</b> ({{ $booking->money($booking->amountDue()) }})@endif.</p>
+    </div>
+  @endif
 
   <div class="grid xl:grid-cols-[1fr_380px] gap-6 mt-6 items-start">
     <div class="grid gap-6 min-w-0">
@@ -99,6 +108,9 @@
             <tr><td class="pt-3 font-bold text-base">Total @if ((float) $booking->fees_total <= 0)<span class="block text-xs font-semibold text-lagoon-600">Tax included</span>@endif</td><td></td><td class="pt-3 text-end font-display font-bold text-xl text-ocean-800">{{ Format::money($booking->grand_total) }}</td></tr>
           </tbody>
         </table>
+        @if ($booking->inDisplayCurrency())
+          <p class="text-xs font-semibold text-[#5B2A86] mt-2 text-end tabular">Guest saw {{ $booking->money($booking->grand_total) }} (1 USD = {{ number_format((float) $booking->exchange_rate, 2) }} {{ $booking->display_currency }})</p>
+        @endif
       </section>
 
       {{-- Notes --}}

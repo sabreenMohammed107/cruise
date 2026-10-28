@@ -3,7 +3,7 @@
 @use('App\Mail\BookingEmailData')
 
 @php
-  $d = BookingEmailData::make($booking);
+  $d = BookingEmailData::make($booking, team: true); // amounts in USD, whatever currency the guest saw
   $guest = $booking->primaryTraveller();
   $rtl = app()->getLocale() === 'ar';
   $start = $rtl ? 'right' : 'left';
@@ -28,6 +28,14 @@
         {!! __('emails.team_intro', ['hours' => $hours, 'amount' => '<b dir="ltr">'.e($d['total']).'</b>']) !!}
       </td>
     </tr>
+    @if ($d['guest_currency'])
+      {{-- Booked with the website in EGP: the guest's voucher shows that amount --}}
+      <tr>
+        <td style="padding:0 18px 14px;text-align:{{ $start }};">
+          <span style="display:inline-block;padding:6px 12px;border-radius:999px;background:#F1E9FB;color:#5B2A86;font-size:14px;font-weight:700;">{{ $d['guest_currency'] }}</span>
+        </td>
+      </tr>
+    @endif
   </table>
 
   {{-- Guest contact --}}

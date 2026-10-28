@@ -16,6 +16,7 @@ use App\Models\SiteSetting;
 use App\Models\Ship;
 use App\Models\Testimonial;
 use App\Models\User;
+use App\Services\CurrencyService;
 use Illuminate\Support\Collection;
 
 /**
@@ -31,9 +32,16 @@ class ScDataPresenter
      */
     public function make(?User $user = null, array $page = [], ?array $account = null): array
     {
+        $currency = app(CurrencyService::class);
+
         return array_filter([
+            // Prices below and every quote are in USD ("currency"); SC.money() shows them in the visitor's
+            // currency: amount × exchangeRate, with displaySymbol (header switch, Admin → Currency)
             'currency' => config('cruise.currency'),
             'currencySymbol' => config('cruise.currency_symbol'),
+            'displayCurrency' => $currency->active(),
+            'displaySymbol' => $currency->symbol(),
+            'exchangeRate' => $currency->rate(),
             'whatsappNumber' => SiteSetting::whatsapp(), // Admin → Footer & contact
             'routes' => $this->routes(),
             'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
@@ -152,6 +160,9 @@ class ScDataPresenter
             ])->values()->all(),
             'amountDue' => (float) $booking->grand_total,
             'amountPaid' => (float) $booking->amount_paid,
+            // USD amounts above, shown in the currency booked in at that day's rate (dashboard.js, like the voucher)
+            'displaySymbol' => app(CurrencyService::class)->symbol($booking->display_currency ?: CurrencyService::BASE),
+            'exchangeRate' => (float) $booking->exchange_rate ?: 1.0,
             'quote' => $booking->price_snapshot,
             'travellers' => $booking->travellers->mapWithKeys(fn ($t) => [
                 "{$t->band->value}-{$t->slot}" => [
