@@ -219,14 +219,17 @@
   };
   /* Flattened "view model" for one departure — what cards and filters use. */
   SC.sailingView = (c, s) => {
-    const available = SC.cabinsSorted().filter((cab) => !(s.soldOut || []).includes(cab.id) && (s.prices || {})[cab.id]);
-    const fromPrice = SC.fromPrice(c, s, available.map((cab) => cab.id));
+    const priced = SC.cabinsSorted().filter((cab) => (s.prices || {})[cab.id]);
+    const available = priced.filter((cab) => !(s.soldOut || []).includes(cab.id));
+    // Every cabin sold out: the card still shows the price (from all its cabins), marked sold out
+    const allSoldOut = priced.length > 0 && !available.length;
+    const fromPrice = SC.fromPrice(c, s, (allSoldOut ? priced : available).map((cab) => cab.id));
     return {
       key: s.id, cruiseId: c.id, sailingId: s.id, name: c.name, ship: SC.getShip(c.shipId).name,
       nights: c.nights, days: c.nights + 1, departure: s.departure, returnDate: SC.addDays(s.departure, c.nights),
       departurePort: c.departurePort, arrivalPort: c.arrivalPort, route: c.route, tags: c.tags,
       rating: c.rating, reviews: c.reviews, popularity: c.popularity, image: c.image,
-      soldOut: s.soldOut || [], availableCabins: available.map((x) => x.id), fromPrice, cruise: c, sailing: s
+      soldOut: s.soldOut || [], availableCabins: available.map((x) => x.id), allSoldOut, fromPrice, cruise: c, sailing: s
     };
   };
   SC.allSailings = () => D.cruises.flatMap((c) => c.sailings.map((s) => SC.sailingView(c, s)))
@@ -560,7 +563,11 @@
         ${dateCol(SC.t('ui.card.returns'), SC.fmtDate(v.returnDate, { day: 'numeric', month: 'short' }))}
         ${dateCol(SC.t('ui.card.length'), SC.tc('nights', v.nights))}
       </dl>`;
-    const priceBlock = `<div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p><p class="font-display font-bold text-xl text-ocean-800 tabular">${SC.money(v.fromPrice)}</p></div>`;
+    // No priced cabin at all → fromPrice is Infinity: never "$∞"
+    const soldOutTag = v.allSoldOut ? `<p class="text-xs font-bold text-rose-600 mt-0.5">${SC.t('ui.details.sold_out')}</p>` : '';
+    const priceBlock = Number.isFinite(v.fromPrice)
+      ? `<div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p><p class="font-display font-bold text-xl tabular ${v.allSoldOut ? 'text-muted line-through' : 'text-ocean-800'}">${SC.money(v.fromPrice)}</p>${soldOutTag}</div>`
+      : `<div><p class="font-display font-bold text-lg text-rose-600">${SC.t('ui.details.sold_out')}</p></div>`;
     const actions = `<div class="flex items-center gap-2">
         <a href="${SC.whatsapp(SC.t('ui.card.whatsapp_message', { cruise: v.name, date: SC.fmtDate(v.departure) }))}" target="_blank" rel="noopener" class="icon-btn" aria-label="${SC.t('ui.card.ask_whatsapp')}">${SC.icon('chat', 'w-5 h-5')}</a>
         <a href="${SC.detailsUrl(v)}" class="btn btn-accent btn-sm">${SC.t('ui.card.select')}</a>

@@ -108,6 +108,9 @@
                           @if ($s['from'])
                             <span class="mt-1.5 block text-xs text-muted">{{ __('ui.destinations.from_pp') }} <b class="text-sm text-ocean-800 tabular" dir="ltr">{{ $s['from'] }}</b></span>
                           @endif
+                          @if ($s['soldOut'])
+                            <span class="mt-0.5 block text-xs font-bold text-rose-600">{{ __('ui.details.sold_out') }}</span>
+                          @endif
                         </span>
                       </a>
                     </li>

@@ -56,6 +56,7 @@ final class DestinationsPage
             'url' => route('cruises.show', $cruise).'?sailing='.rawurlencode($sailing->code),
             // A sailing whose cabins have no prices yet shows no price, never "$0"
             'from' => $from > 0 ? config('cruise.currency_symbol').number_format($from) : null,
+            'soldOut' => $sailing->isFullySoldOut(),
         ];
     }
 }

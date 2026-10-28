@@ -89,16 +89,24 @@ class Sailing extends Model
 
     /**
      * "From, per person" on cards: the lowest Double price ÷ 2 among cabins that aren't sold out (never the Single
-     * price). Cabins without a Double price (0) are skipped unless no cabin has one. Same as SC.fromPrice in core.js.
+     * price); when every cabin is sold out, among all of them (the card shows it marked sold out). Cabins without a
+     * Double price (0) are skipped unless no cabin has one. Same as SC.fromPrice / SC.sailingView in core.js.
      */
     public function fromPrice(): ?float
     {
-        $doubles = $this->cabinPrices->where('is_sold_out', false)->pluck('price_double')->map(fn ($p) => (float) $p);
+        $prices = $this->isFullySoldOut() ? $this->cabinPrices : $this->cabinPrices->where('is_sold_out', false);
+        $doubles = $prices->pluck('price_double')->map(fn ($p) => (float) $p);
         if ($doubles->isEmpty()) {
             return null;
         }
         $priced = $doubles->filter(fn ($p) => $p > 0);
 
         return ($priced->isNotEmpty() ? $priced : $doubles)->min() / 2;
+    }
+
+    /** Has cabin prices, and every one of those cabins is sold out. */
+    public function isFullySoldOut(): bool
+    {
+        return $this->cabinPrices->isNotEmpty() && $this->cabinPrices->every(fn ($p) => $p->is_sold_out);
     }
 }

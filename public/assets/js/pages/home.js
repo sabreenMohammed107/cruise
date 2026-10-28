@@ -88,32 +88,34 @@ document.addEventListener('sc:ready', () => {
   const firstSailing = sailings[0];
   const cabins = SC.cabinsSorted();
   let cab = cabins[0], photo = 0;
-  $('#cabin-tabs').innerHTML = cabins.map((c, i) => `<button class="chip shrink-0 ${i === 0 ? 'is-active' : ''}" role="tab" aria-selected="${i === 0}" data-cabin-tab="${c.id}">${c.nameEn}</button>`).join('');
+  $('#cabin-tabs').innerHTML = cabins.map((c, i) => `<button class="shrink-0 rounded-full px-4 py-2 text-sm font-semibold text-muted transition hover:text-ocean-700 aria-selected:bg-ocean-600 aria-selected:text-white aria-selected:shadow-sm" role="tab" aria-selected="${i === 0}" data-cabin-tab="${c.id}">${c.nameEn}</button>`).join('');
   const showPhoto = () => {
     const img = $('#cs-main');
     img.style.opacity = 0;
     setTimeout(() => { img.dataset.fb = ''; img.src = cab.images[photo]; img.alt = SC.t('ui.cabin.photo_alt', { cabin: cab.nameEn, n: photo + 1 }); img.style.opacity = 1; }, 150);
     $('#cs-count').textContent = `${photo + 1} / ${cab.images.length}`;
-    $$('#cs-thumbs button').forEach((b, i) => { b.classList.toggle('ring-2', i === photo); b.classList.toggle('opacity-60', i !== photo); });
+    $$('#cs-thumbs button').forEach((b, i) => { b.classList.toggle('ring-2', i === photo); b.classList.toggle('opacity-60', i !== photo); b.setAttribute('aria-current', i === photo); });
   };
   const renderCabin = () => {
     const from = SC.prices(firstSailing.cruise, firstSailing.sailing, cab.id).perPerson;
     const badge = $('#cs-badge'); badge.textContent = cab.badge; badge.classList.toggle('hidden', !cab.badge);
-    $('#cs-thumbs').innerHTML = cab.images.map((src, i) => `<button class="shrink-0 w-20 h-14 sm:w-24 sm:h-16 rounded-xl overflow-hidden ring-white transition" data-cs-thumb="${i}" aria-label="${SC.t('ui.cabin.show_photo', { n: i + 1 })}"><img src="${src}" alt="" class="w-full h-full object-cover"></button>`).join('');
-    const spec = (icon, label, val) => `<div class="flex gap-3"><span class="grid place-items-center w-10 h-10 rounded-xl bg-ocean-50 text-ocean-600 shrink-0">${SC.icon(icon)}</span><div><p class="text-xs font-semibold text-muted">${label}</p><p class="font-bold text-sm">${val}</p></div></div>`;
+    $('#cs-thumbs').innerHTML = cab.images.map((src, i) => `<button class="shrink-0 w-24 sm:w-28 aspect-[4/3] rounded-2xl overflow-hidden ring-ocean-600 ring-offset-2 transition hover:opacity-100" data-cs-thumb="${i}" aria-label="${SC.t('ui.cabin.show_photo', { n: i + 1 })}"><img src="${src}" alt="" loading="lazy" class="w-full h-full object-cover"></button>`).join('');
+    // Specs as one tidy 2×2 block of equal tiles
+    const spec = (icon, label, val) => `<div class="flex items-start gap-3 rounded-2xl bg-ocean-50/50 p-3"><span class="grid place-items-center w-9 h-9 rounded-xl bg-white text-ocean-600 shadow-sm shrink-0">${SC.icon(icon, 'w-[18px] h-[18px]')}</span><div class="min-w-0"><p class="text-[0.7rem] font-semibold text-muted">${label}</p><p class="font-bold text-sm leading-snug">${val}</p></div></div>`;
     $('#cs-info').innerHTML = `
       ${SC.lang() === 'ar' ? '' : `<p class="text-sm text-muted" lang="ar" dir="rtl">${cab.nameAr}</p>`}
-      <h3 class="font-display font-bold text-2xl sm:text-3xl mt-1">${cab.nameEn}</h3>
-      <p class="mt-4 leading-relaxed text-ink/90">${cab.description}</p>
-      <div class="grid grid-cols-2 gap-4 mt-6">
+      <h3 class="font-display font-bold text-2xl sm:text-[1.75rem] leading-tight mt-1">${cab.nameEn}</h3>
+      <p class="mt-3 text-[0.95rem] leading-relaxed text-ink/80 line-clamp-3">${cab.description}</p>
+      <div class="grid grid-cols-2 gap-2.5 mt-5">
         ${spec('users', SC.t('ui.cabin.guests'), SC.t('ui.guests_up_to', { count: cab.maxGuests }))}
         ${spec('size', SC.t('ui.cabin.size'), cab.size)}
         ${spec('sun', SC.t('ui.cabin.balcony'), cab.balcony ? cab.balcony : SC.t('ui.cabin.no_balcony'))}
         ${spec('bed', SC.t('ui.cabin.beds'), cab.beds.split(/[,،]/)[0])}
       </div>
-      <ul class="mt-6 grid gap-2 text-sm">${cab.features.slice(0, 4).map((f) => `<li class="flex items-center gap-2.5">${SC.icon('check', 'w-4 h-4 text-lagoon-600')}${f}</li>`).join('')}</ul>
-      <div class="mt-auto pt-6 border-t border-line flex flex-wrap items-end justify-between gap-4">
-        <div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p><p class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(from)}</p></div>
+      <ul class="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">${cab.features.slice(0, 4).map((f) => `<li class="flex items-start gap-2 leading-snug">${SC.icon('check', 'w-4 h-4 mt-0.5 text-lagoon-600 shrink-0')}<span>${f}</span></li>`).join('')}</ul>
+      <div class="flex-1 min-h-6" aria-hidden="true"></div>
+      <div class="pt-5 border-t border-line flex flex-wrap items-center justify-between gap-4">
+        <div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p><p class="font-display font-bold text-[1.75rem] leading-none mt-1 text-ocean-800 tabular">${SC.money(from)}</p></div>
         <div class="flex gap-2">
           <button class="btn btn-outline btn-sm" data-cabin-info="${cab.id}">${SC.t('ui.cabin.all_details')}</button>
           <a href="${SC.route('catalog')}?cabins=${cab.id}" class="btn btn-accent btn-sm">${SC.t('ui.cabin.find_sailings')}</a>

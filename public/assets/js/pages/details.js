@@ -113,10 +113,11 @@ document.addEventListener('sc:ready', () => {
   const renderDates = () => {
     $('#d-dates').innerHTML = upcoming.map((s) => {
       const on = s.id === sailing.id;
-      const from = SC.sailingView(cruise, s).fromPrice;
+      const { fromPrice: from, allSoldOut } = SC.sailingView(cruise, s);
       return `<button role="radio" aria-checked="${on}" data-sailing="${s.id}" class="text-start rounded-2xl border-2 px-4 py-3 transition ${on ? 'border-ocean-600 bg-ocean-50' : 'border-line bg-white hover:border-ocean-300'}">
         <span class="block font-bold">${SC.fmtDate(s.departure, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span>
-        <span class="block text-sm text-muted">${SC.t('ui.details.from_pp', { price: SC.money(from) })}</span>
+        <span class="block text-sm text-muted">${Number.isFinite(from) ? SC.t('ui.details.from_pp', { price: SC.money(from) }) : SC.t('ui.details.sold_out')}</span>
+        ${allSoldOut ? `<span class="block text-xs font-bold text-rose-600">${SC.t('ui.details.sold_out')}</span>` : ''}
       </button>`;
     }).join('');
   };

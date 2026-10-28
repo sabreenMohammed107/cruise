@@ -185,22 +185,25 @@
             <p class="mt-2 text-muted">{{ $cabins->bi('body') }}</p>
           @endif
         </div>
-        <div class="flex gap-2 overflow-x-auto no-scrollbar max-w-full" role="tablist" aria-label="{{ __('pages.home.cabin_categories') }}" id="cabin-tabs"></div>
+        <!-- Segmented category switcher -->
+        <div class="flex gap-1 p-1 rounded-full bg-white border border-line overflow-x-auto no-scrollbar max-w-full shadow-sm" role="tablist" aria-label="{{ __('pages.home.cabin_categories') }}" id="cabin-tabs"></div>
       </div>
 
-      <div class="mt-8 grid lg:grid-cols-[1.65fr_1fr] gap-6 items-stretch">
-        <!-- Big photo stage -->
-        <div class="relative rounded-[28px] overflow-hidden bg-ocean-900 aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:min-h-[580px]" id="cs-stage">
-          <img id="cs-main" src="" alt="" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300">
-          <div class="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-ocean-900/80 to-transparent pointer-events-none"></div>
-          <span id="cs-badge" class="absolute top-4 start-4 tag tag-sun hidden"></span>
-          <span id="cs-count" class="absolute top-4 end-4 rounded-full bg-ocean-900/60 text-white text-xs font-bold px-3 py-1.5 tabular"></span>
-          <button class="icon-btn absolute start-4 top-1/2 -translate-y-1/2 !bg-white/90 !border-transparent" id="cs-prev" aria-label="{{ __('pages.home.previous_photo') }}"><i data-icon="chevron-left" class="w-5 h-5 rtl:rotate-180"></i></button>
-          <button class="icon-btn absolute end-4 top-1/2 -translate-y-1/2 !bg-white/90 !border-transparent" id="cs-next" aria-label="{{ __('pages.home.next_photo') }}"><i data-icon="chevron-right" class="w-5 h-5 rtl:rotate-180"></i></button>
-          <div id="cs-thumbs" class="absolute bottom-4 start-4 end-4 flex gap-2 overflow-x-auto no-scrollbar"></div>
+      <div class="mt-8 grid lg:grid-cols-[1.4fr_1fr] gap-6 lg:gap-8 items-stretch">
+        <!-- Gallery: photo at a fixed ratio, thumbnails in a row underneath (never on top of the photo) -->
+        <div class="flex flex-col gap-3 min-w-0">
+          <div class="group relative rounded-3xl overflow-hidden bg-ocean-900 aspect-[3/2] shadow-[0_24px_48px_-28px_rgba(12,45,78,.45)]" id="cs-stage">
+            <img id="cs-main" src="" alt="" class="absolute inset-0 w-full h-full object-cover transition-[opacity,transform] duration-500 group-hover:scale-[1.02]">
+            <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-ocean-900/50 to-transparent pointer-events-none"></div>
+            <span id="cs-badge" class="absolute top-4 start-4 tag tag-sun shadow-sm hidden"></span>
+            <span id="cs-count" class="absolute bottom-4 end-4 rounded-full bg-ocean-900/70 backdrop-blur text-white text-xs font-bold px-3 py-1.5 tabular" dir="ltr"></span>
+            <button class="icon-btn absolute start-4 top-1/2 -translate-y-1/2 !bg-white/95 !border-transparent shadow-md transition lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100" id="cs-prev" aria-label="{{ __('pages.home.previous_photo') }}"><i data-icon="chevron-left" class="w-5 h-5 rtl:rotate-180"></i></button>
+            <button class="icon-btn absolute end-4 top-1/2 -translate-y-1/2 !bg-white/95 !border-transparent shadow-md transition lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100" id="cs-next" aria-label="{{ __('pages.home.next_photo') }}"><i data-icon="chevron-right" class="w-5 h-5 rtl:rotate-180"></i></button>
+          </div>
+          <div id="cs-thumbs" class="flex gap-3 overflow-x-auto no-scrollbar p-1 -m-1"></div>
         </div>
         <!-- Details -->
-        <div class="card p-6 sm:p-8 flex flex-col" id="cs-info" aria-live="polite"></div>
+        <div class="card p-6 sm:p-7 flex flex-col shadow-[0_24px_48px_-32px_rgba(12,45,78,.35)]" id="cs-info" aria-live="polite"></div>
       </div>
     </section>
 

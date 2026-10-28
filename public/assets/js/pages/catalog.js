@@ -11,10 +11,12 @@ document.addEventListener('sc:ready', () => {
   const DEFAULT_SORT = 'date';
   // Laravel (step 22): the active highlights of Admin → Cruises → Highlights, in their order
   const HIGHLIGHTS = (D.highlights || []).map((h) => [h.key, h.label]);
-  const priceMin = Math.floor(Math.min(...ALL.map((s) => s.fromPrice)) / 50) * 50;
+  // Fully sold-out sailings have fromPrice = Infinity: kept out of the slider range
+  const priced = ALL.filter((s) => Number.isFinite(s.fromPrice));
+  const priceMin = Math.floor(Math.min(...priced.map((s) => s.fromPrice)) / 50) * 50 || 0;
   // Laravel: top of the price slider from the cabins each sailing really has (a fixed 'suite' id crashed the page when that cabin was renamed or removed)
   const topPrice = (s) => Math.max(s.fromPrice, ...Object.keys(s.sailing.prices || {}).map((id) => SC.prices(s.cruise, s.sailing, id).perPerson));
-  const priceMax = Math.ceil(Math.max(...ALL.map(topPrice)) / 50) * 50;
+  const priceMax = Math.ceil(Math.max(...priced.map(topPrice)) / 50) * 50 || 0;
 
   /* ---------- State (initialised from URL) ---------- */
   const qs = SC.params();
@@ -67,8 +69,11 @@ document.addEventListener('sc:ready', () => {
 
   /* ---------- Filtering ---------- */
   // Effective price: "From, per person" (lowest Double ÷ 2, SC.fromPrice) among the selected (and available) cabin types
-  const priceFor = (s) => SC.fromPrice(s.cruise, s.sailing,
-    state.cabins.length ? s.availableCabins.filter((c) => state.cabins.includes(c)) : s.availableCabins);
+  // (all cabins sold out → their prices, as on the card)
+  const priceFor = (s) => {
+    const ids = s.allSoldOut ? Object.keys(s.sailing.prices || {}) : s.availableCabins;
+    return SC.fromPrice(s.cruise, s.sailing, state.cabins.length ? ids.filter((c) => state.cabins.includes(c)) : ids);
+  };
   const hasHighlight = (s, h) => s.tags.includes(h);
 
   const filtered = () => {
@@ -82,13 +87,19 @@ document.addEventListener('sc:ready', () => {
       (!state.nights.length || state.nights.includes(s.nights)) &&
       (!state.ships.length || state.ships.includes(s.cruise.shipId)) &&
       (!state.highlights.length || state.highlights.every((h) => hasHighlight(s, h))) &&
-      priceFor(s) <= state.maxPrice);
+      // sold out (no price) only shows while the price slider is at its top
+      (Number.isFinite(priceFor(s)) ? priceFor(s) <= state.maxPrice : state.maxPrice >= priceMax));
     list = list.map((s) => ({ ...s, fromPrice: priceFor(s) }));
+    // Sold out (Infinity) goes last in both price orders
+    const byPrice = (dir) => (a, b) => {
+      const fa = Number.isFinite(a.fromPrice), fb = Number.isFinite(b.fromPrice);
+      return fa && fb ? dir * (a.fromPrice - b.fromPrice) : fb - fa;
+    };
     const sorters = {
       popular: (a, b) => b.popularity - a.popularity || a.departure.localeCompare(b.departure),
       date: (a, b) => a.departure.localeCompare(b.departure),
-      'price-asc': (a, b) => a.fromPrice - b.fromPrice,
-      'price-desc': (a, b) => b.fromPrice - a.fromPrice,
+      'price-asc': byPrice(1),
+      'price-desc': byPrice(-1),
       rating: (a, b) => b.rating - a.rating || b.reviews - a.reviews
     };
     return list.sort(sorters[state.sort]);
