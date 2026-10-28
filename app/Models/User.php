@@ -92,12 +92,17 @@ class User extends Authenticatable
         return $this->role === UserRole::Admin;
     }
 
+    public function isSupervisor(): bool
+    {
+        return $this->role === UserRole::Supervisor;
+    }
+
     public function isSeller(): bool
     {
         return $this->role === UserRole::Seller;
     }
 
-    /** Admins and sellers: can sign in to the admin panel. */
+    /** Admins, supervisors and sellers: can sign in to the admin panel. */
     public function isStaff(): bool
     {
         return (bool) $this->role?->isStaff();

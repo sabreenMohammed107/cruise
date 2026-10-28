@@ -7,6 +7,8 @@ enum UserRole: string
     case Customer = 'customer';
     /** Sales staff: signs in to the admin panel and works on the bookings assigned to them. */
     case Seller = 'seller';
+    /** Runs the panel day to day: adds and edits everything and assigns bookings, but can't delete or manage people. */
+    case Supervisor = 'supervisor';
     case Admin = 'admin';
 
     public function label(): string
@@ -14,6 +16,7 @@ enum UserRole: string
         return match ($this) {
             self::Customer => 'Customer',
             self::Seller => 'Seller',
+            self::Supervisor => 'Supervisor',
             self::Admin => 'Admin',
         };
     }
@@ -27,6 +30,6 @@ enum UserRole: string
     /** @return list<self> */
     public static function staff(): array
     {
-        return [self::Admin, self::Seller];
+        return [self::Admin, self::Supervisor, self::Seller];
     }
 }

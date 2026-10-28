@@ -21,7 +21,7 @@
     <div class="flex flex-wrap gap-2">
       <a href="{{ route('booking.confirmation', $booking) }}" target="_blank" class="btn btn-outline btn-sm"><i data-icon="download" class="w-4 h-4"></i> Guest voucher</a>
       <a href="https://wa.me/{{ ltrim($booking->contact_dial, '+') }}{{ $booking->contact_phone }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm"><i data-icon="chat" class="w-4 h-4"></i> WhatsApp guest</a>
-      @if (! $cancelled && auth()->user()->can('admin'))
+      @if (! $cancelled && auth()->user()->can('manage-content'))
         <form method="POST" action="{{ route('admin.bookings.cancel', $booking) }}" onsubmit="return confirm('Cancel booking {{ $booking->reference }}? The guest is not notified automatically.')">
           @csrf
           <button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Cancel booking</button>
@@ -113,10 +113,10 @@
 
     {{-- Payments --}}
     <aside class="grid gap-6 xl:sticky xl:top-[88px]">
-      {{-- Assigned seller: admins choose, the seller sees it --}}
+      {{-- Assigned seller: admins and supervisors choose, the seller sees it --}}
       <section class="card p-5">
         <h2 class="font-display font-semibold text-lg">Assigned seller</h2>
-        @can('admin')
+        @can('assign-bookings')
           <form method="POST" action="{{ route('admin.bookings.seller', $booking) }}" class="mt-3 flex gap-2">
             @csrf @method('PATCH')
             <label for="seller_id" class="sr-only">Seller</label>
@@ -130,7 +130,11 @@
           </form>
           @error('seller_id')<p class="err show">{{ $message }}</p>@enderror
           @if ($sellers->isEmpty())
-            <p class="text-xs text-muted mt-2">No sellers yet. Add one in <a href="{{ route('admin.users.create') }}" class="underline">Admins &amp; staff</a> with the Seller role.</p>
+            @can('manage-users')
+              <p class="text-xs text-muted mt-2">No sellers yet. Add one in <a href="{{ route('admin.users.create') }}" class="underline">Admins &amp; staff</a> with the Seller role.</p>
+            @else
+              <p class="text-xs text-muted mt-2">No sellers yet. Ask an admin to add one.</p>
+            @endcan
           @endif
         @else
           <p class="mt-2 font-bold">{{ $booking->seller?->name ?? 'Unassigned' }}</p>
@@ -161,7 +165,7 @@
                 </div>
                 <div class="text-end shrink-0">
                   <p class="font-bold tabular">{{ $refund ? '−' : '' }}{{ Format::money($p->amount, 2) }}</p>
-                  @can('admin')
+                  @can('delete-records')
                     <form method="POST" action="{{ route('admin.bookings.payments.destroy', [$booking, $p]) }}" onsubmit="return confirm('Remove this entry?')">
                       @csrf @method('DELETE')
                       <button class="text-xs text-muted hover:text-[#C42F2F] underline">Remove</button>

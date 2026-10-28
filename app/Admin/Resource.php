@@ -6,6 +6,7 @@ use App\Support\MediaLibrary;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Describes one admin CRUD screen. Admin\ResourceController and the views in
@@ -29,6 +30,9 @@ abstract class Resource
 
     /** Columns searched by the index search box. */
     public static array $search = [];
+
+    /** Gate for adding and editing records (routes/admin.php); null: everyone with the panel's content screens. */
+    public static ?string $ability = null;
 
     /** @return list<Field> */
     abstract public static function fields(): array;
@@ -75,6 +79,12 @@ abstract class Resource
     public static function canCreate(): bool
     {
         return true;
+    }
+
+    /** Can the signed-in user add and edit records here? Without it the screen is a read-only list. */
+    public static function editable(): bool
+    {
+        return static::$ability === null || Gate::allows(static::$ability);
     }
 
     public static function canDelete(Model $record): bool

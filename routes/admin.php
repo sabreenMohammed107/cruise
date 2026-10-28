@@ -17,8 +17,10 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Admin panel — /admin (registered in bootstrap/app.php)
 |--------------------------------------------------------------------------
-| Staff (admins and sellers) can open the dashboard and bookings; a seller only sees and works on the
-| bookings assigned to them (checked in Admin\BookingController). Everything else is for admins.
+| Staff (admins, supervisors and sellers) can open the dashboard and bookings; a seller only sees and works on
+| the bookings assigned to them (checked in Admin\BookingController). Everything else is for admins and
+| supervisors, except that supervisors can't delete anything (Middleware\AuthorizeDeletes, every DELETE here)
+| or add and edit people (Customers, Admins & staff: gate "manage-users").
 */
 
 Route::get('/', DashboardController::class)->name('dashboard');
@@ -29,11 +31,11 @@ Route::get('bookings/{booking:reference}', [BookingController::class, 'show'])->
 Route::patch('bookings/{booking:reference}', [BookingController::class, 'update'])->name('bookings.update');
 Route::post('bookings/{booking:reference}/payments', [BookingController::class, 'storePayment'])->name('bookings.payments.store');
 
-Route::middleware('can:admin')->group(function () {
-    // Admins: cancel, remove payment entries, and assign bookings to sellers
+Route::middleware('can:manage-content')->group(function () {
+    // Admins and supervisors: cancel, assign bookings to sellers, and remove payment entries (a delete: admins only)
     Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
     Route::delete('bookings/{booking:reference}/payments/{payment}', [BookingController::class, 'destroyPayment'])->name('bookings.payments.destroy');
-    Route::patch('bookings/{booking:reference}/seller', [BookingController::class, 'assignSeller'])->name('bookings.seller');
+    Route::patch('bookings/{booking:reference}/seller', [BookingController::class, 'assignSeller'])->name('bookings.seller')->middleware('can:assign-bookings');
 
     // Customers: details page and spreadsheet export (list / edit are the generic screens below)
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
@@ -77,15 +79,17 @@ Route::middleware('can:admin')->group(function () {
     // Media library behind every photo field: images on the server + photo URLs in use (JSON pages)
     Route::get('media-library', MediaLibraryController::class)->name('media-library');
 
-    // Generic CRUD screens (config/admin.php)
+    // Generic CRUD screens (config/admin.php). A resource with its own $ability (people) is read-only without it.
     foreach (collect(config('admin.resources'))->flatten() as $resource) {
-        Route::prefix($resource::$slug)->name($resource::$slug.'.')->group(function () use ($resource) {
+        $write = $resource::$ability ? ['can:'.$resource::$ability] : [];
+
+        Route::prefix($resource::$slug)->name($resource::$slug.'.')->group(function () use ($resource, $write) {
             Route::get('/', [ResourceController::class, 'index'])->name('index')->defaults('resource', $resource);
-            Route::get('create', [ResourceController::class, 'create'])->name('create')->defaults('resource', $resource);
-            Route::post('/', [ResourceController::class, 'store'])->name('store')->defaults('resource', $resource);
-            Route::get('{id}/edit', [ResourceController::class, 'edit'])->name('edit')->defaults('resource', $resource)->whereNumber('id');
-            Route::put('{id}', [ResourceController::class, 'update'])->name('update')->defaults('resource', $resource)->whereNumber('id');
-            Route::delete('{id}', [ResourceController::class, 'destroy'])->name('destroy')->defaults('resource', $resource)->whereNumber('id');
+            Route::get('create', [ResourceController::class, 'create'])->name('create')->defaults('resource', $resource)->middleware($write);
+            Route::post('/', [ResourceController::class, 'store'])->name('store')->defaults('resource', $resource)->middleware($write);
+            Route::get('{id}/edit', [ResourceController::class, 'edit'])->name('edit')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
+            Route::put('{id}', [ResourceController::class, 'update'])->name('update')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
+            Route::delete('{id}', [ResourceController::class, 'destroy'])->name('destroy')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
         });
     }
 

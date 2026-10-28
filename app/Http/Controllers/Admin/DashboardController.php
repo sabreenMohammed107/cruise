@@ -11,7 +11,7 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    /** Admins see every booking; a seller sees the figures and lists for the bookings assigned to them. */
+    /** Admins and supervisors see every booking; a seller sees the figures and lists for the bookings assigned to them. */
     public function __invoke(Request $request): View
     {
         $user = $request->user();
@@ -29,8 +29,8 @@ class DashboardController extends Controller
             ],
             'awaiting' => $awaiting->with(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'seller'])->oldest('confirmed_at')->limit(10)->get(),
             'recent' => $bookings()->with(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'seller'])->latest('confirmed_at')->limit(8)->get(),
-            // Sailings (and their price screens) are for admins
-            'sailings' => $user->isAdmin() ? Sailing::upcoming()->with('cruise')
+            // Sailings (and their price screens) are for admins and supervisors
+            'sailings' => $user->can('manage-content') ? Sailing::upcoming()->with('cruise')
                 ->whereHas('cruise', fn ($q) => $q->withoutTrashed())
                 ->withCount(['bookings as booked_count' => fn ($q) => $q->where('status', BookingStatus::Confirmed)])
                 ->withSum(['bookings as adults_sum' => fn ($q) => $q->where('status', BookingStatus::Confirmed)], 'adults')

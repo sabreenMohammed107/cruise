@@ -26,17 +26,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Signing in to /admin: admins and sellers (routes use can:admin-panel).
+        // Signing in to /admin: admins, supervisors and sellers (routes use can:admin-panel).
         Gate::define('admin-panel', fn (User $user) => $user->isStaff());
-        // Everything in the panel except the dashboard and a seller's own bookings (can:admin, routes/admin.php).
-        Gate::define('admin', fn (User $user) => $user->isAdmin());
-        // A booking's admin page and voucher: admins, and the seller it is assigned to.
-        Gate::define('view-booking', fn (User $user, Booking $booking) => $user->isAdmin()
+        // Everything in the panel except the dashboard and a seller's own bookings (can:manage-content, routes/admin.php).
+        Gate::define('manage-content', fn (User $user) => $user->isAdmin() || $user->isSupervisor());
+        // Deleting anything: admins only (every DELETE in the panel, Middleware\AuthorizeDeletes).
+        Gate::define('delete-records', fn (User $user) => $user->isAdmin());
+        // Adding and editing people (Customers, Admins & staff): admins only; supervisors can look at the lists.
+        Gate::define('manage-users', fn (User $user) => $user->isAdmin());
+        // Choosing a booking's seller: admins and supervisors.
+        Gate::define('assign-bookings', fn (User $user) => $user->isAdmin() || $user->isSupervisor());
+        // A booking's admin page and voucher: admins, supervisors, and the seller it is assigned to.
+        Gate::define('view-booking', fn (User $user, Booking $booking) => $user->can('manage-content')
             || ($user->isSeller() && $booking->seller_id === $user->id));
 
-        // Bookings screens: the sellers an admin can assign a booking to (sellers themselves get none)
+        // Bookings screens: the sellers a booking can be assigned to (sellers themselves get none)
         View::composer(['admin.bookings.index', 'admin.bookings.table', 'admin.bookings.show'], function ($view) {
-            $view->with('sellers', auth('admin')->user()?->isAdmin()
+            $view->with('sellers', auth('admin')->user()?->can('assign-bookings')
                 ? User::sellers()->orderBy('name')->get(['id', 'name'])
                 : collect());
         });

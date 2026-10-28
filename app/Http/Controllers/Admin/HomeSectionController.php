@@ -7,6 +7,7 @@ use App\Models\HomeSection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -209,6 +210,8 @@ class HomeSectionController extends Controller
                 continue; // not one of this section's cards
             }
             if (! empty($values['delete'])) {
+                // A delete sent with the form (PUT), so Middleware\AuthorizeDeletes doesn't see it
+                Gate::authorize('delete-records');
                 $item->delete();
                 continue;
             }

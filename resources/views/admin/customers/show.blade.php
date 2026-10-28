@@ -16,7 +16,9 @@
         <a href="https://wa.me/{{ ltrim((string) $customer->phone_dial, '+') }}{{ $customer->phone }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm"><i data-icon="chat" class="w-4 h-4"></i> WhatsApp</a>
       @endif
       <a href="mailto:{{ $customer->email }}" class="btn btn-outline btn-sm"><i data-icon="mail" class="w-4 h-4"></i> Email</a>
-      <a href="{{ route('admin.customers.edit', $customer->id) }}" class="btn btn-primary btn-sm"><i data-icon="edit" class="w-4 h-4"></i> Edit</a>
+      @can('manage-users')
+        <a href="{{ route('admin.customers.edit', $customer->id) }}" class="btn btn-primary btn-sm"><i data-icon="edit" class="w-4 h-4"></i> Edit</a>
+      @endcan
     </div>
   </div>
 

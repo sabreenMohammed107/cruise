@@ -19,9 +19,11 @@
     @if ($sailing)
       <div class="flex flex-wrap gap-2">
         <a href="{{ route('cruises.show', $cruise) }}?sailing={{ $sailing->code }}" target="_blank" class="btn btn-ghost btn-sm"><i data-icon="external" class="w-4 h-4"></i> View on site</a>
-        <form method="POST" action="{{ route('admin.sailings.destroy', $sailing) }}" onsubmit="return confirm('Delete sailing {{ $sailing->code }}?')">
-          @csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Delete</button>
-        </form>
+        @can('delete-records')
+          <form method="POST" action="{{ route('admin.sailings.destroy', $sailing) }}" onsubmit="return confirm('Delete sailing {{ $sailing->code }}?')">
+            @csrf @method('DELETE')<button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Delete</button>
+          </form>
+        @endcan
       </div>
     @endif
   </div>

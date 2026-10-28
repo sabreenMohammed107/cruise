@@ -6,7 +6,7 @@
 @section('content')
   <div class="flex flex-wrap items-center justify-between gap-3">
     <h1 class="font-display font-bold text-2xl sm:text-3xl">{{ $resource::$label }}</h1>
-    @if ($resource::canCreate())
+    @if ($resource::canCreate() && $resource::editable())
       <a href="{{ route($resource::routeName('create')) }}" class="btn btn-primary btn-sm"><i data-icon="plus" class="w-4 h-4"></i> New {{ strtolower($resource::$singular) }}</a>
     @endif
   </div>
@@ -65,8 +65,11 @@
                 @foreach ($resource::rowActions($record) as $label => $url)
                   <a href="{{ $url }}" class="btn btn-ghost btn-sm">{{ $label }}</a>
                 @endforeach
-                <a href="{{ route($resource::routeName('edit'), $record->getKey()) }}" class="btn btn-outline btn-sm"><i data-icon="edit" class="w-4 h-4"></i> Edit</a>
-                @if ($resource::canDelete($record))
+                @if ($resource::editable())
+                  <a href="{{ route($resource::routeName('edit'), $record->getKey()) }}" class="btn btn-outline btn-sm"><i data-icon="edit" class="w-4 h-4"></i> Edit</a>
+                @endif
+                {{-- Deleting: admins only (gate "delete-records") --}}
+                @if ($resource::editable() && auth()->user()->can('delete-records') && $resource::canDelete($record))
                   <form method="POST" action="{{ route($resource::routeName('destroy'), $record->getKey()) }}"
                         onsubmit="return confirm('Delete {{ addslashes($resource::$singular) }} “{{ addslashes((string) $record->getAttribute($resource::$title)) }}”? This can\'t be undone.')">
                     @csrf @method('DELETE')

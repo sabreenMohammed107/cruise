@@ -14,7 +14,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 /**
- * Admins & staff: people who sign in to the admin panel (admins and sellers). Website customers have
+ * Admins & staff: people who sign in to the admin panel (admins, supervisors and sellers). Website customers have
  * their own screen (CustomerResource). Changing someone's role moves them between the two screens.
  */
 class UserResource extends Resource
@@ -28,6 +28,9 @@ class UserResource extends Resource
     public static string $singular = 'Staff member';
 
     public static array $search = ['name', 'email', 'phone'];
+
+    /** People are added and edited by admins only; supervisors see the lists (also Customers). */
+    public static ?string $ability = 'manage-users';
 
     public static function query(): Builder
     {
@@ -46,7 +49,7 @@ class UserResource extends Resource
             // Staff roles only: customers are managed on their own screen (Customers)
             Field::select('role', 'Role', static::roleOptions(UserRole::staff()))->default(UserRole::Seller->value)
                 ->rules(['required', Rule::enum(UserRole::class)->only(UserRole::staff())])->index()
-                ->help('Admin: the whole panel. Seller: the dashboard and the bookings assigned to them.'),
+                ->help('Admin: the whole panel. Supervisor: adds and edits everything and assigns bookings, but can\'t delete or manage people. Seller: the dashboard and the bookings assigned to them.'),
             Field::number('assigned_bookings_count', 'Assigned bookings')->indexOnly(),
             static::passwordField(),
         ];

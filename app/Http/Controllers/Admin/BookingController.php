@@ -22,8 +22,8 @@ use Illuminate\View\View;
  * Bookings come from the website only. The team follows up on payment (offline), records
  * payments and refunds here, and cancels bookings when needed.
  *
- * Admins see every booking and assign them to sellers. A seller sees only the bookings assigned to
- * them, and can add notes and record payments on those (Gate "view-booking").
+ * Admins and supervisors see every booking and assign them to sellers. A seller sees only the bookings
+ * assigned to them, and can add notes and record payments on those (Gate "view-booking").
  */
 class BookingController extends Controller
 {
@@ -33,14 +33,14 @@ class BookingController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::enum(BookingStatus::class)],
             'payment' => ['nullable', Rule::enum(PaymentStatus::class)],
-            // a seller's id, or "none" for unassigned bookings (admins only)
+            // a seller's id, or "none" for unassigned bookings (admins and supervisors)
             'seller' => ['nullable', Rule::in(['none', ...User::sellers()->pluck('id')->map(fn ($id) => (string) $id)])],
         ]);
         $user = $request->user();
 
         $bookings = Booking::with(['sailing.cruise', 'cabinCategory', 'seller'])
             ->when($user->isSeller(), fn (Builder $query) => $query->where('seller_id', $user->id))
-            ->when($user->isAdmin() ? ($filters['seller'] ?? null) : null, fn (Builder $query, string $seller) => $seller === 'none'
+            ->when($user->can('assign-bookings') ? ($filters['seller'] ?? null) : null, fn (Builder $query, string $seller) => $seller === 'none'
                 ? $query->whereNull('seller_id')
                 : $query->where('seller_id', $seller))
             ->when($filters['q'] ?? null, function (Builder $query, string $q) {
@@ -88,7 +88,7 @@ class BookingController extends Controller
         return back()->with('status', "Booking {$booking->reference} cancelled. Record any refund below.");
     }
 
-    /** Assign the booking to a seller, or unassign it (empty seller_id). Admins only. */
+    /** Assign the booking to a seller, or unassign it (empty seller_id). Admins and supervisors; only sellers can be chosen. */
     public function assignSeller(Request $request, Booking $booking): RedirectResponse
     {
         $data = $request->validate([

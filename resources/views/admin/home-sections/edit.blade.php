@@ -145,10 +145,12 @@
                   @if ($e = $err($p.'.url'))<p class="err show">{{ $e }}</p>@endif
                 </div>
               @endif
-              <label class="flex items-center gap-2 cursor-pointer mt-8 text-sm text-[#C42F2F] font-semibold">
-                <input type="hidden" name="items[{{ $item->id }}][delete]" value="0">
-                <input type="checkbox" name="items[{{ $item->id }}][delete]" value="1" class="check" @checked(old($p.'.delete'))> Delete
-              </label>
+              @can('delete-records')
+                <label class="flex items-center gap-2 cursor-pointer mt-8 text-sm text-[#C42F2F] font-semibold">
+                  <input type="hidden" name="items[{{ $item->id }}][delete]" value="0">
+                  <input type="checkbox" name="items[{{ $item->id }}][delete]" value="1" class="check" @checked(old($p.'.delete'))> Delete
+                </label>
+              @endcan
             </div>
           @endforeach
           @foreach (old('new_items', []) as $n => $values)

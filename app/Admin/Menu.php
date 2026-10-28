@@ -9,7 +9,8 @@ use App\Models\ContactMessage;
 /**
  * The admin sidebar (admin.partials.nav), laid out like the safeer dashboard: single links with an icon,
  * and collapsible groups whose links have a bullet. The group holding the current page starts open.
- * Admins get the whole panel; sellers their dashboard and the bookings assigned to them.
+ * Admins get the whole panel; supervisors too, without the links for adding people; sellers their
+ * dashboard and the bookings assigned to them.
  *
  * Node: ['label', 'icon', 'href', 'active', 'badge'?, 'badge_title'?] or ['label', 'icon', 'children' => [...], 'active'].
  */
@@ -19,7 +20,7 @@ final class Menu
     public static function build(): array
     {
         $user = auth('admin')->user();
-        $nodes = $user?->isAdmin() ? self::admin() : self::seller((int) $user?->id);
+        $nodes = $user?->can('manage-content') ? self::admin($user->can('manage-users')) : self::seller((int) $user?->id);
 
         return array_map(fn ($node) => isset($node['children'])
             ? $node + ['active' => collect($node['children'])->contains('active', true)]
@@ -36,7 +37,7 @@ final class Menu
         ];
     }
 
-    private static function admin(): array
+    private static function admin(bool $managesUsers): array
     {
         $awaiting = Booking::awaitingPayment()->count();
 
@@ -77,12 +78,12 @@ final class Menu
 
             self::group('Customers', 'user', [
                 self::link('Customers list', null, 'admin.customers.index', ['admin.customers.index', 'admin.customers.edit', 'admin.customers.show']),
-                self::link('Add customer', null, 'admin.customers.create', ['admin.customers.create']),
+                ...($managesUsers ? [self::link('Add customer', null, 'admin.customers.create', ['admin.customers.create'])] : []),
             ]),
 
             self::group('Admins & staff', 'shield', [
                 self::link('Staff list', null, 'admin.users.index', ['admin.users.index', 'admin.users.edit']),
-                self::link('Add staff member', null, 'admin.users.create', ['admin.users.create']),
+                ...($managesUsers ? [self::link('Add staff member', null, 'admin.users.create', ['admin.users.create'])] : []),
             ]),
 
             self::group('Agents', 'award', [

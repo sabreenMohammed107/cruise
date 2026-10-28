@@ -40,12 +40,13 @@ admin on a real server: register on the site, then run):
 
 ```powershell
 C:\xampp\php\php.exe artisan user:make-admin someone@example.com            # give admin access
+C:\xampp\php\php.exe artisan user:make-admin someone@example.com --supervisor   # supervisor (adds and edits, no deleting or managing people)
 C:\xampp\php\php.exe artisan user:make-admin someone@example.com --seller   # seller (their assigned bookings only)
 C:\xampp\php\php.exe artisan user:make-admin someone@example.com --revoke   # back to customer
 ```
 
 An admin can also change roles under Admin → Customers (Account type) or Admin → Admins & staff (Role).
-Demo accounts (password `password`): `admin@safercruise.test`, `seller@safercruise.test`, `reem@example.com`.
+Demo accounts (password `password`): `admin@safercruise.test`, `supervisor@safercruise.test`, `seller@safercruise.test`, `reem@example.com`.
 
 ---
 
@@ -221,7 +222,7 @@ cruise routes**), `name_ar`, `country`, `image_slot`, `blurb`, `description`, `h
 **newsletter_subscribers**: `email` (unique), `subscribed_at`, `unsubscribed_at`.
 
 **users** (extended): `first_name`, `last_name`, `phone_dial`, `phone`, `date_of_birth`, `nationality`,
-`role` (`customer|admin`), `notification_prefs` (json). `name` is kept in step with first + last name.
+`role` (`customer|seller|supervisor|admin`), `notification_prefs` (json). `name` is kept in step with first + last name.
 
 **favorites**: `user_id`, `cruise_id`, timestamps. Primary key `(user_id, cruise_id)`.
 
@@ -1718,6 +1719,33 @@ code inside the field, and a dropdown of all **244 countries** (the 7 preferred 
 The language button in the mobile menu said "عربي (RTL)" on English pages and "English (LTR)" on Arabic pages. It now
 says just "عربي" / "English", like the header button (`site.nav.switch_language_long` in `lang/{en,ar}/site.php`).
 Checked at 390 px: the button still switches the language. Deploy: upload `lang/en/site.php` and `lang/ar/site.php`.
+
+### Step 27: Supervisor role (2026-10-28)
+
+A third staff role between admin and seller (`UserRole::Supervisor`, value `supervisor`; `users.role` is a string,
+so no migration).
+
+| | Admin | Supervisor | Seller |
+| :--- | :---: | :---: | :---: |
+| Add / edit cruises, content, bookings (cancel, notes, payments) | yes | yes | own bookings only |
+| Delete anything (records, payment entries, homepage cards) | yes | no | no |
+| Add / edit / delete people (Customers, Admins & staff) | yes | no, lists are read-only | no |
+| Assign bookings to sellers (only sellers can be chosen) | yes | yes | no |
+| Created by | admin | admin | admin |
+
+- Gates (`AppServiceProvider`): `manage-content` (admin, supervisor) replaces the old `admin` gate on the panel's
+  route group; `delete-records` and `manage-users` (admin); `assign-bookings` (admin, supervisor).
+- `Middleware\AuthorizeDeletes` (on the whole `/admin` group, `bootstrap/app.php`) requires `delete-records` for every
+  DELETE request, so new delete routes are covered without remembering to. The homepage-card "Delete" checkbox is
+  sent with a PUT, so `HomeSectionController::saveItems()` checks the gate itself.
+- `Resource::$ability`: a gate for adding and editing a generic CRUD screen (`manage-users` on Users and Customers);
+  without it the routes return 403 and the list shows no New / Edit / Delete buttons (`Resource::editable()`).
+- Hidden for supervisors: every Delete button, "Add staff member" / "Add customer" in the menu, the Edit button on a
+  customer's page.
+- `user:make-admin someone@example.com --supervisor`; demo account `supervisor@safercruise.test` / `password`.
+- Tests: new `SupervisorRoleTest` (8 tests).
+- **Deploy:** upload the files, then `php artisan route:clear`, `php artisan config:clear`, `php artisan view:clear`
+  (no migration).
 
 **Open items (next):**
 

@@ -13,10 +13,11 @@ use Illuminate\Console\Command;
 class MakeAdmin extends Command
 {
     protected $signature = 'user:make-admin {email : Email of an existing account}
+        {--supervisor : Make the account a supervisor (adds and edits, no deleting or managing people)}
         {--seller : Make the account a seller instead of an admin}
         {--revoke : Make the account a customer again}';
 
-    protected $description = 'Give an existing user access to the admin panel as an admin or seller (or take it away with --revoke)';
+    protected $description = 'Give an existing user access to the admin panel as an admin, supervisor or seller (or take it away with --revoke)';
 
     public function handle(): int
     {
@@ -30,6 +31,7 @@ class MakeAdmin extends Command
 
         $role = match (true) {
             (bool) $this->option('revoke') => UserRole::Customer,
+            (bool) $this->option('supervisor') => UserRole::Supervisor,
             (bool) $this->option('seller') => UserRole::Seller,
             default => UserRole::Admin,
         };

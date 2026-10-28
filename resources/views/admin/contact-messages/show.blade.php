@@ -34,8 +34,10 @@
     <p class="whitespace-pre-line break-words leading-relaxed" dir="auto">{{ $msg->message }}</p>
   </section>
 
-  <form method="POST" action="{{ route('admin.contact-messages.destroy', $msg) }}" class="mt-6" onsubmit="return confirm('Delete this message? This cannot be undone.')">
-    @csrf @method('DELETE')
-    <button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Delete message</button>
-  </form>
+  @can('delete-records')
+    <form method="POST" action="{{ route('admin.contact-messages.destroy', $msg) }}" class="mt-6" onsubmit="return confirm('Delete this message? This cannot be undone.')">
+      @csrf @method('DELETE')
+      <button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Delete message</button>
+    </form>
+  @endcan
 @endsection

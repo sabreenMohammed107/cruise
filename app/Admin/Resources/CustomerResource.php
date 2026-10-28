@@ -47,7 +47,7 @@ class CustomerResource extends UserResource
             Field::number('bookings_count', 'Bookings')->indexOnly(),
             Field::date('created_at', 'Registered')->indexOnly(),
             Field::select('role', 'Account type', static::roleOptions())->default(UserRole::Customer->value)->rules(['required', Rule::enum(UserRole::class)])
-                ->help('Choose Seller or Admin to give this person access to the admin panel (they move to Admins & staff).'),
+                ->help('Choose Seller, Supervisor or Admin to give this person access to the admin panel (they move to Admins & staff).'),
             static::passwordField(),
         ];
     }
