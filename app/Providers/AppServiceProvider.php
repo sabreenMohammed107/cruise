@@ -28,6 +28,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // The super admin (developer, UserRole::SuperAdmin) passes every check in the panel
+        Gate::before(fn (User $user) => $user->isSuperAdmin() ? true : null);
         // Signing in to /admin: admins, supervisors and sellers (routes use can:admin-panel).
         Gate::define('admin-panel', fn (User $user) => $user->isStaff());
         // Everything in the panel except the dashboard and a seller's own bookings (can:manage-content, routes/admin.php).

@@ -28,6 +28,9 @@
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Never the developer's real super admin from .env (SuperAdminTest sets its own) -->
+        <env name="SUPER_ADMIN_EMAIL" value="" force="true"/>
+        <env name="SUPER_ADMIN_PASSWORD" value="" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>

@@ -13,6 +13,13 @@ use App\Admin\Resources;
 
 return [
 
+    // The developer's hidden account (UserRole::SuperAdmin), made by Database\Seeders\SuperAdminSeeder.
+    // Only in .env (never in the code or git): SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD.
+    'super_admin' => [
+        'email' => env('SUPER_ADMIN_EMAIL'),
+        'password' => env('SUPER_ADMIN_PASSWORD'),
+    ],
+
     'resources' => [
         'Sailing' => [
             Resources\CruiseResource::class,

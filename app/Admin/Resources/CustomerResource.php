@@ -54,10 +54,10 @@ class CustomerResource extends UserResource
         ];
     }
 
-    /** @return list<UserRole> every role but Agent, admins first (as the select lists them) */
+    /** @return list<UserRole> customer and the staff roles, admins first (not Agent, nor the hidden super admin) */
     protected static function customerRoles(): array
     {
-        return array_values(array_filter(array_reverse(UserRole::cases()), fn (UserRole $r) => $r !== UserRole::Agent));
+        return [...UserRole::staff(), UserRole::Customer];
     }
 
     /**

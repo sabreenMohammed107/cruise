@@ -35,6 +35,11 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        // The developer's hidden super admin, when .env has SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD (any environment)
+        if (config('admin.super_admin.email') && config('admin.super_admin.password')) {
+            $this->call(SuperAdminSeeder::class);
+        }
+
         // Demo agent + a 10% agent rate: local only, the tests set their own rates
         if (app()->isLocal() && ! app()->runningUnitTests()) {
             $this->call(DemoAgentSeeder::class);

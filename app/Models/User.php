@@ -89,9 +89,15 @@ class User extends Authenticatable
         $this->notify(new ResetPassword($token));
     }
 
+    /** Admins, and the super admin (who can do everything an admin can, and is never shown in the panel). */
     public function isAdmin(): bool
     {
-        return $this->role === UserRole::Admin;
+        return $this->role === UserRole::Admin || $this->isSuperAdmin();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === UserRole::SuperAdmin;
     }
 
     public function isSupervisor(): bool

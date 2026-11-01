@@ -180,7 +180,7 @@
               <li class="px-5 py-3 flex items-start justify-between gap-3">
                 <div class="min-w-0">
                   <p class="font-bold {{ $refund ? 'text-[#C42F2F]' : '' }}">{{ $refund ? 'Refund' : 'Payment' }} · {{ Str::headline($p->method->value) }}</p>
-                  <p class="text-xs text-muted">{{ Format::date($p->received_at, 'j M Y') }}@if ($p->reference) · {{ $p->reference }}@endif @if ($p->recordedBy) · by {{ $p->recordedBy->first_name ?: $p->recordedBy->name }}@endif</p>
+                  <p class="text-xs text-muted">{{ Format::date($p->received_at, 'j M Y') }}@if ($p->reference) · {{ $p->reference }}@endif {{-- The hidden super admin is not named --}}@if ($p->recordedBy && ! $p->recordedBy->isSuperAdmin()) · by {{ $p->recordedBy->first_name ?: $p->recordedBy->name }}@endif</p>
                   @if ($p->notes)<p class="text-xs text-muted mt-0.5">{{ $p->notes }}</p>@endif
                 </div>
                 <div class="text-end shrink-0">
