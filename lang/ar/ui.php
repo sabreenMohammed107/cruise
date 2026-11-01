@@ -162,6 +162,11 @@ return [
         'tax_included' => 'شامل الضريبة',
         'total' => 'الإجمالي',
         'choose_to_see_total' => 'اختر كابينة لترى السعر الإجمالي.',
+        // الوكلاء المسجّلون: السعر الأصلي، العمولة، السعر بعد العمولة
+        'agent_original' => 'السعر الأصلي',
+        'agent_commission' => 'عمولة الوكيل (:percent%)',
+        'agent_commission_mixed' => 'عمولة الوكيل',
+        'agent_total' => 'السعر بعد العمولة',
         'continue_guests' => 'متابعة إلى بيانات الضيوف',
         'choose_cabin' => 'اختر كابينة',
         'choose_to_continue' => 'اختر كابينة للمتابعة',

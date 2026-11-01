@@ -16,6 +16,7 @@ use App\Models\SiteSetting;
 use App\Models\Ship;
 use App\Models\Testimonial;
 use App\Models\User;
+use App\Services\AgentPricing;
 use App\Services\CurrencyService;
 use Illuminate\Support\Collection;
 
@@ -44,7 +45,7 @@ class ScDataPresenter
             'exchangeRate' => $currency->rate(),
             'whatsappNumber' => SiteSetting::whatsapp(), // Admin → Footer & contact
             'routes' => $this->routes(),
-            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
+            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff(), 'isAgent' => $user->isAgent()] : null,
             'favorites' => $user ? $user->favorites()->pluck('slug')->all() : [],
             'images' => $this->scenes(),
             // Broken images fall back to core.js's placeholder drawing
@@ -58,7 +59,8 @@ class ScDataPresenter
             'promos' => (object) [],
             'ships' => $this->ships(),
             'cabins' => $this->cabins(),
-            'cruises' => $this->cruises(),
+            // Agents get their agent rates here, so every card, cruise page and quote shows them (AgentPricing)
+            'cruises' => $this->cruises(app(AgentPricing::class)->appliesTo($user) ? $user : null),
             // Admin → Cruises → Highlights: the filter on the cruises list and the tags on cards / cruise pages
             'highlights' => $this->highlights(),
             'destinations' => $this->destinations(),
@@ -89,7 +91,7 @@ class ScDataPresenter
             'currencySymbol' => config('cruise.currency_symbol'),
             'whatsappNumber' => SiteSetting::whatsapp(), // Admin → Footer & contact
             'routes' => $this->routes(),
-            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff()] : null,
+            'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff(), 'isAgent' => $user->isAgent()] : null,
             'favorites' => [],
             'imageFallbacks' => (object) [],
             'terms' => $this->terms(),
@@ -104,8 +106,6 @@ class ScDataPresenter
      */
     public function account(User $user): array
     {
-        $prefs = $user->notification_prefs ?? [];
-
         return [
             'profile' => [
                 'first' => $user->first_name ?? '',
@@ -115,11 +115,6 @@ class ScDataPresenter
                 'phone' => $user->phone ?? '',
                 'dob' => $user->date_of_birth?->toDateString() ?? '',
                 'nationality' => $user->nationality ?? '',
-                'notif' => [
-                    'offers' => (bool) ($prefs['offers'] ?? false),
-                    'whatsapp' => (bool) ($prefs['whatsapp'] ?? false),
-                    'reminders' => (bool) ($prefs['reminders'] ?? true),
-                ],
             ],
             'bookings' => $user->bookings()
                 ->with(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'travellers.cabin'])
@@ -194,7 +189,6 @@ class ScDataPresenter
             'logout' => route('logout'),
             'account' => route('account'),
             'accountProfile' => route('account.profile'),
-            'accountNotifications' => route('account.notifications'),
             'accountPassword' => route('account.password'),
             'favorite' => route('account.favorites.store', ['cruise' => '__cruise__']),
         ];
@@ -268,9 +262,29 @@ class ScDataPresenter
     /**
      * Active cruises with their bookable (upcoming, open) sailings. Cruises with no upcoming
      * sailing are left out, since every template page expects at least one departure.
+     *
+     * For an agent, "prices" are the agent prices of their type; "publicPrices" and "agentPercent" (by cabin) let the
+     * booking page show what the agent rate saves. SC.quote() reads them; BookingService charges the same.
      */
-    private function cruises(): array
+    private function cruises(?User $agent = null): array
     {
+        $agents = app(AgentPricing::class);
+        $tiers = fn ($p) => ['single' => (float) $p->price_single, 'double' => (float) $p->price_double, 'extra' => (float) $p->price_extra];
+        $sailingPrices = function (Sailing $sailing) use ($agent, $agents, $tiers) {
+            $prices = $sailing->cabinPrices->mapWithKeys(fn ($p) => [$p->cabinCategory->slug => $tiers($p)])->all();
+            if (! $agent) {
+                return ['prices' => $prices];
+            }
+            $percent = $sailing->cabinPrices->mapWithKeys(fn ($p) => [$p->cabinCategory->slug => $agents->percentFor($p->setRelation('sailing', $sailing), $agent)])->all();
+
+            return [
+                // single / double / extra only, like the public prices
+                'prices' => collect($prices)->map(fn ($p, $slug) => array_intersect_key(AgentPricing::discounted($p, $percent[$slug]), $p))->all(),
+                'publicPrices' => $prices,
+                'agentPercent' => $percent,
+            ];
+        };
+
         return Cruise::active()
             ->with([
                 'ship', 'itinerary', 'ports',
@@ -308,12 +322,8 @@ class ScDataPresenter
                     'id' => $sailing->code,
                     'departure' => $sailing->departure_date->toDateString(),
                     'soldOut' => $sailing->cabinPrices->where('is_sold_out', true)->map(fn ($p) => $p->cabinCategory->slug)->values()->all(),
-                    // Tiered cabin prices for the whole cruise (SC.prices / SC.quote in core.js)
-                    'prices' => $sailing->cabinPrices->mapWithKeys(fn ($p) => [$p->cabinCategory->slug => [
-                        'single' => (float) $p->price_single,
-                        'double' => (float) $p->price_double,
-                        'extra' => (float) $p->price_extra,
-                    ]])->all(),
+                    // Tiered cabin prices for the whole cruise (SC.prices / SC.quote in core.js), agent prices for agents
+                    ...$sailingPrices($sailing),
                 ])->all(),
             ])
             ->values()

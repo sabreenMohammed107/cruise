@@ -22,7 +22,7 @@ use Throwable;
  */
 class BookingService
 {
-    public function __construct(private PricingService $pricing, private CurrencyService $currency) {}
+    public function __construct(private PricingService $pricing, private CurrencyService $currency, private AgentPricing $agents) {}
 
     /**
      * A booking of one or more cabins on the same sailing (step 15).
@@ -44,6 +44,12 @@ class BookingService
                 $this->ensureAvailable($locked[$priceId], $wanted);
             }
 
+            // A signed-in agent pays their type's agent rate of each cabin (the same prices ScDataPresenter showed them)
+            $agent = $this->agents->appliesTo($user) ? $user : null;
+            if ($agent) {
+                $cabins = array_map(fn ($c) => $c + ['agentPercent' => $this->agents->percentFor($c['price'], $user)], $cabins);
+            }
+
             $quote = $this->pricing->quoteBooking($cabins, $promo);
             $first = $cabins[0]['price'];
             $sum = fn (string $band) => array_sum(array_map(fn ($c) => $c['guests'][$band], $cabins));
@@ -51,6 +57,9 @@ class BookingService
             $booking = Booking::create([
                 'reference' => Booking::generateReference($first->sailing->departure_date),
                 'user_id' => $user?->id,
+                // Agent booking (Admin → Bookings, channel "Agents"): who, and their type at booking time
+                'agent_id' => $agent?->id,
+                'agent_tier_id' => $agent?->agent_tier_id,
                 'sailing_id' => $first->sailing_id,
                 // first cabin and guest totals, for lists and exports
                 'cabin_category_id' => $first->cabin_category_id,
@@ -66,6 +75,7 @@ class BookingService
                 'fare_total' => $quote['fare'],
                 'fees_total' => $quote['fees'],
                 'discount_total' => $quote['discount'],
+                'agent_discount_total' => $quote['agent']['saving'] ?? 0,
                 'grand_total' => $quote['total'],
                 'currency' => config('cruise.currency'),
                 // What the guest saw (header USD / EGP switch), at today's rate: the voucher and guest email keep it

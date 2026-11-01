@@ -17,10 +17,19 @@
     <tbody>
       @forelse ($bookings as $b)
         <tr class="border-t border-line hover:bg-page">
-          <td class="p-3"><a href="{{ route('admin.bookings.show', $b) }}" class="font-bold text-ocean-700 hover:underline tabular">{{ $b->reference }}</a><p class="text-xs text-muted">{{ $b->contact_email }}</p></td>
+          <td class="p-3"><a href="{{ route('admin.bookings.show', $b) }}" class="font-bold text-ocean-700 hover:underline tabular">{{ $b->reference }}</a><p class="text-xs text-muted">{{ $b->contact_email }}</p>
+            {{-- Channel: agent (company · type at booking time) or B2C --}}
+            @if ($b->isAgentBooking())
+              <span class="inline-flex items-center gap-1 mt-1 rounded-full bg-[#E8F6EF] text-[#12805C] text-xs font-semibold px-2 py-0.5" title="Booked by an agent at agent rates">
+                Agent · {{ $b->agent?->company_name ?: ($b->agent?->name ?? 'deleted account') }}@if ($b->agentTier) · {{ $b->agentTier->name }}@endif
+              </span>
+            @else
+              <span class="inline-block mt-1 rounded-full bg-ocean-50 text-ocean-700 text-xs font-semibold px-2 py-0.5" title="Customer or guest checkout, public prices">B2C</span>
+            @endif
+          </td>
           <td class="p-3">{{ $b->sailing->cruise->name }}<p class="text-xs text-muted">{{ Format::date($b->sailing->departure_date) }} · {{ $b->cabinSummary() }}</p></td>
           <td class="p-3 whitespace-nowrap">{{ Format::guests($b->adults, $b->children, $b->infants) }}</td>
-          <td class="p-3 text-end tabular">{{ Format::money($b->grand_total) }}@if ($b->inDisplayCurrency())<p class="text-xs font-semibold text-[#5B2A86] whitespace-nowrap" title="What the guest saw, at the rate of the booking day">{{ $b->money($b->grand_total) }}</p>@endif</td>
+          <td class="p-3 text-end tabular">{{ Format::money($b->grand_total) }}@if ((float) $b->agent_discount_total > 0)<p class="text-xs font-semibold text-[#12805C] whitespace-nowrap" title="Agent commission, already taken off the total">Commission {{ Format::money($b->agent_discount_total, 2) }}</p>@endif @if ($b->inDisplayCurrency())<p class="text-xs font-semibold text-[#5B2A86] whitespace-nowrap" title="What the guest saw, at the rate of the booking day">{{ $b->money($b->grand_total) }}</p>@endif</td>
           <td class="p-3 text-end tabular font-bold">{{ $b->status === \App\Enums\BookingStatus::Cancelled ? '—' : Format::money($b->amountDue()) }}</td>
           <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b->status])@include('admin.partials.badge', ['status' => $b->payment_status])@include('admin.partials.currency-tag', ['booking' => $b])</div></td>
           <td class="p-3">

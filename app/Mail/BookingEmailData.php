@@ -73,6 +73,10 @@ final class BookingEmailData
                 __('emails.fare') => $money($booking->fare_total),
                 // Prices include tax since step 21; only older bookings have separate taxes and port fees
                 __('emails.fees') => (float) $booking->fees_total > 0 ? $money($booking->fees_total) : null,
+                // Agent bookings: the fare is already the agent fare, so this is shown, not taken off again
+                __('emails.agent_discount') => (float) $booking->agent_discount_total > 0
+                    ? __('emails.agent_saved', ['amount' => $money($booking->agent_discount_total)])
+                    : null,
                 ($booking->promoCode ? __('emails.discount_code', ['code' => $booking->promoCode->code]) : __('emails.discount'))
                     => (float) $booking->discount_total > 0 ? '−'.$money($booking->discount_total) : null,
             ]),

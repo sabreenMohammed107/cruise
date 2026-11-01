@@ -90,6 +90,9 @@ final class Menu
             self::group('Agents', 'award', [
                 self::link('Agent requests', null, 'admin.agent-requests.index', ['admin.agent-requests.*'])
                     + ['badge' => AgentApplication::pending()->count() ?: null, 'badge_title' => 'Pending'],
+                self::resource(Resources\AgentResource::class),
+                self::resource(Resources\AgentTierResource::class),
+                self::resource(Resources\AgentRateResource::class),
                 ['label' => 'Agents page texts', 'icon' => null, 'href' => route('admin.pages.index').'#page-agents', 'active' => request()->is('admin/pages/agents/*')],
             ]),
 

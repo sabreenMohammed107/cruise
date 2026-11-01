@@ -165,6 +165,11 @@ return [
         'tax_included' => 'Tax included',
         'total' => 'Total',
         'choose_to_see_total' => 'Choose a cabin to see your total price.',
+        // Signed-in agents (App\Services\AgentPricing): public price, commission, price after commission
+        'agent_original' => 'Original price',
+        'agent_commission' => 'Agent commission (:percent%)',
+        'agent_commission_mixed' => 'Agent commission',
+        'agent_total' => 'Price after commission',
         'continue_guests' => 'Continue to guest details',
         'choose_cabin' => 'Choose a cabin',
         'choose_to_continue' => 'Choose a cabin to continue',

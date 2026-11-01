@@ -88,6 +88,7 @@ document.addEventListener('sc:ready', () => {
       <dl class="grid gap-1.5 text-sm tabular">
         ${q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${money(l.total)}</dd></div>`).join('')}
         ${q.fees > 0 ? `<div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${money(q.fees)}</dd></div>` : '' /* bookings made before step 21 only */}
+        ${q.agent ? `<div class="flex justify-between text-[#12805C]"><dt>${q.agent.percent === null ? SC.t('booking.agent_discount_mixed') : SC.t('booking.agent_discount', { percent: q.agent.percent })}</dt><dd>${SC.t('booking.agent_saved', { amount: money(q.agent.saving) })}</dd></div>` : '' /* agent bookings: already in the lines above */}
         ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${money(q.discount)}</dd></div>` : ''}
         <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}${q.fees > 0 ? '' : ` <span class="block text-xs font-semibold text-lagoon-600">${SC.t('booking.tax_included')}</span>`}</dt><dd>${money(q.total)}</dd></div>
         <div class="flex justify-between"><dt class="text-muted">${t('paid_so_far')}</dt><dd>${money(b.amountPaid)} ${paymentTag(b)}</dd></div>
@@ -198,27 +199,6 @@ document.addEventListener('sc:ready', () => {
       return SC.toast(SC.apiError(r), 'error');
     }
     Object.assign(profile, r.data.profile); fill(); paintUser(); SC.toast(t('saved'));
-  });
-
-  const NOTIF = ['reminders', 'whatsapp', 'offers'].map((k) => [k, t(`notif_${k}`), t(`notif_${k}_text`)]);
-  $('#notif').innerHTML = NOTIF.map(([k, t, d]) => `
-    <li class="py-4 flex items-center justify-between gap-4">
-      <div><p class="font-bold">${t}</p><p class="text-sm text-muted">${d}</p></div>
-      <button role="switch" aria-checked="${!!profile.notif[k]}" data-notif="${k}" aria-label="${t}" class="relative w-12 h-7 rounded-full transition shrink-0 ${profile.notif[k] ? 'bg-ocean-600' : 'bg-line'}">
-        <span class="absolute top-1 start-1 w-5 h-5 rounded-full bg-white shadow transition ${profile.notif[k] ? 'translate-x-5 rtl:-translate-x-5' : ''}"></span>
-      </button>
-    </li>`).join('');
-  const paintSwitch = (s, on) => {
-    s.setAttribute('aria-checked', on); s.classList.toggle('bg-ocean-600', on); s.classList.toggle('bg-line', !on);
-    s.firstElementChild.classList.toggle('translate-x-5', on); s.firstElementChild.classList.toggle('rtl:-translate-x-5', on);
-  };
-  $('#notif').addEventListener('click', async (e) => {
-    const s = e.target.closest('[data-notif]'); if (!s) return;
-    const on = !(s.getAttribute('aria-checked') === 'true');
-    profile.notif[s.dataset.notif] = on; paintSwitch(s, on);
-    const r = await SC.api('PUT', SC.route('accountNotifications'), profile.notif);
-    if (!r.ok) { profile.notif[s.dataset.notif] = !on; paintSwitch(s, !on); return SC.toast(SC.apiError(r), 'error'); }
-    SC.toast(t(on ? 'notif_on' : 'notif_off'));
   });
 
   $('#pw-form').addEventListener('submit', async (e) => {

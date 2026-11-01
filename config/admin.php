@@ -31,12 +31,15 @@ return [
         ],
         'Sales & content' => [
             Resources\PromoCodeResource::class,
+            Resources\AgentTierResource::class,
+            Resources\AgentRateResource::class,
             Resources\AgeBandResource::class,
             Resources\TestimonialResource::class,
             Resources\NewsletterSubscriberResource::class,
         ],
         'People' => [
             Resources\CustomerResource::class,
+            Resources\AgentResource::class,
             Resources\UserResource::class,
         ],
     ],

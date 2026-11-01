@@ -16,9 +16,9 @@ use Illuminate\Support\Str;
 class Booking extends Model
 {
     protected $fillable = [
-        'reference', 'user_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
+        'reference', 'user_id', 'agent_id', 'agent_tier_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
         'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
-        'fare_total', 'fees_total', 'discount_total', 'grand_total', 'amount_paid', 'currency', 'display_currency', 'exchange_rate', 'locale',
+        'fare_total', 'fees_total', 'discount_total', 'agent_discount_total', 'grand_total', 'amount_paid', 'currency', 'display_currency', 'exchange_rate', 'locale',
         'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes', 'seller_id',
     ];
 
@@ -30,6 +30,8 @@ class Booking extends Model
             'fare_total' => 'decimal:2',
             'fees_total' => 'decimal:2',
             'discount_total' => 'decimal:2',
+            // What the agent rate took off the public fare (fare_total is already the agent fare)
+            'agent_discount_total' => 'decimal:2',
             'grand_total' => 'decimal:2',
             'amount_paid' => 'decimal:2',
             'exchange_rate' => 'decimal:4',
@@ -66,6 +68,29 @@ class Booking extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    /** The agent who booked (at agent rates); null for a B2C booking (customer or guest checkout). */
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'agent_id');
+    }
+
+    /** The agent's type when they booked (Standard, Gold, …). */
+    public function agentTier(): BelongsTo
+    {
+        return $this->belongsTo(AgentTier::class);
+    }
+
+    public function isAgentBooking(): bool
+    {
+        return $this->agent_id !== null;
+    }
+
+    /** Admin → Bookings, channel filter: "b2c" (customers and guest checkout) or "agent". */
+    public function scopeChannel(Builder $query, string $channel): void
+    {
+        $channel === 'agent' ? $query->whereNotNull('agent_id') : $query->whereNull('agent_id');
     }
 
     public function sailing(): BelongsTo

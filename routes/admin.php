@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AgentController;
 use App\Http\Controllers\Admin\AgentRequestController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\ContactController;
@@ -81,6 +82,14 @@ Route::middleware('can:manage-content')->group(function () {
     Route::get('agent-requests', [AgentRequestController::class, 'index'])->name('agent-requests.index');
     Route::get('agent-requests/{agentRequest}', [AgentRequestController::class, 'show'])->name('agent-requests.show')->whereNumber('agentRequest');
     Route::patch('agent-requests/{agentRequest}', [AgentRequestController::class, 'update'])->name('agent-requests.update')->whereNumber('agentRequest');
+    // Approving makes a website account (role "agent") and emails its sign-in details: admins only, like adding people
+    Route::middleware('can:manage-users')->group(function () {
+        Route::post('agent-requests/{agentRequest}/approve', [AgentRequestController::class, 'approve'])->name('agent-requests.approve')->whereNumber('agentRequest');
+        Route::post('agent-requests/{agentRequest}/credentials', [AgentRequestController::class, 'resendCredentials'])->name('agent-requests.credentials')->middleware('throttle:10,1')->whereNumber('agentRequest');
+    });
+
+    // An agent's statement: bookings, original price, commission, net, paid and due (list / edit: generic screens below)
+    Route::get('agents/{agent}', [AgentController::class, 'show'])->name('agents.show')->whereNumber('agent');
 
     // Media library behind every photo field: images on the server + photo URLs in use (JSON pages)
     Route::get('media-library', MediaLibraryController::class)->name('media-library');

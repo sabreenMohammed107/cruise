@@ -8,6 +8,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\AgentTier;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\User;
@@ -35,10 +36,15 @@ class BookingController extends Controller
             'payment' => ['nullable', Rule::enum(PaymentStatus::class)],
             // a seller's id, or "none" for unassigned bookings (admins and supervisors)
             'seller' => ['nullable', Rule::in(['none', ...User::sellers()->pluck('id')->map(fn ($id) => (string) $id)])],
+            // B2C (customers and guest checkout) or agent bookings; for agents, a type ("none": no type) or one agent
+            'channel' => ['nullable', Rule::in(['b2c', 'agent'])],
+            'agent_tier' => ['nullable', Rule::in(['none', ...AgentTier::pluck('id')->map(fn ($id) => (string) $id)])],
+            'agent' => ['nullable', 'integer', Rule::exists('bookings', 'agent_id')],
         ]);
         $user = $request->user();
 
-        $bookings = Booking::with(['sailing.cruise', 'cabinCategory', 'seller'])
+        // Everything but the channel, so the B2C / Agents tabs can count within the other filters
+        $filtered = fn () => Booking::query()
             ->when($user->isSeller(), fn (Builder $query) => $query->where('seller_id', $user->id))
             ->when($user->can('assign-bookings') ? ($filters['seller'] ?? null) : null, fn (Builder $query, string $seller) => $seller === 'none'
                 ? $query->whereNull('seller_id')
@@ -52,17 +58,39 @@ class BookingController extends Controller
             })
             ->when($filters['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->when($filters['payment'] ?? null, fn (Builder $query, string $payment) => $query->where('payment_status', $payment))
+            ->when($filters['agent_tier'] ?? null, fn (Builder $query, string $tier) => $tier === 'none'
+                ? $query->whereNotNull('agent_id')->whereNull('agent_tier_id')
+                : $query->where('agent_tier_id', $tier))
+            ->when($filters['agent'] ?? null, fn (Builder $query, int|string $agent) => $query->where('agent_id', $agent));
+
+        $bookings = $filtered()
+            ->with(['sailing.cruise', 'cabinCategory', 'seller', 'agent', 'agentTier'])
+            ->when($filters['channel'] ?? null, fn (Builder $query, string $channel) => $query->channel($channel))
             ->latest()
             ->paginate(25)
             ->withQueryString();
 
-        return view('admin.bookings.index', compact('bookings', 'filters'));
+        $counts = [
+            'all' => $filtered()->count(),
+            'b2c' => $filtered()->channel('b2c')->count(),
+            'agent' => $filtered()->channel('agent')->count(),
+        ];
+
+        return view('admin.bookings.index', [
+            'bookings' => $bookings,
+            'filters' => $filters,
+            'counts' => $counts,
+            'agentTiers' => AgentTier::options(),
+            // Agents who have booked, for the "Agent" filter
+            'agents' => User::whereIn('id', Booking::query()->whereNotNull('agent_id')->select('agent_id'))
+                ->orderBy('company_name')->orderBy('name')->get(['id', 'name', 'company_name']),
+        ]);
     }
 
     public function show(Booking $booking): View
     {
         Gate::authorize('view-booking', $booking);
-        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers', 'payments.recordedBy', 'promoCode', 'user', 'seller']);
+        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers', 'payments.recordedBy', 'promoCode', 'user', 'seller', 'agent', 'agentTier']);
 
         return view('admin.bookings.show', [
             'booking' => $booking,

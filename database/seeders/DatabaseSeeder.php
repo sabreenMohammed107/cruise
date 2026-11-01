@@ -34,5 +34,10 @@ class DatabaseSeeder extends Seeder
                 DemoBookingSeeder::class,
             ]);
         }
+
+        // Demo agent + a 10% agent rate: local only, the tests set their own rates
+        if (app()->isLocal() && ! app()->runningUnitTests()) {
+            $this->call(DemoAgentSeeder::class);
+        }
     }
 }

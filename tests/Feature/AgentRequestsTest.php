@@ -108,10 +108,12 @@ class AgentRequestsTest extends TestCase
             ->assertSeeInOrder(['Hijaz Tours', 'Red Sea Travel'])->assertSee('Pending (2)');
 
         $this->get(route('admin.agent-requests.show', $first))->assertOk()->assertSee('omar@redseatravel.example');
-        $this->patch(route('admin.agent-requests.update', $first), ['status' => 'accepted'])->assertRedirect();
-        $this->assertSame(AgentRequestStatus::Accepted, $first->fresh()->status);
+        $this->patch(route('admin.agent-requests.update', $first), ['status' => 'reviewing'])->assertRedirect();
+        $this->assertSame(AgentRequestStatus::Reviewing, $first->fresh()->status);
+        // Accepting is the Approve button (AgentAccountsTest), not the status form
+        $this->patch(route('admin.agent-requests.update', $first), ['status' => 'accepted'])->assertSessionHasErrors('status');
 
-        $this->get(route('admin.agent-requests.index', ['status' => 'accepted']))->assertSee('Red Sea Travel')->assertDontSee('Hijaz Tours');
+        $this->get(route('admin.agent-requests.index', ['status' => 'reviewing']))->assertSee('Red Sea Travel')->assertDontSee('Hijaz Tours');
         $this->patch(route('admin.agent-requests.update', $second), ['status' => 'approved'])->assertSessionHasErrors('status');
     }
 

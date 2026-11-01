@@ -254,9 +254,14 @@
   const r5 = (n) => Math.round(n / 5) * 5;
   SC.prices = (cruise, sailing, cabinId) => {
     const p = (sailing.prices || {})[cabinId] || { single: 0, double: 0, extra: 0 };
+    // Signed-in agents: "prices" are agent prices; the public ones and the percent come with them (App\Services\AgentPricing)
+    const pub = (sailing.publicPrices || {})[cabinId];
+    const agent = pub ? { public: { ...pub, infant: 0 }, agentPercent: (sailing.agentPercent || {})[cabinId] || 0 } : {};
     // perPerson: the "From, per person" figure on cards, for two guests sharing
-    return { single: p.single, double: p.double, extra: p.extra, infant: 0, perPerson: p.double / 2 };
+    return { single: p.single, double: p.double, extra: p.extra, infant: 0, perPerson: p.double / 2, ...agent };
   };
+  // Same shape as PricingService::agentSaving(): percent is null when the cabins of a booking had different rates
+  SC.agentSaving = (percent, publicFare, fare) => ({ percent, publicFare, saving: Math.round((publicFare - fare) * 100) / 100 });
   /* "From, per person" (step 17): the lowest Double price ÷ 2 among the given cabin types. Cabins without a Double
      price (0) are skipped unless no cabin has one, so a card never says "From $0". Same as Sailing::fromPrice(). */
   SC.fromPrice = (cruise, sailing, cabinIds) => {
@@ -283,7 +288,8 @@
     const fees = 0; // tax included in the cabin prices (step 21)
     const promo = promoCode && D.promos[promoCode.toUpperCase()];
     const discount = SC.promoDiscount(promo, fare);
-    return { prices, lines, fare, fees, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
+    const agent = prices.agentPercent ? SC.agentSaving(prices.agentPercent, SC.fareLines(prices.public, guests).reduce((s, l) => s + l.total, 0), fare) : null;
+    return { prices, lines, fare, fees, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, agent, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
   };
   // Laravel: percent codes are rounded to $5; fixed codes take at most the fare (PricingService::discount)
   SC.promoDiscount = (promo, fare) => (!promo ? 0 : promo.type === 'fixed' ? Math.min(promo.value, fare) : r5(fare * promo.value / 100));
@@ -295,9 +301,14 @@
     const fees = parts.reduce((s, p) => s + p.fees, 0);
     const promo = promoCode && D.promos[promoCode.toUpperCase()];
     const discount = SC.promoDiscount(promo, fare);
+    // Agent saving over every cabin; one percent only if all cabins had the same rate (as PricingService::quoteBooking)
+    const percents = [...new Set(parts.map((p) => (p.agent ? p.agent.percent : 0)))];
+    const agent = parts.some((p) => p.agent)
+      ? SC.agentSaving(percents.length === 1 ? percents[0] : null, parts.reduce((s, p) => s + (p.agent ? p.agent.publicFare : p.fare), 0), fare)
+      : null;
     return {
       rooms: parts, lines: parts.flatMap((p) => p.lines.map((l) => ({ ...l, cabin: p.position }))), fare, fees, discount,
-      promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, total: fare + fees - discount, count: parts.reduce((s, p) => s + p.count, 0)
+      promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, agent, total: fare + fees - discount, count: parts.reduce((s, p) => s + p.count, 0)
     };
   };
   SC.maxRooms = () => D.maxCabinsPerBooking || 5;

@@ -55,6 +55,10 @@
               'Guests' => Format::guests($booking->adults, $booking->children, $booking->infants),
               'Booked' => Format::date($booking->confirmed_at, 'j M Y, H:i'),
               'Account' => $booking->user?->email ?? 'Guest checkout',
+              // Agent (company · type at booking time) or B2C
+              'Channel' => $booking->isAgentBooking()
+                  ? 'Agent · '.($booking->agent?->company_name ?: ($booking->agent?->name ?? 'deleted account')).($booking->agentTier ? ' · '.$booking->agentTier->name : '')
+                  : 'B2C customer',
           ] as $label => $value)
             <div><dt class="text-xs font-semibold text-muted">{{ $label }}</dt><dd class="font-bold mt-0.5">{{ $value }}</dd></div>
           @endforeach
@@ -101,6 +105,10 @@
             {{-- Prices include tax since step 21; only older bookings have separate taxes and port fees --}}
             @if ((float) $booking->fees_total > 0)
               <tr class="border-b border-line"><td class="py-2">Taxes, port charges & fees</td><td></td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>
+            @endif
+            {{-- Agent booking: the lines above are already at the agent rate --}}
+            @if ((float) $booking->agent_discount_total)
+              <tr class="border-b border-line text-[#12805C]"><td class="py-2">Agent commission{{ isset($quote['agent']['percent']) ? ' ('.rtrim(rtrim(number_format($quote['agent']['percent'], 2), '0'), '.').'%)' : '' }} <span class="block text-xs">Original price {{ Format::money($quote['agent']['publicFare'] ?? 0) }}, already taken off the prices above</span></td><td></td><td class="text-end font-bold">{{ Format::money($booking->agent_discount_total) }}</td></tr>
             @endif
             @if ((float) $booking->discount_total)
               <tr class="border-b border-line text-[#12805C]"><td class="py-2">Discount ({{ $quote['promo']['code'] ?? $booking->promoCode?->code }})</td><td></td><td class="text-end font-bold">− {{ Format::money($booking->discount_total) }}</td></tr>

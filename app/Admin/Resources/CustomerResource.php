@@ -46,10 +46,18 @@ class CustomerResource extends UserResource
             Field::text('full_phone', 'Phone')->indexOnly(),
             Field::number('bookings_count', 'Bookings')->indexOnly(),
             Field::date('created_at', 'Registered')->indexOnly(),
-            Field::select('role', 'Account type', static::roleOptions())->default(UserRole::Customer->value)->rules(['required', Rule::enum(UserRole::class)])
+            // Not "Agent": agents are new accounts with an email of their own, made by approving an agent request
+            Field::select('role', 'Account type', static::roleOptions(static::customerRoles()))->default(UserRole::Customer->value)
+                ->rules(['required', Rule::enum(UserRole::class)->only(static::customerRoles())])
                 ->help('Choose Seller, Supervisor or Admin to give this person access to the admin panel (they move to Admins & staff).'),
             static::passwordField(),
         ];
+    }
+
+    /** @return list<UserRole> every role but Agent, admins first (as the select lists them) */
+    protected static function customerRoles(): array
+    {
+        return array_values(array_filter(array_reverse(UserRole::cases()), fn (UserRole $r) => $r !== UserRole::Agent));
     }
 
     /**

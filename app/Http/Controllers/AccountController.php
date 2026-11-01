@@ -35,19 +35,6 @@ class AccountController extends Controller
         return response()->json(['profile' => $presenter->account($user->fresh())['profile']]);
     }
 
-    public function updateNotifications(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'offers' => ['required', 'boolean'],
-            'whatsapp' => ['required', 'boolean'],
-            'reminders' => ['required', 'boolean'],
-        ]);
-
-        $request->user()->update(['notification_prefs' => $data]);
-
-        return response()->json(['notif' => $data]);
-    }
-
     public function updatePassword(Request $request): JsonResponse
     {
         $data = $request->validate([

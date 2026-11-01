@@ -30,12 +30,13 @@ class PricingService
      *   3 paying guests  → double + extra
      *   infants          → free
      *
+     * @param  SailingCabinPrice|array{single: float, double: float, extra: float}  $price  a price row, or its tiers
      * @param  array{adult?: int, child?: int, infant?: int}  $guests
      * @return list<array{band: string, label: string, unit: float, qty: int, total: float}>
      */
-    public function fareLines(SailingCabinPrice $price, array $guests): array
+    public function fareLines(SailingCabinPrice|array $price, array $guests): array
     {
-        $tiers = $price->tiers();
+        $tiers = is_array($price) ? $price : $price->tiers();
         $paying = (int) ($guests['adult'] ?? 0) + (int) ($guests['child'] ?? 0);
         $infants = (int) ($guests['infant'] ?? 0);
         $line = fn (string $tier, float $unit, int $qty) => [
@@ -69,12 +70,18 @@ class PricingService
      * Cabin prices include tax: there are no separate taxes or port fees since step 21. "fees" stays in the quote
      * (always 0) so stored snapshots and older screens keep their shape.
      *
+     * Agents (App\Services\AgentPricing): $agentPercent comes off every cabin price first, so the fare lines, the fare
+     * and the promo are all at the agent rate. "agent" holds the public fare and what the agent rate saved.
+     *
      * @param  array{adult?: int, child?: int, infant?: int}  $guests
      */
-    public function quote(SailingCabinPrice $price, array $guests, ?PromoCode $promo = null): array
+    public function quote(SailingCabinPrice $price, array $guests, ?PromoCode $promo = null, float $agentPercent = 0.0): array
     {
-        $lines = $this->fareLines($price, $guests);
+        $public = $price->tiers();
+        $tiers = $agentPercent > 0 ? AgentPricing::discounted($public, $agentPercent) : $public;
+        $lines = $this->fareLines($tiers, $guests);
         $fare = (float) array_sum(array_column($lines, 'total'));
+        $publicFare = $agentPercent > 0 ? (float) array_sum(array_column($this->fareLines($public, $guests), 'total')) : $fare;
         $feesTotal = 0.0;
         $count = 0;
         foreach (TravellerBand::cases() as $band) {
@@ -84,15 +91,22 @@ class PricingService
         $discount = $promo ? $this->discount($promo, $fare) : 0.0;
 
         return [
-            'prices' => $price->tiers(),
+            'prices' => $tiers,
             'lines' => $lines,
             'fare' => $fare,
             'fees' => $feesTotal,
             'discount' => $discount,
             'promo' => $promo ? ['code' => $promo->code, 'type' => $promo->type->value, 'value' => (float) $promo->value, 'label' => $promo->label] : null,
+            'agent' => $agentPercent > 0 ? $this->agentSaving($agentPercent, $publicFare, $fare) : null,
             'total' => $fare + $feesTotal - $discount,
             'count' => $count,
         ];
+    }
+
+    /** @return array{percent: ?float, publicFare: float, saving: float} percent is null when cabins had different rates */
+    private function agentSaving(?float $percent, float $publicFare, float $fare): array
+    {
+        return ['percent' => $percent, 'publicFare' => $publicFare, 'saving' => round($publicFare - $fare, 2)];
     }
 
     /**
@@ -104,14 +118,17 @@ class PricingService
      *   discount = promo on the total fare
      *   total    = fare − discount
      *
-     * @param  list<array{price: SailingCabinPrice, guests: array{adult?: int, child?: int, infant?: int}}>  $cabins
+     * For an agent each cabin carries its agentPercent (AgentPricing::percentFor()): fares are then agent fares and
+     * "agent" sums the public fare and the saving over the cabins.
+     *
+     * @param  list<array{price: SailingCabinPrice, guests: array{adult?: int, child?: int, infant?: int}, agentPercent?: float}>  $cabins
      */
     public function quoteBooking(array $cabins, ?PromoCode $promo = null): array
     {
         $parts = [];
         foreach (array_values($cabins) as $i => $cabin) {
             $price = $cabin['price']->loadMissing('cabinCategory');
-            $quote = $this->quote($price, $cabin['guests']);
+            $quote = $this->quote($price, $cabin['guests'], null, (float) ($cabin['agentPercent'] ?? 0));
             $parts[] = [
                 'position' => $i + 1,
                 'cabin' => $price->cabinCategory->slug,
@@ -121,6 +138,7 @@ class PricingService
                 'lines' => $quote['lines'],
                 'fare' => $quote['fare'],
                 'fees' => $quote['fees'],
+                'agent' => $quote['agent'],
                 'total' => $quote['fare'] + $quote['fees'],
                 'count' => $quote['count'],
             ];
@@ -129,6 +147,14 @@ class PricingService
         $fare = (float) array_sum(array_column($parts, 'fare'));
         $fees = (float) array_sum(array_column($parts, 'fees'));
         $discount = $promo ? $this->discount($promo, $fare) : 0.0;
+
+        // One percent when every cabin had the same rate (cabins without a rate count as 0)
+        $agent = null;
+        if (array_filter(array_column($parts, 'agent'))) {
+            $percents = array_unique(array_map(fn ($p) => (float) ($p['agent']['percent'] ?? 0), $parts));
+            $publicFare = (float) array_sum(array_map(fn ($p) => $p['agent']['publicFare'] ?? $p['fare'], $parts));
+            $agent = $this->agentSaving(count($percents) === 1 ? reset($percents) : null, $publicFare, $fare);
+        }
 
         // Every fare line, tagged with its cabin, for screens made before step 15
         $lines = [];
@@ -146,6 +172,7 @@ class PricingService
             'fees' => $fees,
             'discount' => $discount,
             'promo' => $promo ? ['code' => $promo->code, 'type' => $promo->type->value, 'value' => (float) $promo->value, 'label' => $promo->label] : null,
+            'agent' => $agent,
             'total' => $fare + $fees - $discount,
             'count' => (int) array_sum(array_column($parts, 'count')),
         ];

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Booking;
 use App\Models\User;
+use App\Services\AgentPricing;
 use App\Support\ScDataPresenter;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Blade;
@@ -18,7 +19,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Agent rates load once per request (and per queued job)
+        $this->app->scoped(AgentPricing::class);
     }
 
     /**

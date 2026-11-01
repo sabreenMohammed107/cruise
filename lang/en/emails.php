@@ -60,6 +60,8 @@ return [
     'tax_included' => 'Tax included',
     'discount' => 'Discount',
     'discount_code' => 'Discount (:code)',
+    'agent_discount' => 'Agent commission', // agent bookings: already in the fare
+    'agent_saved' => ':amount saved',
     'total' => 'Total',
     'paid' => 'Paid',
     'due' => 'Amount due',
@@ -76,6 +78,17 @@ return [
     'reset_expires' => 'This link expires in :minutes minutes.',
     'reset_ignore' => "If you didn't ask for this, you can ignore this email: your password stays the same.",
     'reset_footer' => 'You received this email because a password reset was requested for your account on Safer Cruise.',
+
+    // Approved agent: sign-in details (App\Notifications\AgentApproved)
+    'agent_subject' => 'Your Safer Cruise agent account is ready',
+    'agent_title' => 'Welcome aboard, partner',
+    'agent_intro' => 'Your agent application for :company has been approved. Sign in on the website to see your agent rates on every cruise and book for your clients.',
+    'agent_details' => 'Your sign-in details',
+    'agent_email' => 'Email',
+    'agent_password' => 'Temporary password',
+    'agent_change_password' => 'For your security, change this password after you sign in: My account → Password.',
+    'agent_button' => 'Sign in',
+    'agent_footer' => 'You received this email because your agent application on Safer Cruise was approved.',
 
     'footer_rights' => '© :year Safer. All rights reserved.',
     'footer_why' => 'You received this email because a booking was made on Safer Cruise with this address.',

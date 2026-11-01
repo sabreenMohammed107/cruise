@@ -17,6 +17,11 @@
 </head>
 <body class="min-h-screen flex flex-col @yield('body_class')">
 
+  {{-- Signed-in agents see agent prices everywhere (App\Services\AgentPricing, via SC_DATA) --}}
+  @if (auth('web')->user()?->isAgent())
+    <p class="bg-[#E8F6EF] text-[#12805C] text-center text-sm font-semibold px-4 py-2" data-agent-bar>{{ __('site.booking.agent_bar') }}</p>
+  @endif
+
   @include('partials.header', ['active' => trim($__env->yieldContent('nav'))])
 
   @if (session('status'))

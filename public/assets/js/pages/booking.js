@@ -55,6 +55,8 @@ document.addEventListener('sc:ready', () => {
   b.contact = b.contact || { email: '', dial: '+966', phone: '' };
   const save = () => SC.booking.set(b);
   D.promos = D.promos || {};
+  // Signed-in agents: "Your agent discount: 10%" (or "rates vary by cabin" when the cabins had different rates)
+  const agentLabel = (agent) => (agent.percent === null ? t('agent_discount_mixed') : t('agent_discount', { percent: agent.percent }));
   const quote = () => SC.quoteRooms({ cruise, sailing, rooms: b.rooms, promoCode: D.promos[b.promoCode] ? b.promoCode : null });
   const checkPromo = async (code) => {
     const r = await SC.api('POST', SC.route('bookingPromo'), { code, sailing: b.sailingId });
@@ -361,6 +363,10 @@ document.addEventListener('sc:ready', () => {
 
       <section class="card p-5 sm:p-6">
         <h2 class="font-display font-semibold text-lg mb-4">${t('price_breakdown')}</h2>
+        ${q.agent ? `<div class="mb-4 rounded-2xl bg-[#E8F6EF] text-[#12805C] p-4 text-sm" data-agent-rates>
+          <p class="font-bold inline-flex items-center gap-1.5">${SC.icon('award', 'w-4 h-4')}${agentLabel(q.agent)}</p>
+          <p class="mt-1">${t('agent_saving', { saving: SC.money(q.agent.saving), public: SC.money(q.agent.publicFare) })}</p>
+        </div>` : ''}
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead><tr class="text-muted text-xs"><th class="text-start font-semibold pb-2">${t('item')}</th><th class="text-end font-semibold pb-2">${t('price')}</th><th class="text-end font-semibold pb-2">${t('qty')}</th><th class="text-end font-semibold pb-2">${t('total')}</th></tr></thead>
@@ -369,6 +375,7 @@ document.addEventListener('sc:ready', () => {
                 ${several ? `<tr class="border-t border-line bg-page"><td class="py-2 font-bold" colspan="4">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)} <span class="font-normal text-muted">(${SC.guestText(p.guests)})</span></td></tr>` : ''}
                 ${p.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
                 <tr class="border-t border-line"><td class="py-2.5">${t('cabin_line', { cabin: rooms[p.position - 1].cabin.nameEn })}</td><td class="text-end text-muted" colspan="2">${t('included')}</td><td class="text-end font-bold">${SC.money(0)}</td></tr>`).join('')}
+              ${q.agent ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${agentLabel(q.agent)}</td><td class="text-end" colspan="2">${t('agent_included')}</td><td class="text-end font-bold">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</td></tr>` : ''}
               ${q.discount ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${t('discount', { code: q.promo.code })}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(q.discount)}</td></tr>` : ''}
             </tbody>
           </table>
@@ -443,6 +450,7 @@ document.addEventListener('sc:ready', () => {
         ${several
           ? q.rooms.map((p) => `<div class="flex justify-between gap-3"><dt class="text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd>${SC.money(p.fare)}</dd></div>`).join('')
           : q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
+        ${q.agent ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${agentLabel(q.agent)}<span class="block text-xs">${t('agent_public_fare', { amount: SC.money(q.agent.publicFare) })}</span></dt><dd class="text-end">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</dd></div>` : ''}
         ${q.discount ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${t('discount', { code: q.promo.code })}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
         <div class="flex items-end justify-between gap-3 pt-3 mt-1 border-t border-line"><dt><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></dt><dd class="font-display font-bold text-2xl text-ocean-800">${SC.money(q.total)}</dd></div>
       </dl>`;

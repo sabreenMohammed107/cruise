@@ -313,9 +313,10 @@ document.addEventListener('sc:ready', () => {
       <div class="perf-x"></div>
       <div class="p-5">
         ${q ? `<dl class="grid gap-2 text-sm">
-            ${q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
+            ${/* Agents: the lines at the public price, then the commission (agentRows) */ (q.agent ? SC.fareLines(q.prices.public, g) : q.lines).map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
+            ${agentRows(q)}
           </dl>
-          ${totalRow(q.total)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
+          ${totalRow(q.total, q.agent)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
         ${q ? `<button type="button" class="btn btn-ghost btn-sm w-full mt-2" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : ''}
       </div>`;
@@ -323,10 +324,19 @@ document.addEventListener('sc:ready', () => {
     $('#m-sub').textContent = q ? `${SC.guestText(g)}${SC.lang() === 'ar' ? '، ' : ', '}${cab.nameEn}` : SC.guestText(g);
   };
 
+  /* Signed-in agents (App\Services\AgentPricing): original (public) price and the commission taken off it;
+     the total below is then the price after commission. */
+  function agentRows(q) {
+    if (!q.agent) return '';
+    const label = q.agent.percent === null ? SC.t('ui.details.agent_commission_mixed') : SC.t('ui.details.agent_commission', { percent: q.agent.percent });
+    return `<div class="flex justify-between gap-3 pt-2 mt-1 border-t border-line"><dt class="font-semibold">${SC.t('ui.details.agent_original')}</dt><dd class="tabular font-semibold">${SC.money(q.agent.publicFare)}</dd></div>
+            <div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-agent-commission><dt>${label}</dt><dd class="tabular">− ${SC.money(q.agent.saving)}</dd></div>`;
+  }
+
   /* Total of the summary. Prices include tax: no separate taxes or port fees (step 21). */
-  function totalRow(total) {
+  function totalRow(total, agent) {
     return `<div class="flex items-end justify-between gap-3 mt-4 pt-4 border-t border-line">
-            <span><span class="block font-bold">${SC.t('ui.details.total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></span>
+            <span><span class="block font-bold">${SC.t(agent ? 'ui.details.agent_total' : 'ui.details.total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></span>
             <span class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(total)}</span>
           </div>`;
   }
@@ -354,7 +364,7 @@ document.addEventListener('sc:ready', () => {
                 <button type="button" class="text-muted hover:text-[#C42F2F] ms-2" data-room-remove="${i}" aria-label="${SC.esc(SC.t('ui.details.remove_cabin', { n: i + 1 }))}">${SC.icon('x', 'w-4 h-4')}</button>
               </div>
             </div>
-            ${rq ? `<p class="mt-1 flex justify-between"><span class="text-muted">${rq.lines.map((l) => l.label).join(' + ')}</span><span class="tabular font-bold">${SC.money(rq.fare)}</span></p>` : ''}
+            ${rq ? `<p class="mt-1 flex justify-between"><span class="text-muted">${rq.lines.map((l) => l.label).join(' + ')}</span><span class="tabular font-bold">${SC.money(rq.agent ? rq.agent.publicFare : rq.fare)}</span></p>` : ''}
           </li>`;
         }).join('')}
       </ul>
@@ -363,8 +373,9 @@ document.addEventListener('sc:ready', () => {
       <div class="p-5">
         ${q ? `<dl class="grid gap-2 text-sm">
             <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.guests')}</dt><dd class="font-bold text-end">${SC.guestText(allGuests())}</dd></div>
+            ${agentRows(q)}
           </dl>
-          ${totalRow(q.total)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
+          ${totalRow(q.total, q.agent)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
       </div>`;
     $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');

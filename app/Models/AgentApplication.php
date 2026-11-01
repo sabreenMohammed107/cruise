@@ -6,6 +6,7 @@ use App\Enums\AgentRequestStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * An application from the website's "Become an agent" page (App\Http\Controllers\AgentController).
@@ -23,7 +24,14 @@ class AgentApplication extends Model
     {
         return [
             'status' => AgentRequestStatus::class,
+            'approved_at' => 'datetime',
         ];
+    }
+
+    /** The agent account made (or upgraded) on approval. */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     /** "+966 501234567", or null without a number. */
@@ -35,5 +43,11 @@ class AgentApplication extends Model
     public function scopePending(Builder $query): Builder
     {
         return $query->where('status', AgentRequestStatus::Pending);
+    }
+
+    /** Pending or under review: one per email (AgentRequest). */
+    public function scopeOpen(Builder $query): Builder
+    {
+        return $query->whereIn('status', [AgentRequestStatus::Pending, AgentRequestStatus::Reviewing]);
     }
 }

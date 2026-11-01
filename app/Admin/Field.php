@@ -55,6 +55,12 @@ final class Field
         return (new self($name, $label, 'number'))->options(['step' => $step]);
     }
 
+    /** A USD amount shown "$1,234.50" on the index (e.g. an agent's commission total); use with ->indexOnly(). */
+    public static function money(string $name, string $label): self
+    {
+        return new self($name, $label, 'money');
+    }
+
     public static function textarea(string $name, string $label): self
     {
         return (new self($name, $label, 'textarea'))->wide();

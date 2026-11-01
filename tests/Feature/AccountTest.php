@@ -56,7 +56,7 @@ class AccountTest extends TestCase
         $this->assertArrayHasKey('child-1', $booking['travellers']);
     }
 
-    public function test_profile_notifications_password_and_favourites(): void
+    public function test_profile_password_and_favourites(): void
     {
         $user = $this->reem();
         $this->actingAs($user);
@@ -65,8 +65,9 @@ class AccountTest extends TestCase
             ->assertOk()->assertJsonPath('profile.last', 'Alotaibi');
         $this->putJson('/account/profile', ['first' => 'Reem', 'last' => 'A', 'email' => 'admin@safercruise.test'])->assertJsonValidationErrors('email');
 
-        $this->putJson('/account/notifications', ['offers' => true, 'whatsapp' => false, 'reminders' => true])->assertOk();
-        $this->assertFalse($user->fresh()->notification_prefs['whatsapp']);
+        // The notification switches were removed
+        $this->get('/account')->assertOk()->assertDontSee('id="notif"', false)->assertDontSee('Trip reminders');
+        $this->putJson('/account/notifications', ['offers' => true, 'whatsapp' => false, 'reminders' => true])->assertNotFound();
 
         $this->putJson('/account/password', ['current_password' => 'nope', 'password' => 'newpass123', 'password_confirmation' => 'newpass123'])
             ->assertJsonValidationErrors('current_password');
@@ -119,8 +120,8 @@ class AccountTest extends TestCase
         $user = $this->reem();
         $this->actingAs($user);
 
-        $this->postJson('/account/notifications', ['offers' => true, 'whatsapp' => false, 'reminders' => true], ['X-HTTP-Method-Override' => 'PUT'])->assertOk();
-        $this->assertFalse($user->fresh()->notification_prefs['whatsapp']);
+        $this->postJson('/account/profile', ['first' => 'Reem', 'last' => 'Alotaibi', 'email' => 'reem@example.com'], ['X-HTTP-Method-Override' => 'PUT'])->assertOk();
+        $this->assertSame('Alotaibi', $user->fresh()->last_name);
 
         $this->postJson('/account/favorites/new-year-at-sea', [], ['X-HTTP-Method-Override' => 'DELETE'])->assertOk();
         $this->assertNotContains('new-year-at-sea', $user->favorites()->pluck('slug')->all());

@@ -9,6 +9,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -28,6 +29,7 @@ class User extends Authenticatable
         'name',
         'first_name',
         'last_name',
+        'company_name',
         'email',
         'phone_dial',
         'phone',
@@ -102,6 +104,12 @@ class User extends Authenticatable
         return $this->role === UserRole::Seller;
     }
 
+    /** Travel agents: see agent rates on the website (App\Services\AgentPricing). */
+    public function isAgent(): bool
+    {
+        return $this->role === UserRole::Agent;
+    }
+
     /** Admins, supervisors and sellers: can sign in to the admin panel. */
     public function isStaff(): bool
     {
@@ -111,6 +119,11 @@ class User extends Authenticatable
     public function scopeCustomers(Builder $query): void
     {
         $query->where('role', UserRole::Customer);
+    }
+
+    public function scopeAgents(Builder $query): void
+    {
+        $query->where('role', UserRole::Agent);
     }
 
     public function scopeStaff(Builder $query): void
@@ -123,10 +136,22 @@ class User extends Authenticatable
         $query->where('role', UserRole::Seller);
     }
 
+    /** An agent's type (Standard, Gold, …): its agent rates come first (App\Services\AgentPricing). */
+    public function agentTier(): BelongsTo
+    {
+        return $this->belongsTo(AgentTier::class);
+    }
+
     /** Bookings this user made on the website. */
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    /** Bookings this agent made at agent rates (bookings.agent_id, kept if the role changes later). */
+    public function agentBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'agent_id');
     }
 
     /** Bookings assigned to this seller to follow up. */

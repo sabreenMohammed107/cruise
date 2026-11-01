@@ -100,11 +100,6 @@
           <div class="sm:col-span-2 flex justify-end"><button class="btn btn-primary">{{ __('site.account.save') }}</button></div>
         </form>
 
-        <div class="card p-5 sm:p-6 mt-5">
-          <h2 class="font-display font-semibold text-lg">{{ __('site.account.notifications') }}</h2>
-          <ul class="mt-4 divide-y divide-line" id="notif"></ul>
-        </div>
-
         <form id="pw-form" class="card p-5 sm:p-6 mt-5 grid sm:grid-cols-2 gap-4" novalidate>
           <h2 class="sm:col-span-2 font-display font-semibold text-lg">{{ __('site.account.change_password') }}</h2>
           <div class="sm:col-span-2"><label class="label" for="pw-old">{{ __('site.account.current_password') }}</label><input id="pw-old" type="password" class="field" dir="ltr" autocomplete="current-password"><p class="err">{{ __('site.account.current_password_required') }}</p></div>

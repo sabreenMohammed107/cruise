@@ -41,6 +41,8 @@
                   <span class="tag {{ $value ? 'tag-lagoon' : 'tag-white' }}">{{ $value ? 'Yes' : 'No' }}</span>
                 @elseif ($field->type === 'select')
                   {{ $field->options[$value instanceof \BackedEnum ? $value->value : $value] ?? $value }}
+                @elseif ($field->type === 'money')
+                  <span class="tabular whitespace-nowrap">{{ Format::money($value ?? 0, 2) }}</span>
                 @elseif ($value instanceof \DateTimeInterface)
                   {{ Format::date($value) }}
                 @elseif ($field->type === 'date' && $field->indexOnly)

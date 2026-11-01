@@ -157,6 +157,9 @@ return [
         'send' => 'Send application',
         'sent_title' => 'Thank you, your application has been received.',
         'sent_body' => 'Our partnerships team will review it and contact you soon.',
+        // An agent account needs an email that has no account yet (App\Http\Requests\AgentRequest)
+        'email_has_account' => 'This email already has an account on Safer Cruise. Apply with another email for your agency.',
+        'email_already_applied' => 'There is already an application with this email. Our team will contact you soon.',
     ],
 
     // Headings and texts of the page itself: Admin → Cruise pages → Pre-boarding guide
