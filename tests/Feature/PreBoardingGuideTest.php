@@ -29,7 +29,8 @@ class PreBoardingGuideTest extends TestCase
     {
         $this->get('/pre-boarding-guide')->assertOk()
             ->assertSeeInOrder(['Pre-embarkation guide', 'Physical passport with 6 months validity', 'Türkiye visa', 'Egypt visa', 'Greece visa (Schengen)',
-                'Pre-boarding steps', 'Check-in opens', '1:00 PM', 'Check-in closes', '7:00 PM', 'Galataport Istanbul terminal',
+                'Pre-boarding steps', 'Check-in times', 'Alexandria', 'Check-in opens', '1:00 PM', 'Check-in closes', '7:00 PM',
+                'Istanbul', 'Check-in opens', 'Payment on board', 'Alexandria Cruise Terminal', 'Galataport Istanbul terminal',
                 'Prohibited items on board', 'Hair dryers', 'Travelling with kids &amp; teens', 'Guardian Consent Form', 'Frequently asked questions'], false)
             ->assertSee('href="https://online.flippingbook.com/view/1033697715/"', false)
             ->assertSee('href="https://www.mfa.gov.tr/visa-information-for-foreigners.en.mfa"', false)
@@ -40,7 +41,36 @@ class PreBoardingGuideTest extends TestCase
         $this->withUnencryptedCookie('sc_lang', 'ar')->get('/pre-boarding-guide')->assertOk()
             ->assertSee('دليل ما قبل الصعود إلى السفينة')->assertSee('تأشيرة مصر')->assertSee('مجففات الشعر')
             ->assertSee('هل أحتاج إلى تأشيرة لدخول مصر؟')->assertSee('حمّل النموذج')
+            ->assertSee('الإسكندرية')->assertSee('إسطنبول')->assertSee('محطة الإسكندرية للرحلات البحرية')->assertSee('محطة جالاتابورت إسطنبول')
+            ->assertSee('>المحطات</a>', false)
             ->assertDontSee('Egypt visa');
+    }
+
+    public function test_each_port_has_its_own_check_in_times_and_terminal(): void
+    {
+        $this->asAdmin()->get('/admin/pages')->assertOk()
+            ->assertSee('Check-in times: Alexandria')->assertSee('Check-in times: Istanbul')
+            ->assertSee('Embarkation terminal: Alexandria')->assertSee('Embarkation terminal: Istanbul');
+
+        // A site set up before the Istanbul sections existed: they show from their defaults, and open in the admin
+        HomeSection::where('page', 'guide')->whereIn('key', ['checkin_istanbul', 'terminal_istanbul'])->delete();
+        $this->get('/pre-boarding-guide')->assertOk()->assertSee('Galataport Istanbul terminal');
+        $this->get('/admin/pages/guide/checkin_istanbul/edit')->assertOk()->assertSee('Port (shown next to the heading)');
+
+        $istanbul = $this->section('checkin_istanbul');
+        $this->put('/admin/pages/guide/checkin_istanbul', [
+            'eyebrow' => 'Istanbul', 'eyebrow_ar' => 'إسطنبول', 'title' => 'Check-in times', 'title_ar' => 'مواعيد تسجيل الوصول', 'is_visible' => 1,
+            'items' => $istanbul->items->mapWithKeys(fn ($item, $i) => [$item->id => [
+                'title' => $item->title, 'title_ar' => $item->title_ar, 'text' => $i ? '6:30 PM' : '11:30 AM', 'text_ar' => $i ? '6:30 مساءً' : '11:30 صباحًا',
+                'icon' => 'clock', 'tone' => $item->tone, 'delete' => 0,
+            ]])->all(),
+        ])->assertSessionHasNoErrors();
+        $this->get('/pre-boarding-guide')->assertSeeInOrder(['Alexandria', '1:00 PM', 'Istanbul', '11:30 AM', '6:30 PM']);
+
+        // Hiding one terminal keeps the other, and the nav says "Terminal" again
+        $this->put('/admin/pages/guide/terminal_istanbul', ['title' => 'Galataport', 'is_visible' => 0])->assertSessionHasNoErrors();
+        $this->get('/pre-boarding-guide')->assertSee('Alexandria Cruise Terminal')->assertDontSee('Car parking is available at the port')
+            ->assertSee('>Terminal</a>', false);
     }
 
     public function test_seeder_writes_the_guide_and_faqs(): void

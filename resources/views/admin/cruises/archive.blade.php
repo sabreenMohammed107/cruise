@@ -7,7 +7,7 @@
   <div class="flex flex-wrap items-end justify-between gap-3">
     <div>
       <h1 class="font-display font-bold text-2xl sm:text-3xl">Archive</h1>
-      <p class="text-muted mt-1 max-w-[75ch]">Sailings that are already back (return date before today), one year at a time. They move here by themselves the day after they return; the cruises list keeps everything still to come.</p>
+      <p class="text-muted mt-1 max-w-[75ch]">Sailings closed for booking, one year at a time. They move here by themselves 24 hours before departure (from the start of the day before they sail), whether at sea or already back; the cruises list keeps everything departing later.</p>
     </div>
     <a href="{{ route('admin.cruises.index') }}" class="btn btn-outline btn-sm"><i data-icon="ship" class="w-4 h-4"></i> Cruises list</a>
   </div>
@@ -17,7 +17,7 @@
   @endif
 
   @if ($finishedCruises)
-    <p class="mt-3 text-sm text-muted">{{ $finishedCruises }} {{ Str::plural('cruise', $finishedCruises) }} {{ $finishedCruises === 1 ? 'has' : 'have' }} no sailing left and {{ $finishedCruises === 1 ? 'is' : 'are' }} not in the cruises list. To run one again, open its sailings and add a date.</p>
+    <p class="mt-3 text-sm text-muted">{{ $finishedCruises }} {{ Str::plural('cruise', $finishedCruises) }} {{ $finishedCruises === 1 ? 'has' : 'have' }} no sailing departing later than tomorrow and {{ $finishedCruises === 1 ? 'is' : 'are' }} not in the cruises list. To run one again, open its sailings and add a date.</p>
   @endif
 
   <div class="card overflow-hidden mt-5">
@@ -55,7 +55,7 @@
               </td>
             </tr>
           @empty
-            <tr><td colspan="8" class="p-8 text-center text-muted">{{ $years ? 'No finished sailings match these filters.' : 'No sailing has finished yet.' }}</td></tr>
+            <tr><td colspan="8" class="p-8 text-center text-muted">{{ $years ? 'No archived sailings match these filters.' : 'No sailing has been archived yet.' }}</td></tr>
           @endforelse
         </tbody>
       </table>

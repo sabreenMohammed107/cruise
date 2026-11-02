@@ -11,12 +11,15 @@
   $s = $sections;
   $show = fn (string $key) => $s[$key]->is_visible;
   $faqVisible = $show('faq') && $faqs->isNotEmpty();
+  // One check-in group and one terminal block per embarkation port (Alexandria, Istanbul), the shown ones in order
+  $checkins = collect(['checkin', 'checkin_istanbul'])->filter($show)->map(fn ($key) => $s[$key]);
+  $terminals = collect(['terminal', 'terminal_istanbul'])->filter($show)->map(fn ($key) => $s[$key])->values();
   // Anchors of the sections on the page (a nav link only for those that are shown)
   $nav = collect([
       'visas' => $show('visas') || $show('passport'),
       'steps' => $show('steps') && $s['steps']->items->isNotEmpty(),
-      'checkin' => $show('checkin') || $show('payment'),
-      'terminal' => $show('terminal'),
+      'checkin' => $checkins->isNotEmpty() || $show('payment'),
+      'terminal' => $terminals->isNotEmpty(),
       'prohibited' => $show('prohibited') && $s['prohibited']->items->isNotEmpty(),
       'kids' => $show('kids') && $s['kids']->items->isNotEmpty(),
       'faq' => $faqVisible,
@@ -51,7 +54,7 @@
       <div class="sticky top-[72px] z-30 bg-white/95 backdrop-blur border-b border-line">
         <nav class="max-w-site mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto no-scrollbar" aria-label="{{ __('pages.guide.sections') }}">
           @foreach ($nav as $key)
-            <a href="#{{ $key }}" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">{{ __("pages.guide.nav.$key") }}</a>
+            <a href="#{{ $key }}" class="shrink-0 px-4 py-3.5 font-semibold text-sm border-b-2 border-transparent hover:text-ocean-600">{{ $key === 'terminal' && $terminals->count() > 1 ? __('pages.guide.nav.terminals') : __("pages.guide.nav.$key") }}</a>
           @endforeach
         </nav>
       </div>
@@ -157,30 +160,56 @@
     <!-- =========================================================
          CHECK-IN TIMES + PAYMENT ON BOARD
          ========================================================= -->
-    @if ($show('checkin') || $show('payment'))
+    @if ($checkins->isNotEmpty() || $show('payment'))
+      @php($heading = $checkins->first()?->bi('title'))
       <section id="checkin" class="scroll-mt-32 max-w-site mx-auto px-4 sm:px-6 pt-16 sm:pt-24">
-        <div class="rounded-[28px] bg-ocean-700 text-white p-6 sm:p-10 grid gap-10 lg:grid-cols-2">
-          @if ($show('checkin'))
-            <div>
-              <h2 class="font-display font-bold text-2xl sm:text-3xl">{{ $s['checkin']->bi('title') }}</h2>
-              <dl class="mt-6 grid gap-4 sm:grid-cols-2">
-                @foreach ($s['checkin']->items as $item)
-                  <div class="rounded-2xl bg-white/10 p-5">
-                    <dt class="flex items-center gap-2 text-ocean-100 text-sm font-semibold"><i data-icon="{{ $item->icon ?: 'clock' }}" class="w-4 h-4"></i> {{ $item->bi('title') }}</dt>
-                    <dd class="font-display font-bold text-3xl mt-2 tabular">{{ $item->bi('text') }}</dd>
-                  </div>
-                @endforeach
-              </dl>
+        <div class="relative overflow-hidden rounded-[28px] bg-ocean-700 text-white p-6 sm:p-10 lg:p-12">
+          <div class="pointer-events-none absolute -top-24 -end-24 w-72 h-72 rounded-full bg-lagoon-400/10" aria-hidden="true"></div>
+
+          @if ($checkins->isNotEmpty())
+            {{-- One heading for the block; a card per port. A port whose heading differs from the first one shows it in its card. --}}
+            <h2 class="relative font-display font-bold text-3xl sm:text-4xl">{{ $heading }}</h2>
+            <div class="relative mt-8 grid gap-5 {{ $checkins->count() > 1 ? 'md:grid-cols-2' : 'md:max-w-xl' }}">
+              @foreach ($checkins as $checkin)
+                <article class="rounded-2xl bg-white/[0.07] ring-1 ring-inset ring-white/15 p-6 sm:p-7">
+                  <header class="flex items-center gap-3">
+                    <span class="grid place-items-center w-11 h-11 rounded-xl bg-lagoon-400/20 text-lagoon-100 shrink-0"><i data-icon="pin" class="w-5 h-5"></i></span>
+                    <div class="min-w-0">
+                      <h3 class="font-display font-bold text-xl leading-tight">{{ $checkin->filledBi('eyebrow') ? $checkin->bi('eyebrow') : $checkin->bi('title') }}</h3>
+                      @if ($checkin->filledBi('eyebrow') && (string) $checkin->bi('title') !== (string) $heading)
+                        <p class="text-sm text-ocean-100 mt-0.5">{{ $checkin->bi('title') }}</p>
+                      @endif
+                    </div>
+                  </header>
+                  @if ($checkin->items->isNotEmpty())
+                    <dl class="mt-6 pt-6 border-t border-white/10 flex items-start">
+                      @foreach ($checkin->items as $item)
+                        @unless ($loop->first)
+                          {{-- From opening to closing --}}
+                          <div class="self-center flex items-center gap-1 px-3 sm:px-5 text-white/40" aria-hidden="true">
+                            <span class="h-px w-5 sm:w-10 bg-white/30"></span><i data-icon="chevron-right" class="w-4 h-4 rtl:rotate-180"></i>
+                          </div>
+                        @endunless
+                        <div class="flex-1 min-w-0">
+                          <dt class="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-ocean-100"><i data-icon="{{ $item->icon ?: 'clock' }}" class="w-4 h-4 shrink-0"></i> {{ $item->bi('title') }}</dt>
+                          <dd class="font-display font-bold text-2xl sm:text-3xl mt-2 tabular whitespace-nowrap">{{ $item->bi('text') }}</dd>
+                        </div>
+                      @endforeach
+                    </dl>
+                  @endif
+                </article>
+              @endforeach
             </div>
           @endif
-          @if ($show('payment'))
-            <div>
-              <h2 class="font-display font-bold text-2xl sm:text-3xl">{{ $s['payment']->bi('title') }}</h2>
-              <ul class="mt-6 grid gap-3">
+
+          @if ($show('payment') && $s['payment']->items->isNotEmpty())
+            <div @class(['relative', 'mt-10 pt-10 border-t border-white/15' => $checkins->isNotEmpty()])>
+              <h2 class="font-display font-bold {{ $checkins->isNotEmpty() ? 'text-xl sm:text-2xl' : 'text-3xl sm:text-4xl' }}">{{ $s['payment']->bi('title') }}</h2>
+              <ul class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($s['payment']->items as $item)
-                  <li class="flex items-start gap-3">
-                    <span class="grid place-items-center w-9 h-9 rounded-lg bg-white/10 shrink-0"><i data-icon="{{ $item->icon ?: 'check' }}" class="w-5 h-5"></i></span>
-                    <span class="pt-1.5">{{ $item->bi('title') }}@if ($item->filledBi('text')) <span class="text-ocean-100">— {{ $item->bi('text') }}</span>@endif</span>
+                  <li class="flex items-center gap-3 rounded-xl bg-white/[0.07] p-4">
+                    <span class="grid place-items-center w-10 h-10 rounded-lg bg-white/10 shrink-0"><i data-icon="{{ $item->icon ?: 'check' }}" class="w-5 h-5"></i></span>
+                    <span class="text-sm sm:text-base leading-snug">{{ $item->bi('title') }}@if ($item->filledBi('text'))<span class="block text-ocean-100 text-sm">{{ $item->bi('text') }}</span>@endif</span>
                   </li>
                 @endforeach
               </ul>
@@ -193,19 +222,24 @@
     <!-- =========================================================
          TERMINAL
          ========================================================= -->
-    @if ($show('terminal'))
-      @php($terminal = $s['terminal'])
-      <section id="terminal" class="scroll-mt-32 max-w-site mx-auto px-4 sm:px-6 pt-16 sm:pt-24 grid gap-8 items-center {{ $terminal->imageUrl() ? 'lg:grid-cols-2' : '' }}">
-        <div>
-          <h2 class="font-display font-bold text-3xl sm:text-4xl">{{ $terminal->bi('title') }}</h2>
-          @if ($terminal->filledBi('body'))<p class="mt-4 text-ink/85 leading-relaxed whitespace-pre-line max-w-[65ch]">{{ $terminal->bi('body') }}</p>@endif
-          @if ($terminal->filledBi('primary_label'))
-            <a href="{{ $terminal->primaryHref() }}" target="_blank" rel="noopener" class="btn btn-primary mt-6"><i data-icon="pin" class="w-4 h-4"></i> {{ $terminal->bi('primary_label') }}</a>
-          @endif
-        </div>
-        @if ($terminalImage = $terminal->imageUrl())
-          <img src="{{ $terminalImage }}" alt="{{ $terminal->tr('image_alt') }}" class="w-full aspect-[16/10] object-cover rounded-[22px]" loading="lazy">
-        @endif
+    @if ($terminals->isNotEmpty())
+      <section id="terminal" class="scroll-mt-32 max-w-site mx-auto px-4 sm:px-6 pt-16 sm:pt-24 grid gap-14 sm:gap-20">
+        @foreach ($terminals as $terminal)
+          @php($terminalImage = $terminal->imageUrl())
+          <div class="grid gap-8 items-center {{ $terminalImage ? 'lg:grid-cols-2' : '' }}">
+            {{-- The second terminal has its photo on the other side --}}
+            <div @class(['lg:order-2' => $terminalImage && $loop->even])>
+              <h2 class="font-display font-bold text-3xl sm:text-4xl">{{ $terminal->bi('title') }}</h2>
+              @if ($terminal->filledBi('body'))<p class="mt-4 text-ink/85 leading-relaxed whitespace-pre-line max-w-[65ch]">{{ $terminal->bi('body') }}</p>@endif
+              @if ($terminal->filledBi('primary_label'))
+                <a href="{{ $terminal->primaryHref() }}" target="_blank" rel="noopener" class="btn btn-primary mt-6"><i data-icon="pin" class="w-4 h-4"></i> {{ $terminal->bi('primary_label') }}</a>
+              @endif
+            </div>
+            @if ($terminalImage)
+              <img src="{{ $terminalImage }}" alt="{{ $terminal->tr('image_alt') }}" class="w-full aspect-[16/10] object-cover rounded-[22px]" loading="lazy">
+            @endif
+          </div>
+        @endforeach
       </section>
     @endif
 

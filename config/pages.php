@@ -447,10 +447,24 @@ return [
                         'text_ar' => 'يبدأ تسجيل الوصول الساعة 1:00 ظهرًا وينتهي الساعة 7:00 مساءً.'],
                 ],
             ],
+            // Check-in times per embarkation port: shown together in one box on the page, each under its port name
             'checkin' => [
-                'name' => 'Check-in times',
-                'fields' => ['title', 'items'],
-                'content' => ['title' => 'Check-in times', 'title_ar' => 'مواعيد تسجيل الوصول'],
+                'name' => 'Check-in times: Alexandria',
+                'fields' => ['eyebrow', 'title', 'items'],
+                'labels' => ['eyebrow' => 'Port (shown next to the heading)'],
+                'help' => 'Shown with the Istanbul check-in times and the payment on board, in one box.',
+                'content' => ['eyebrow' => 'Alexandria', 'eyebrow_ar' => 'الإسكندرية', 'title' => 'Check-in times', 'title_ar' => 'مواعيد تسجيل الوصول'],
+                'items' => [
+                    ['icon' => 'clock', 'tone' => 'lagoon', 'title' => 'Check-in opens', 'title_ar' => 'بدء تسجيل الوصول', 'text' => '1:00 PM', 'text_ar' => '1:00 ظهرًا'],
+                    ['icon' => 'clock', 'tone' => 'sun', 'title' => 'Check-in closes', 'title_ar' => 'انتهاء تسجيل الوصول', 'text' => '7:00 PM', 'text_ar' => '7:00 مساءً'],
+                ],
+            ],
+            'checkin_istanbul' => [
+                'name' => 'Check-in times: Istanbul',
+                'fields' => ['eyebrow', 'title', 'items'],
+                'labels' => ['eyebrow' => 'Port (shown next to the heading)'],
+                'help' => 'Shown under the Alexandria check-in times, in the same box.',
+                'content' => ['eyebrow' => 'Istanbul', 'eyebrow_ar' => 'إسطنبول', 'title' => 'Check-in times', 'title_ar' => 'مواعيد تسجيل الوصول'],
                 'items' => [
                     ['icon' => 'clock', 'tone' => 'lagoon', 'title' => 'Check-in opens', 'title_ar' => 'بدء تسجيل الوصول', 'text' => '1:00 PM', 'text_ar' => '1:00 ظهرًا'],
                     ['icon' => 'clock', 'tone' => 'sun', 'title' => 'Check-in closes', 'title_ar' => 'انتهاء تسجيل الوصول', 'text' => '7:00 PM', 'text_ar' => '7:00 مساءً'],
@@ -466,10 +480,24 @@ return [
                     ['icon' => 'card', 'tone' => 'ocean', 'title' => 'Your AROYA Pass is used for all payments on board', 'title_ar' => 'تُستخدم بطاقة AROYA Pass لجميع المدفوعات على متن السفينة'],
                 ],
             ],
+            // One block per embarkation terminal, one under the other (photo on alternate sides)
             'terminal' => [
-                'name' => 'Embarkation terminal',
+                'name' => 'Embarkation terminal: Alexandria',
                 'fields' => ['title', 'body', 'primary', 'image'],
                 'help' => 'No photo is shown until one is uploaded.',
+                'content' => [
+                    'title' => 'Alexandria Cruise Terminal', 'title_ar' => 'محطة الإسكندرية للرحلات البحرية',
+                    'body' => "Alexandria Cruise Terminal is at the Port of Alexandria.\nWhen you enter the port, security may ask to see your reservation confirmation or your AROYA boarding pass (printed or in the AROYA app).",
+                    'body_ar' => "تقع محطة الإسكندرية للرحلات البحرية في ميناء الإسكندرية.\nعند دخول الميناء قد يطلب منك الأمن تأكيد الحجز أو بطاقة الصعود من أرويا (مطبوعة أو في تطبيق أرويا).",
+                    'primary_label' => 'Open in Google Maps', 'primary_label_ar' => 'افتح في خرائط Google',
+                    'primary_url' => 'https://www.google.com/maps/search/?api=1&query=Alexandria+Cruise+Terminal',
+                    'image_alt' => 'Alexandria cruise terminal', 'image_alt_ar' => 'محطة الإسكندرية للرحلات البحرية',
+                ],
+            ],
+            'terminal_istanbul' => [
+                'name' => 'Embarkation terminal: Istanbul',
+                'fields' => ['title', 'body', 'primary', 'image'],
+                'help' => 'Shown under the Alexandria terminal. No photo is shown until one is uploaded.',
                 'content' => [
                     'title' => 'Galataport Istanbul terminal', 'title_ar' => 'محطة جالاتابورت إسطنبول',
                     'body' => "Galataport Istanbul terminal is in the city centre of Istanbul. Car parking is available at the port; charges may apply according to local regulations.\nWhen you enter the port, security may ask to see your reservation confirmation or your AROYA boarding pass (printed or in the AROYA app).",

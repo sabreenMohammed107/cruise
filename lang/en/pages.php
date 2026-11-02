@@ -165,13 +165,14 @@ return [
     // Headings and texts of the page itself: Admin → Cruise pages → Pre-boarding guide
     'guide' => [
         'title' => 'Pre-boarding guide | Safer Cruise',
-        'description' => 'Everything to do before you board AROYA: visas for Türkiye, Egypt and Greece, check-in times, the terminal, prohibited items and travelling with children.',
+        'description' => 'Everything to do before you board AROYA: visas for Türkiye, Egypt and Greece, check-in times, the Alexandria and Istanbul terminals, prohibited items and travelling with children.',
         'sections' => 'Sections',
         'nav' => [
             'visas' => 'Visas',
             'steps' => 'Steps',
             'checkin' => 'Check-in',
             'terminal' => 'Terminal',
+            'terminals' => 'Terminals',
             'prohibited' => 'Prohibited items',
             'kids' => 'Kids & teens',
             'faq' => 'Questions',
