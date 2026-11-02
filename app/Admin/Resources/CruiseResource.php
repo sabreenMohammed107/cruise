@@ -42,8 +42,9 @@ class CruiseResource extends Resource
     }
 
     /**
-     * Only cruises still running (Cruise::current()); finished sailings are in the archive. Year and month
-     * keep the cruises with a sailing not back yet that departs then; port and nights are the cruise's own.
+     * Only cruises still running (Cruise::current()); sailings departing within 24 hours, or gone, are in the
+     * archive. Year and month keep the cruises with a sailing not archived yet that departs then; port and
+     * nights are the cruise's own.
      */
     public static function filter(Builder $query, Request $request): Builder
     {

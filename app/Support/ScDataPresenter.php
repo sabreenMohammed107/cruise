@@ -68,7 +68,7 @@ class ScDataPresenter
             'testimonials' => $this->testimonials(),
             'nationalities' => config('cruise.nationalities'),
             // Phone widget (SC.phoneWidget, step 25); the server accepts every code of config/dial_codes.php
-            'phone' => ['initialCountry' => config('cruise.phone_initial_country'), 'preferredCountries' => config('cruise.phone_preferred_countries')],
+            'phone' => $this->phoneWidget(),
             'terms' => $this->terms(),
             // Fixed website words in both languages (lang/{en,ar}/site.php), read by SC.t() / SC.tc()
             'i18n' => Bi::scriptStrings(),
@@ -97,7 +97,17 @@ class ScDataPresenter
             'terms' => $this->terms(),
             'i18n' => Bi::scriptStrings(),
             // Phone widget on "Contact us" and "Become an agent" (assets/js/phone-fields.js)
-            'phone' => ['initialCountry' => config('cruise.phone_initial_country'), 'preferredCountries' => config('cruise.phone_preferred_countries')],
+            'phone' => $this->phoneWidget(),
+        ];
+    }
+
+    /** SC_DATA.phone: settings of the phone widget (SC.phoneWidget) and the code a new phone field starts on. */
+    private function phoneWidget(): array
+    {
+        return [
+            'initialCountry' => config('cruise.phone_initial_country'),
+            'defaultDial' => config('cruise.phone_default_dial'),
+            'preferredCountries' => config('cruise.phone_preferred_countries'),
         ];
     }
 
@@ -111,7 +121,7 @@ class ScDataPresenter
                 'first' => $user->first_name ?? '',
                 'last' => $user->last_name ?? '',
                 'email' => $user->email,
-                'dial' => $user->phone_dial ?? '+966',
+                'dial' => $user->phone_dial ?? config('cruise.phone_default_dial'),
                 'phone' => $user->phone ?? '',
                 'dob' => $user->date_of_birth?->toDateString() ?? '',
                 'nationality' => $user->nationality ?? '',

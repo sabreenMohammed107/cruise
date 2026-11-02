@@ -12,9 +12,10 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * Admin → Cruises → Archive: sailings already back (return date before today), one year at a time so the
- * list stays quick however many years build up. Nothing is moved: a sailing shows here from the day after it
- * returns. Filters: year (always one; the latest by default), month, departure port, nights.
+ * Admin → Cruises → Archive: sailings from 24 hours before departure on, when bookings close
+ * (Sailing::finished()), one year at a time so the list stays quick however many years build up. Nothing is
+ * moved: a sailing shows here from the start of the day before it departs. Filters: year (always one; the
+ * latest by default), month, departure port, nights.
  */
 class CruiseArchiveController extends Controller
 {
@@ -38,7 +39,7 @@ class CruiseArchiveController extends Controller
                 ->withQueryString(),
             'filters' => $filters,
             'years' => $years,
-            // Cruises with every sailing over: gone from the cruises list, here to schedule again if needed
+            // Cruises with every sailing archived: gone from the cruises list, here to schedule again if needed
             'finishedCruises' => Cruise::finished()->count(),
         ]);
     }

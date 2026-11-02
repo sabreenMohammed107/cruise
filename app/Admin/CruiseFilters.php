@@ -81,7 +81,7 @@ final class CruiseFilters
             ->ofCruises($filters['port'] ?? null, $filters['nights'] ?? null);
     }
 
-    /** Years with sailings not back yet (the cruises list's year choices). */
+    /** Years with sailings not archived yet (the cruises list's year choices). */
     public static function currentYears(): array
     {
         return array_reverse(self::years(Sailing::query()->current()));

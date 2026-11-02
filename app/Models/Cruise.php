@@ -75,8 +75,9 @@ class Cruise extends Model
     }
 
     /**
-     * Cruises still running: a sailing not back yet, or no sailing at all (new, not scheduled yet). A cruise
-     * whose sailings are all over leaves the admin's cruises list by itself; its sailings are in the archive.
+     * Cruises still running: a sailing departing more than 24 hours from now, or no sailing at all (new, not
+     * scheduled yet). A cruise whose sailings are all archived (Sailing::finished()) leaves the admin's cruises
+     * list by itself; its sailings are in the archive.
      */
     public function scopeCurrent(Builder $query): void
     {
@@ -85,7 +86,7 @@ class Cruise extends Model
             ->orWhereDoesntHave('sailings'));
     }
 
-    /** Cruises whose every sailing is over (and that have at least one). */
+    /** Cruises whose every sailing is archived (and that have at least one). */
     public function scopeFinished(Builder $query): void
     {
         $query->has('sailings')->whereDoesntHave('sailings', fn (Builder $s) => $s->current());

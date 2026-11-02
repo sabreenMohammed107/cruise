@@ -52,7 +52,7 @@ document.addEventListener('sc:ready', () => {
   const shipName = SC.getShip(cruise.shipId).name;
 
   b.travellers = b.travellers || {};
-  b.contact = b.contact || { email: '', dial: '+966', phone: '' };
+  b.contact = b.contact || { email: '', dial: (D.phone || {}).defaultDial || '+20', phone: '' };
   const save = () => SC.booking.set(b);
   D.promos = D.promos || {};
   // Signed-in agents: "Your agent discount: 10%" (or "rates vary by cabin" when the cabins had different rates)

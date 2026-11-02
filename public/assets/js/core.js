@@ -191,7 +191,7 @@
     const all = window.intlTelInputGlobals.getCountryData();
     const isoFor = (d) => all.filter((c) => '+' + c.dialCode === d).sort((a, b) => (a.priority || 0) - (b.priority || 0))[0]?.iso2;
     const iti = window.intlTelInput(input, {
-      initialCountry: isoFor(dial) || cfg.initialCountry || 'sa',
+      initialCountry: isoFor(dial) || cfg.initialCountry || 'eg',
       preferredCountries: cfg.preferredCountries || [],
       separateDialCode: true,
       autoPlaceholder: 'off',

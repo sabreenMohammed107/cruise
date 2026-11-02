@@ -8,8 +8,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Admin → Cruises: the list keeps cruises still running, finished sailings go to the archive (a year at a
- * time), and both filter by year, month, departure port and nights.
+ * Admin → Cruises: the list keeps cruises still running, sailings go to the archive 24 hours before departure
+ * (a year at a time), and both filter by year, month, departure port and nights.
  */
 class CruiseArchiveTest extends TestCase
 {
@@ -41,21 +41,24 @@ class CruiseArchiveTest extends TestCase
         return $cruise;
     }
 
-    public function test_the_list_keeps_running_cruises_and_the_archive_takes_finished_sailings(): void
+    public function test_the_list_keeps_running_cruises_and_the_archive_takes_sailings_a_day_before_departure(): void
     {
         $this->cruise('Zeta Finished Cruise', [['2025-06-01', 3], ['2026-10-20', 4]]);   // last one back on 24 Oct
-        $this->cruise('Zeta At Sea Today', [['2026-10-25', 4]]);                         // back on 29 Oct
+        $this->cruise('Zeta At Sea Today', [['2026-10-25', 4]]);                         // left, back on 29 Oct
+        $this->cruise('Zeta Departs Tomorrow', [['2026-10-28', 3]]);                     // within 24 hours
+        $this->cruise('Zeta Departs In Two Days', [['2026-10-29', 3]]);                  // still bookable
         $this->cruise('Zeta Not Scheduled', []);                                          // new, no dates yet
         $this->cruise('Zeta Mixed', [['2026-01-10', 3], ['2027-02-01', 3]]);              // one over, one to come
 
         $this->get(route('admin.cruises.index', ['q' => 'Zeta']))->assertOk()
-            ->assertSee('Zeta At Sea Today')->assertSee('Zeta Not Scheduled')->assertSee('Zeta Mixed')
-            ->assertDontSee('Zeta Finished Cruise')
+            ->assertSee('Zeta Departs In Two Days')->assertSee('Zeta Not Scheduled')->assertSee('Zeta Mixed')
+            ->assertDontSee('Zeta Finished Cruise')->assertDontSee('Zeta At Sea Today')->assertDontSee('Zeta Departs Tomorrow')
             ->assertSee('See the archive');
 
-        // Latest year with a finished sailing by default; only sailings already back
+        // Latest year with an archived sailing by default; sailings from 24 hours before departure on
         $this->get(route('admin.cruises.archive'))->assertOk()
-            ->assertSee('Zeta Finished Cruise')->assertSee('Zeta Mixed')->assertDontSee('Zeta At Sea Today')
+            ->assertSee('Zeta Finished Cruise')->assertSee('Zeta Mixed')->assertSee('Zeta At Sea Today')
+            ->assertSee('Zeta Departs Tomorrow')->assertDontSee('Zeta Departs In Two Days')
             ->assertSee('<option value="2026" selected', false);
 
         // Another year: the 2025 sailing of the finished cruise, not the 2026 ones

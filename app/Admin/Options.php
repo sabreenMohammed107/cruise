@@ -17,7 +17,7 @@ final class Options
     }
 
     /**
-     * Country codes for the admin phone fields: "+966 Saudi Arabia", the countries of the website's phone widget first
+     * Country codes for the admin phone fields: "+20 Egypt", the countries of the website's phone widget first
      * (config cruise.phone_preferred_countries), then by country name. Countries sharing a code share one choice,
      * main country first ("+1 United States, Canada, Dominican Republic, …").
      */

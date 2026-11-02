@@ -50,9 +50,11 @@ return [
     // [dial code, ISO country code, English name]: every country of the phone widget (config/dial_codes.php, step 25)
     'dial_codes' => require __DIR__.'/dial_codes.php',
 
-    // Phone widget (intl-tel-input, as on safer.travel): country chosen at first, then these at the top of the list
-    'phone_initial_country' => 'sa',
-    'phone_preferred_countries' => ['sa', 'ae', 'eg', 'kw', 'qa', 'bh', 'om'],
+    // Phone widget (intl-tel-input, as on safer.travel): country chosen at first (Egypt) and its code, the code
+    // phone fields start on (also without JavaScript); then these countries at the top of the list
+    'phone_initial_country' => 'eg',
+    'phone_default_dial' => '+20',
+    'phone_preferred_countries' => ['eg', 'sa', 'ae', 'kw', 'qa', 'bh', 'om'],
 
     'terms' => [
         'text' => [

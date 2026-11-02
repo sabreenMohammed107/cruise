@@ -34,7 +34,7 @@ class PhoneCodesTest extends TestCase
         $this->assertContains(['+966', 'SA', 'Saudi Arabia', 0], $codes);
         $this->assertContains(['+81', 'JP', 'Japan', 0], $codes);
         $this->assertContains(['+1', 'CA', 'Canada', 1], $codes);
-        $this->assertSame(['sa', 'ae', 'eg', 'kw', 'qa', 'bh', 'om'], config('cruise.phone_preferred_countries'));
+        $this->assertSame(['eg', 'sa', 'ae', 'kw', 'qa', 'bh', 'om'], config('cruise.phone_preferred_countries'));
     }
 
     public function test_bookings_and_profiles_accept_any_listed_code(): void
@@ -55,16 +55,27 @@ class PhoneCodesTest extends TestCase
     public function test_pages_get_the_widget_settings_not_the_whole_list(): void
     {
         $data = $this->get('/booking')->assertOk()->assertSee('intl-tel-input/17.0.19/js/intlTelInput.min.js', false)->viewData('scData');
-        $this->assertSame(['initialCountry' => 'sa', 'preferredCountries' => ['sa', 'ae', 'eg', 'kw', 'qa', 'bh', 'om']], $data['phone']);
+        $this->assertSame(['initialCountry' => 'eg', 'defaultDial' => '+20', 'preferredCountries' => ['eg', 'sa', 'ae', 'kw', 'qa', 'bh', 'om']], $data['phone']);
         $this->assertArrayNotHasKey('dialCodes', $data);
+    }
+
+    public function test_phone_fields_start_on_egypt(): void
+    {
+        // Server-rendered forms (contact, become an agent): the hidden code before JavaScript runs
+        $this->get('/contact')->assertOk()->assertSee('name="dial" value="+20"', false);
+
+        // Account profile without a saved number
+        $reem = User::where('email', 'reem@example.com')->firstOrFail();
+        $reem->update(['phone_dial' => null, 'phone' => null]);
+        $this->assertSame('+20', app(\App\Support\ScDataPresenter::class)->account($reem->fresh())['profile']['dial']);
     }
 
     public function test_admin_choices_share_one_entry_per_code(): void
     {
         $options = Options::dialCodes();
-        $this->assertSame('+966', array_key_first($options));                    // the widget's first country
+        $this->assertSame('+20', array_key_first($options));                     // the widget's first country
         $this->assertSame('+966 Saudi Arabia', $options['+966']);
-        $this->assertSame(['+966', '+971', '+20', '+965', '+974', '+973', '+968'], array_slice(array_keys($options), 0, 7));
+        $this->assertSame(['+20', '+966', '+971', '+965', '+974', '+973', '+968'], array_slice(array_keys($options), 0, 7));
         $this->assertSame('+1 United States, Canada, Dominican Republic, …', $options['+1']);   // main country first
         $this->assertCount(206, $options);                                       // one per code
     }
