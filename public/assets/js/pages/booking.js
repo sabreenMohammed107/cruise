@@ -53,6 +53,8 @@ document.addEventListener('sc:ready', () => {
 
   b.travellers = b.travellers || {};
   b.contact = b.contact || { email: '', dial: (D.phone || {}).defaultDial || '+20', phone: '' };
+  // Example number in the mobile field for the chosen code (the countries with their own rule in phoneError())
+  const phonePlaceholder = (dial) => ({ '+20': '1X XXXX XXXX', '+966': '5X XXX XXXX' })[dial] || '';
   const save = () => SC.booking.set(b);
   D.promos = D.promos || {};
   // Signed-in agents: "Your agent discount: 10%" (or "rates vary by cabin" when the cabins had different rates)
@@ -131,7 +133,7 @@ document.addEventListener('sc:ready', () => {
           ${field('c-email', t('email'), `<input id="c-email" type="email" class="field" dir="ltr" data-contact="email" data-rule="email" autocomplete="email" placeholder="name@example.com" value="${SC.esc(b.contact.email)}">`)}
           ${field('c-phone', t('mobile'), `<div dir="ltr">
               <input type="hidden" id="c-dial" value="${SC.esc(b.contact.dial)}">
-              <input id="c-phone" type="tel" inputmode="tel" class="field tabular" data-contact="phone" data-rule="phone" autocomplete="tel-national" placeholder="5X XXX XXXX" value="${SC.esc(b.contact.phone)}">
+              <input id="c-phone" type="tel" inputmode="tel" class="field tabular" data-contact="phone" data-rule="phone" autocomplete="tel-national" placeholder="${phonePlaceholder(b.contact.dial)}" value="${SC.esc(b.contact.phone)}">
             </div>`)}
         </div>
       </div>` : ''}
@@ -194,6 +196,7 @@ document.addEventListener('sc:ready', () => {
   // booking's contact.dial up to date, and re-checks a typed number for the new country (Saudi / Egyptian rules)
   SC.phoneWidget($('#c-phone'), b.contact.dial, (dial) => {
     $('#c-dial').value = dial; b.contact.dial = dial; save();
+    $('#c-phone').placeholder = phonePlaceholder(dial);
     if ($('#c-phone').value && $('#c-phone').classList.contains('is-invalid')) showError($('#c-phone'), errorFor($('#c-phone')));
   });
 
