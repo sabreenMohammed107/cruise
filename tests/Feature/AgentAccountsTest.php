@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\AgentRequestStatus;
 use App\Enums\UserRole;
+use App\Http\Requests\AgentRequest;
 use App\Models\AgentApplication;
 use App\Models\AgentRate;
 use App\Models\AgentTier;
@@ -155,6 +156,23 @@ class AgentAccountsTest extends TestCase
         AgentApplication::sole()->forceFill(['status' => AgentRequestStatus::Rejected])->save();
         $this->post('/agents', $form + ['email' => 'omar@redsea.example'])->assertSessionHasNoErrors();
         $this->assertSame(2, AgentApplication::count());
+    }
+
+    public function test_a_double_submit_saves_one_application(): void
+    {
+        $form = ['company_name' => 'Lowcost holidays', 'contact_name' => 'Yasser', 'email' => 'yasser@lowcost.example', 'dial' => '+20', 'phone' => '1145282888'];
+        $this->get('/agents')->assertSee('data-submit-once', false);
+
+        // The second click's request passes the "already applied" check while the first is still saving: simulate
+        // the first one being saved right after this request was validated
+        $this->app->afterResolving(AgentRequest::class, function () use ($form) {
+            if (! AgentApplication::count()) {
+                AgentApplication::create(['company_name' => $form['company_name'], 'contact_name' => $form['contact_name'], 'email' => 'Yasser@lowcost.example', 'phone_dial' => '+20', 'phone' => '1145282888']);
+            }
+        });
+
+        $this->post('/agents', $form)->assertSessionHasNoErrors()->assertSessionHas('agent_sent');
+        $this->assertSame(1, AgentApplication::count());
     }
 
     public function test_a_staff_email_cannot_become_an_agent(): void

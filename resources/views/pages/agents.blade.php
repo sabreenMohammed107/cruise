@@ -72,7 +72,7 @@
               <p class="text-muted mt-2">{{ __('pages.agents.sent_body') }}</p>
             </div>
           @else
-            <form method="POST" action="{{ route('agents.store') }}#apply" class="grid sm:grid-cols-2 gap-4" novalidate>
+            <form method="POST" action="{{ route('agents.store') }}#apply" class="grid sm:grid-cols-2 gap-4" novalidate data-submit-once>
               @csrf
               @foreach ([
                   ['company_name', 'text', 'organization'],

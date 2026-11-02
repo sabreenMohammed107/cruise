@@ -405,6 +405,16 @@
     dd.querySelector('[data-dropdown-trigger]')?.setAttribute('aria-expanded', 'false');
   });
 
+  // --- Laravel: forms marked [data-submit-once] send once: a second click while the page loads is ignored
+  // (the server also refuses a duplicate, e.g. AgentController::store)
+  document.addEventListener('submit', (e) => {
+    const form = e.target.closest('form[data-submit-once]');
+    if (!form) return;
+    if (form.dataset.sending) { e.preventDefault(); return; }
+    form.dataset.sending = '1';
+    form.querySelectorAll('button[type=submit], button:not([type])').forEach((b) => { b.disabled = true; b.setAttribute('aria-busy', 'true'); });
+  });
+
   // --- Modal: SC.modal.open('id') or [data-modal-open="id"] / [data-modal-close]
   let lastFocus = null;
   SC.modal = {

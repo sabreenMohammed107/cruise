@@ -37,7 +37,7 @@
           </div>
         @else
           <h2 class="font-display font-bold text-2xl">{{ __('pages.contact.form_title') }}</h2>
-          <form method="POST" action="{{ route('contact.store') }}" class="mt-6 grid sm:grid-cols-2 gap-4" novalidate>
+          <form method="POST" action="{{ route('contact.store') }}" class="mt-6 grid sm:grid-cols-2 gap-4" novalidate data-submit-once>
             @csrf
             @include('auth.partials.field', ['name' => 'name', 'label' => __('pages.contact.fields.name'), 'placeholder' => __('pages.contact.placeholders.name'), 'autocomplete' => 'name', 'span' => 'sm:col-span-2'])
             @include('auth.partials.field', ['name' => 'email', 'label' => __('pages.contact.fields.email'), 'placeholder' => __('pages.contact.placeholders.email'), 'type' => 'email', 'autocomplete' => 'email'])

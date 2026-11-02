@@ -117,6 +117,7 @@ class CruiseResource extends Resource
             'route_ports.*' => ['integer', Rule::exists('ports', 'id')],
             'itinerary' => ['nullable', 'array'],
             'itinerary.*.port' => ['nullable', 'string', 'max:255'],
+            'itinerary.*.port_ar' => ['nullable', 'string', 'max:255'],
             'itinerary.*.time' => ['nullable', 'string', 'max:40'],
             'itinerary.*.time_ar' => ['nullable', 'string', 'max:40'],
             'itinerary.*.text' => ['nullable', 'string', 'max:2000'],
@@ -159,6 +160,7 @@ class CruiseResource extends Resource
             $record->itinerary()->create([
                 'day_number' => $i + 1,
                 'port' => $day['port'],
+                'port_ar' => $day['port_ar'] ?? null,
                 'time_label' => $day['time'] ?? null,
                 'description' => $day['text'] ?? null,
                 'time_label_ar' => $day['time_ar'] ?? null,

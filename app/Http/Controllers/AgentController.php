@@ -8,6 +8,7 @@ use App\Models\HomeSection;
 use App\Support\ScDataPresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 /**
@@ -28,7 +29,15 @@ class AgentController extends Controller
     {
         // A bot filled the hidden field: answer as usual so it learns nothing, but keep nothing
         if (! $request->isBot()) {
-            AgentApplication::create($request->toSave());
+            $email = strtolower(trim((string) $request->input('email')));
+            // A double click sends the form twice at once: both pass AgentRequest's "already applied" check before
+            // either is saved. One save per email at a time, checked again inside the lock; the second request
+            // finds the first application and just shows the same "sent" message.
+            Cache::lock('agent-application:'.sha1($email), 10)->block(5, function () use ($request, $email) {
+                if (! AgentApplication::open()->whereRaw('lower(email) = ?', [$email])->exists()) {
+                    AgentApplication::create($request->toSave());
+                }
+            });
         }
 
         return redirect()->to(route('agents').'#apply')->with('agent_sent', true);

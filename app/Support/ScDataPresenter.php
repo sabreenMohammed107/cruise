@@ -325,8 +325,10 @@ class ScDataPresenter
                 'image' => MediaLibrary::url($cruise->image),
                 'gallery' => MediaLibrary::urls($cruise->gallery),
                 'summary' => $cruise->tr('summary'),
+                // port: the English name (SC.port() translates port names); name: the admin's Arabic name, when set
                 'itinerary' => $cruise->itinerary->map(fn ($day) => [
-                    'port' => $day->port, 'time' => $day->tr('time_label'), 'text' => $day->tr('description'),
+                    'port' => $day->port, 'name' => Bi::isArabic() && filled($day->port_ar) ? $day->port_ar : null,
+                    'atSea' => $day->isAtSea(), 'time' => $day->tr('time_label'), 'text' => $day->tr('description'),
                 ])->all(),
                 'sailings' => $cruise->sailings->map(fn (Sailing $sailing) => [
                     'id' => $sailing->code,

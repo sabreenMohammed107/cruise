@@ -138,14 +138,16 @@ document.addEventListener('sc:ready', () => {
   const renderItinerary = () => {
     $('#d-itinerary').innerHTML = cruise.itinerary.map((d, i) => {
       const date = SC.addDays(sailing.departure, i);
-      const atSea = d.port === 'At sea';
+      // Laravel: the admin's Arabic day name when set; else port names (and "At sea", however typed) via SC.port()
+      const atSea = d.atSea ?? d.port === 'At sea';
+      const name = d.name || SC.port(atSea ? 'At sea' : d.port);
       return `<li class="acc-item card ${i === 0 ? 'open' : ''}">
         <button class="acc-trigger w-full flex items-center gap-4 p-4 sm:p-5 text-start" aria-expanded="${i === 0}">
           <span class="shrink-0 w-14 text-center rounded-xl py-1.5 ${atSea ? 'bg-lagoon-50 text-lagoon-600' : 'bg-ocean-50 text-ocean-700'}">
             <span class="block text-[11px] font-bold">${SC.t('ui.details.day')}</span><span class="block font-display font-bold text-lg leading-none">${i + 1}</span>
           </span>
           <span class="flex-1 min-w-0">
-            <span class="block font-bold truncate">${SC.port(d.port)}</span>
+            <span class="block font-bold truncate">${SC.esc(name)}</span>
             <span class="block text-sm text-muted">${SC.fmtDate(date, { weekday: 'long', day: 'numeric', month: 'short' })}, ${d.time}</span>
           </span>
           ${SC.icon(atSea ? 'waves' : 'anchor', 'w-5 h-5 text-ocean-300 hidden sm:block')}

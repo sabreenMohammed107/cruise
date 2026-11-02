@@ -117,7 +117,7 @@ class BilingualContentTest extends TestCase
         $cruise = collect($ar['cruises'])->firstWhere('id', 'red-sea-discovery');
         $this->assertSame('اكتشاف البحر الأحمر', $cruise['name']);
         $this->assertStringStartsWith('أسبوع كامل', $cruise['summary']);
-        $this->assertSame(['port' => 'Jeddah', 'time' => 'المغادرة 20:00', 'text' => 'سجّل وصولك في ميناء جدة الإسلامي من الساعة 14:00. استقر في كابينتك وانضم إلى احتفال الإبحار على سطح المسبح.'], $cruise['itinerary'][0]);
+        $this->assertSame(['port' => 'Jeddah', 'name' => null, 'atSea' => false, 'time' => 'المغادرة 20:00', 'text' => 'سجّل وصولك في ميناء جدة الإسلامي من الساعة 14:00. استقر في كابينتك وانضم إلى احتفال الإبحار على سطح المسبح.'], $cruise['itinerary'][0]);
         $this->assertSame(['Jeddah', 'Safaga', 'Sokhna', 'Al Wajh', 'Yanbu', 'Jeddah'], $cruise['route']); // keys stay English
 
         $safaga = collect($ar['destinations'])->firstWhere('slug', 'safaga');
@@ -175,14 +175,28 @@ class BilingualContentTest extends TestCase
         $cruise = Cruise::where('slug', 'saudi-coast-weekend')->firstOrFail();
 
         $this->actingAs($admin, 'admin')->get("/admin/cruises/{$cruise->id}/edit")->assertOk()
-            ->assertSee('itinerary[0][time_ar]', false)->assertSee('المغادرة 20:00');
+            ->assertSee('itinerary[0][time_ar]', false)->assertSee('itinerary[0][port_ar]', false)->assertSee('المغادرة 20:00');
 
         $form = $cruise->only(['name', 'name_ar', 'slug', 'ship_id', 'nights', 'departure_port', 'arrival_port', 'summary', 'summary_ar'])
             + ['route_ports' => Port::idsFor(['Jeddah', 'Yanbu', 'Jeddah']), 'tags' => ['family'], 'is_active' => 1,
-                'itinerary' => [['port' => 'Jeddah', 'time' => 'Departs 21:00', 'time_ar' => 'المغادرة 21:00', 'text' => 'Embark.', 'text_ar' => 'الصعود.']]];
+                'itinerary' => [
+                    ['port' => 'Jeddah Departure', 'port_ar' => 'المغادرة من جدة', 'time' => 'Departs 21:00', 'time_ar' => 'المغادرة 21:00', 'text' => 'Embark.', 'text_ar' => 'الصعود.'],
+                    ['port' => 'At Sea', 'port_ar' => '', 'time' => 'Full day'],
+                    ['port' => 'Yanbu', 'port_ar' => '', 'time' => '08:00'],
+                ]];
         $this->put("/admin/cruises/{$cruise->id}", $form)->assertSessionHasNoErrors();
 
         $day = $cruise->itinerary()->first();
-        $this->assertSame(['المغادرة 21:00', 'الصعود.'], [$day->time_label_ar, $day->description_ar]);
+        $this->assertSame(['المغادرة من جدة', 'المغادرة 21:00', 'الصعود.'], [$day->port_ar, $day->time_label_ar, $day->description_ar]);
+        $this->get("/admin/cruises/{$cruise->id}/edit")->assertSee('value="المغادرة من جدة"', false);
+
+        // The website: the Arabic name when written; port names and "At sea" (any capitals) as before; English unchanged
+        $days = fn ($request) => collect($request->get('/cruises/saudi-coast-weekend')->viewData('scData')['cruises'])
+            ->firstWhere('id', 'saudi-coast-weekend')['itinerary'];
+        $ar = $days($this->inArabic());
+        $this->assertSame(['المغادرة من جدة', null, null], array_column($ar, 'name'));
+        $this->assertSame([false, true, false], array_column($ar, 'atSea'));
+        $this->assertSame(['At Sea', 'Yanbu'], [$ar[1]['port'], $ar[2]['port']]); // translated in the page by SC.port()
+        $this->assertSame([null, null, null], array_column($days($this->withUnencryptedCookie('sc_lang', 'en')), 'name'));
     }
 }
