@@ -42,7 +42,7 @@ class CruiseResource extends Resource
     }
 
     /**
-     * Only cruises still running (Cruise::current()); sailings departing within 24 hours, or gone, are in the
+     * Only cruises still running (Cruise::current()); sailings departing today, or gone, are in the
      * archive. Year and month keep the cruises with a sailing not archived yet that departs then; port and
      * nights are the cruise's own.
      */

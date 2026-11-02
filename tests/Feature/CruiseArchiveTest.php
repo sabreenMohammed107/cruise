@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Admin → Cruises: the list keeps cruises still running, sailings go to the archive 24 hours before departure
+ * Admin → Cruises: the list keeps cruises still running, sailings go to the archive (and close) on the day they depart
  * (a year at a time), and both filter by year, month, departure port and nights.
  */
 class CruiseArchiveTest extends TestCase
@@ -41,24 +41,24 @@ class CruiseArchiveTest extends TestCase
         return $cruise;
     }
 
-    public function test_the_list_keeps_running_cruises_and_the_archive_takes_sailings_a_day_before_departure(): void
+    public function test_the_list_keeps_running_cruises_and_the_archive_takes_sailings_on_departure_day(): void
     {
         $this->cruise('Zeta Finished Cruise', [['2025-06-01', 3], ['2026-10-20', 4]]);   // last one back on 24 Oct
-        $this->cruise('Zeta At Sea Today', [['2026-10-25', 4]]);                         // left, back on 29 Oct
-        $this->cruise('Zeta Departs Tomorrow', [['2026-10-28', 3]]);                     // within 24 hours
-        $this->cruise('Zeta Departs In Two Days', [['2026-10-29', 3]]);                  // still bookable
+        $this->cruise('Zeta At Sea Now', [['2026-10-25', 4]]);                           // left, back on 29 Oct
+        $this->cruise('Zeta Departs Today', [['2026-10-27', 3]]);                        // closed from 00:00
+        $this->cruise('Zeta Departs Tomorrow', [['2026-10-28', 3]]);                     // still bookable today
         $this->cruise('Zeta Not Scheduled', []);                                          // new, no dates yet
         $this->cruise('Zeta Mixed', [['2026-01-10', 3], ['2027-02-01', 3]]);              // one over, one to come
 
         $this->get(route('admin.cruises.index', ['q' => 'Zeta']))->assertOk()
-            ->assertSee('Zeta Departs In Two Days')->assertSee('Zeta Not Scheduled')->assertSee('Zeta Mixed')
-            ->assertDontSee('Zeta Finished Cruise')->assertDontSee('Zeta At Sea Today')->assertDontSee('Zeta Departs Tomorrow')
+            ->assertSee('Zeta Departs Tomorrow')->assertSee('Zeta Not Scheduled')->assertSee('Zeta Mixed')
+            ->assertDontSee('Zeta Finished Cruise')->assertDontSee('Zeta At Sea Now')->assertDontSee('Zeta Departs Today')
             ->assertSee('See the archive');
 
-        // Latest year with an archived sailing by default; sailings from 24 hours before departure on
+        // Latest year with an archived sailing by default; sailings from the day they depart on
         $this->get(route('admin.cruises.archive'))->assertOk()
-            ->assertSee('Zeta Finished Cruise')->assertSee('Zeta Mixed')->assertSee('Zeta At Sea Today')
-            ->assertSee('Zeta Departs Tomorrow')->assertDontSee('Zeta Departs In Two Days')
+            ->assertSee('Zeta Finished Cruise')->assertSee('Zeta Mixed')->assertSee('Zeta At Sea Now')
+            ->assertSee('Zeta Departs Today')->assertDontSee('Zeta Departs Tomorrow')
             ->assertSee('<option value="2026" selected', false);
 
         // Another year: the 2025 sailing of the finished cruise, not the 2026 ones
@@ -68,6 +68,16 @@ class CruiseArchiveTest extends TestCase
         // A finished cruise is still editable, so it can be scheduled again
         $finished = Cruise::where('name', 'Zeta Finished Cruise')->sole();
         $this->get(route('admin.cruises.edit', $finished->id))->assertOk();
+    }
+
+    public function test_sailings_close_command_closes_sailings_departing_today_or_earlier(): void
+    {
+        $this->cruise('Zeta Close', [['2026-10-26', 3], ['2026-10-27', 3], ['2026-10-28', 3]]);
+        $sailings = Cruise::where('name', 'Zeta Close')->sole()->sailings()->orderBy('departure_date');
+
+        $this->artisan('sailings:close')->assertSuccessful();
+
+        $this->assertSame(['closed', 'closed', 'open'], $sailings->pluck('status')->map->value->all());
     }
 
     public function test_archive_filters_by_month_port_and_nights(): void

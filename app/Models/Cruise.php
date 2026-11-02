@@ -75,7 +75,7 @@ class Cruise extends Model
     }
 
     /**
-     * Cruises still running: a sailing departing more than 24 hours from now, or no sailing at all (new, not
+     * Cruises still running: a sailing departing after today, or no sailing at all (new, not
      * scheduled yet). A cruise whose sailings are all archived (Sailing::finished()) leaves the admin's cruises
      * list by itself; its sailings are in the archive.
      */

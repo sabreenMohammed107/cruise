@@ -12,9 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * Admin → Cruises → Archive: sailings from 24 hours before departure on, when bookings close
+ * Admin → Cruises → Archive: sailings from the day they depart on, when bookings close
  * (Sailing::finished()), one year at a time so the list stays quick however many years build up. Nothing is
- * moved: a sailing shows here from the start of the day before it departs. Filters: year (always one; the
+ * moved: a sailing shows here from 00:00 on the day it departs. Filters: year (always one; the
  * latest by default), month, departure port, nights.
  */
 class CruiseArchiveController extends Controller

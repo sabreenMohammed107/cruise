@@ -7,7 +7,7 @@
   <div class="flex flex-wrap items-end justify-between gap-3">
     <div>
       <h1 class="font-display font-bold text-2xl sm:text-3xl">Archive</h1>
-      <p class="text-muted mt-1 max-w-[75ch]">Sailings closed for booking, one year at a time. They move here by themselves 24 hours before departure (from the start of the day before they sail), whether at sea or already back; the cruises list keeps everything departing later.</p>
+      <p class="text-muted mt-1 max-w-[75ch]">Sailings closed for booking, one year at a time. They move here by themselves at the start of the day they depart (from 00:00), whether at sea or already back; the cruises list keeps everything departing later.</p>
     </div>
     <a href="{{ route('admin.cruises.index') }}" class="btn btn-outline btn-sm"><i data-icon="ship" class="w-4 h-4"></i> Cruises list</a>
   </div>

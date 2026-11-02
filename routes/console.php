@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\SailingStatus;
+use App\Models\Sailing;
 use App\Services\CurrencyService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -29,3 +31,15 @@ Artisan::command('currency:refresh', function (CurrencyService $currency) {
 })->purpose('Fetch the live USD to EGP rate now');
 
 Schedule::command('currency:refresh')->twiceDaily(6, 18)->withoutOverlapping();
+
+// Sailings close at the start of the day they depart: from 00:00 the website (Sailing::upcoming()) stops
+// offering them and the admin shows them in the archive (Sailing::finished()), both from the date alone.
+// This marks them closed too, so their status says so wherever it's shown.
+Artisan::command('sailings:close', function () {
+    $closed = Sailing::where('status', SailingStatus::Open)
+        ->whereDate('departure_date', '<=', Sailing::archiveCutoff())
+        ->update(['status' => SailingStatus::Closed]);
+    $this->info("Closed {$closed} sailing(s) departing today or earlier.");
+})->purpose('Close bookings for sailings departing today or earlier');
+
+Schedule::command('sailings:close')->dailyAt('00:02')->withoutOverlapping();

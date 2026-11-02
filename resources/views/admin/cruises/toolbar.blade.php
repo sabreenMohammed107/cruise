@@ -1,5 +1,5 @@
 {{-- Cruises list (CruiseResource::filter()): only cruises still running; year and month choices are the years
-     of sailings not archived yet. Cruises whose sailings are all archived (from 24 hours before departure) are
+     of sailings not archived yet. Cruises whose sailings are all archived (from the day they depart) are
      counted here and listed in the archive. --}}
 @use('App\Admin\CruiseFilters')
 @use('App\Models\Cruise')

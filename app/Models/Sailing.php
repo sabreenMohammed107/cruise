@@ -48,22 +48,22 @@ class Sailing extends Model
     }
 
     /**
-     * Last departure date that is archived: a sailing goes to the archive 24 hours before it departs, when
-     * bookings close. departure_date has no time, so 24 hours before is the start of the day before: from
-     * today on, everything departing tomorrow or earlier is archived.
+     * Last departure date that is archived: a sailing goes to the archive at the start (00:00) of the day it
+     * departs, when bookings close (the same day upcoming() drops it from the website). departure_date has no
+     * time, so everything departing today or earlier is archived. sailings:close sets their status to closed.
      */
     public static function archiveCutoff(): Carbon
     {
-        return today()->addDay();
+        return today();
     }
 
-    /** Departing within 24 hours, at sea or back: shown in Admin → Cruises → Archive, not in the cruises list. */
+    /** Departing today, at sea or back: shown in Admin → Cruises → Archive, not in the cruises list. */
     public function scopeFinished(Builder $query): void
     {
         $query->whereDate('departure_date', '<=', self::archiveCutoff());
     }
 
-    /** Departing more than 24 hours from now: what keeps a cruise in the admin's cruises list. */
+    /** Departing after today: what keeps a cruise in the admin's cruises list. */
     public function scopeCurrent(Builder $query): void
     {
         $query->whereDate('departure_date', '>', self::archiveCutoff());
