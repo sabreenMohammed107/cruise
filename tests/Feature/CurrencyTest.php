@@ -183,6 +183,68 @@ class CurrencyTest extends TestCase
         $this->assertSame(0, SiteSetting::whereIn('key', ['currency_mode', 'manual_exchange_rate'])->count());
     }
 
+    public function test_the_markup_is_added_to_the_live_rate_and_only_the_total_is_shown(): void
+    {
+        $this->fakeApi(49.25);
+        $currency = app(CurrencyService::class);
+
+        // Saved with the other settings; the API's cached rate stays the base rate
+        $this->asAdmin()->put('/admin/currency', ['currency_mode' => 'api', 'manual_exchange_rate' => '47', 'exchange_rate_markup' => '1.5'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame([49.25, 1.5, 50.75], [$currency->baseRate(), $currency->markup(), $currency->rate('EGP')]);
+        $this->assertSame(49.25, $currency->liveRate()['rate']);
+        $this->assertSame(1.0, $currency->rate('USD'));
+
+        // Visitors get the total, with no trace of the markup
+        $page = $this->withSession(['currency' => 'EGP'])->get(self::PAGE)->assertOk()
+            ->assertSee('1 USD = 50.75 EGP')->assertDontSee('49.25')->assertDontSee('markup', false);
+        $this->assertSame(50.75, $page->viewData('scData')['exchangeRate']);
+
+        // The admin sees how the total is made
+        $this->asAdmin()->get('/admin/currency')->assertSee('1 USD = 50.75 EGP')->assertSee('Live rate 49.25 + markup 1.50 EGP');
+
+        // A refreshed live rate gets the markup too (never added twice)
+        $this->fakeApi(50);
+        $this->asAdmin()->post('/admin/currency/refresh')
+            ->assertSessionHas('status', 'Live rate updated: 1 USD = 50.0000 EGP. With your markup the website uses 51.5000 EGP.');
+        $this->assertSame(51.5, $currency->rate('EGP'));
+
+        // Manual mode: the admin's rate as entered; the markup is kept for automatic mode
+        $this->asAdmin()->put('/admin/currency', ['currency_mode' => 'manual', 'manual_exchange_rate' => '47', 'exchange_rate_markup' => '2']);
+        $this->assertSame([47.0, 2.0, 0.0], [$currency->rate('EGP'), $currency->markup(), $currency->appliedMarkup()]);
+        $this->asAdmin()->get('/admin/currency')->assertSee('1 USD = 47.00 EGP')->assertDontSee('+ markup');
+
+        // Emptied: no markup
+        $this->asAdmin()->put('/admin/currency', ['currency_mode' => 'api', 'manual_exchange_rate' => '47', 'exchange_rate_markup' => '']);
+        $this->assertSame([0.0, 50.0], [$currency->markup(), $currency->rate('EGP')]);
+    }
+
+    public function test_the_markup_is_not_added_to_the_manual_rate_used_when_the_api_never_worked(): void
+    {
+        $this->api(fn () => Http::response('Server error', 500));
+        SiteSetting::create(['key' => 'manual_exchange_rate', 'value' => '51']);
+        SiteSetting::create(['key' => 'exchange_rate_markup', 'value' => '2']);
+        $currency = app(CurrencyService::class);
+
+        $this->assertSame(['manual', 51.0], [$currency->liveRate()['source'], $currency->rate('EGP')]);
+
+        // Once the API has answered, its last rate gets the markup even while the API is down
+        $this->fakeApi(49);
+        $currency->liveRate(refresh: true);
+        $this->api(fn () => Http::response('Unavailable', 503));
+        $this->assertSame('last_known', $currency->liveRate(refresh: true)['source']);
+        $this->assertSame(51.0, $currency->rate('EGP'));
+    }
+
+    public function test_the_markup_is_validated(): void
+    {
+        foreach (['-1', 'abc', '1.123456', '1001'] as $bad) {
+            $this->asAdmin()->put('/admin/currency', ['currency_mode' => 'manual', 'manual_exchange_rate' => '50', 'exchange_rate_markup' => $bad])
+                ->assertSessionHasErrors('exchange_rate_markup');
+        }
+        $this->assertNull(SiteSetting::where('key', 'exchange_rate_markup')->first());
+    }
+
     public function test_admin_fetches_the_live_rate_now(): void
     {
         $this->fakeApi(49.25);

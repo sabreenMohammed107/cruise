@@ -22,7 +22,10 @@ class CurrencySettingController extends Controller
         return view('admin.currency.edit', [
             'mode' => $currency->mode(),
             'manualRate' => $currency->manualRate(),
+            'markup' => $currency->markup(),
+            'appliedMarkup' => $currency->appliedMarkup(),
             'live' => $currency->liveRate(),
+            'baseRate' => $currency->baseRate(),
             'activeRate' => $currency->rate('EGP'),
         ]);
     }
@@ -32,9 +35,13 @@ class CurrencySettingController extends Controller
         $data = $request->validate([
             'currency_mode' => ['required', Rule::in([CurrencyService::MODE_API, CurrencyService::MODE_MANUAL])],
             'manual_exchange_rate' => ['required', 'numeric', 'gt:0', 'max:100000', 'decimal:0,4'],
+            'exchange_rate_markup' => ['nullable', 'numeric', 'min:0', 'max:1000', 'decimal:0,4'],
         ], [
             'manual_exchange_rate.required' => 'Enter a rate: it is also used when the live rate is unavailable.',
+            'exchange_rate_markup.min' => 'The markup cannot be negative.',
         ]);
+        // Empty markup = none
+        $data['exchange_rate_markup'] ??= 0;
 
         DB::transaction(function () use ($data) {
             foreach ($data as $key => $value) {
@@ -52,7 +59,8 @@ class CurrencySettingController extends Controller
         $redirect = redirect()->route('admin.currency.edit');
 
         return $live['source'] === 'api'
-            ? $redirect->with('status', 'Live rate updated: 1 USD = '.number_format($live['rate'], 4).' EGP.')
+            ? $redirect->with('status', 'Live rate updated: 1 USD = '.number_format($live['rate'], 4).' EGP.'
+                .($currency->appliedMarkup() > 0 ? ' With your markup the website uses '.number_format($currency->rate('EGP'), 4).' EGP.' : ''))
             : $redirect->with('error', 'The live rate could not be fetched ('.$live['error'].'). The website uses the fallback rate meanwhile.');
     }
 }

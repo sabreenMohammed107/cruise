@@ -23,6 +23,9 @@
   <div class="card p-5 sm:p-6 mt-6">
     <h2 class="font-display font-semibold text-lg">Rate in use</h2>
     <p class="mt-3 font-display font-bold text-3xl text-ocean-800 tabular">1 USD = {{ number_format($activeRate, 2) }} EGP</p>
+    @if ($appliedMarkup > 0)
+      <p class="text-sm text-muted mt-1 tabular">Live rate {{ number_format($baseRate, 2) }} + markup {{ number_format($appliedMarkup, 2) }} EGP. Visitors only see the total.</p>
+    @endif
     <p class="text-sm text-muted mt-1 tabular">e.g. $1,000 shows as EGP {{ number_format(1000 * $activeRate) }}</p>
 
     <div class="mt-5 pt-5 border-t border-line flex flex-wrap items-start justify-between gap-4">
@@ -73,6 +76,18 @@
         <p class="err show">{{ $e }}</p>
       @else
         <p class="text-xs text-muted mt-1.5">Used in manual mode, and in automatic mode whenever the live rate has never been fetched.</p>
+      @endif
+    </div>
+
+    <div class="mt-6 max-w-xs">
+      <label class="label" for="f-markup">Markup on the live rate (EGP per 1 USD, optional)</label>
+      <input id="f-markup" name="exchange_rate_markup" type="number" step="0.0001" min="0" inputmode="decimal" dir="ltr" placeholder="0"
+             class="field tabular {{ $errors->has('exchange_rate_markup') ? 'is-invalid' : '' }}"
+             value="{{ old('exchange_rate_markup', $markup > 0 ? rtrim(rtrim(number_format($markup, 4, '.', ''), '0'), '.') : '') }}">
+      @if ($e = $errors->first('exchange_rate_markup'))
+        <p class="err show">{{ $e }}</p>
+      @else
+        <p class="text-xs text-muted mt-1.5">Automatic mode only: added on top of the live rate, e.g. 1.50 makes a 48.00 live rate 49.50. Visitors and bookings get the total rate; the markup itself is never shown on the website. Your manual rate is always used as entered.</p>
       @endif
     </div>
 

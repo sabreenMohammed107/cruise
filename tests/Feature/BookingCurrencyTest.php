@@ -10,6 +10,7 @@ use App\Models\SiteSetting;
 use App\Models\User;
 use App\Support\ScDataPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
@@ -78,6 +79,19 @@ class BookingCurrencyTest extends TestCase
 
         $this->assertSame(['USD', 'EGP', '50.0000', '11180.00'], [$booking->currency, $booking->display_currency, $booking->exchange_rate, $booking->grand_total]);
         $this->assertSame('EGP 559,000', $booking->money($booking->grand_total));
+    }
+
+    public function test_an_egp_booking_keeps_the_rate_with_the_markup(): void
+    {
+        // Automatic mode with a live rate of 50 and a 1.50 markup
+        Http::fake(['*' => Http::response(['result' => 'success', 'rates' => ['EGP' => 50]])]);
+        SiteSetting::where('key', 'currency_mode')->update(['value' => 'api']);
+        SiteSetting::create(['key' => 'exchange_rate_markup', 'value' => '1.5']);
+        $booking = $this->book('EGP');
+
+        // 50 + 1.50: what the guest saw; $11,180 × 51.5 = EGP 575,770
+        $this->assertSame('51.5000', $booking->exchange_rate);
+        $this->assertSame('EGP 575,770', $booking->money($booking->grand_total));
     }
 
     public function test_the_voucher_shows_egp_at_the_booking_day_rate(): void

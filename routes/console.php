@@ -21,11 +21,11 @@ Schedule::command('queue:work --stop-when-empty --tries=3 --max-time=55')
 Artisan::command('currency:refresh', function (CurrencyService $currency) {
     $live = $currency->liveRate(refresh: true);
     if ($live['source'] !== 'api') {
-        $this->error("Live rate unavailable ({$live['error']}). The website uses 1 USD = {$live['rate']} EGP meanwhile.");
+        $this->error("Live rate unavailable ({$live['error']}). The website uses 1 USD = {$currency->rate('EGP')} EGP meanwhile.");
 
         return 1;
     }
-    $this->info("1 USD = {$live['rate']} EGP");
+    $this->info("1 USD = {$live['rate']} EGP (the website uses {$currency->rate('EGP')} EGP)");
 })->purpose('Fetch the live USD to EGP rate now');
 
 Schedule::command('currency:refresh')->twiceDaily(6, 18)->withoutOverlapping();

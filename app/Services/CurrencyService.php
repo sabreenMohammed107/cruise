@@ -17,6 +17,10 @@ use Throwable;
  *   manual  the admin's rate
  *   api     the live rate from ExchangeRate-API (config/services.php exchange_rate), cached for cache_hours.
  *           If a fetch fails: the last rate fetched, or else the admin's rate; retried after retry_minutes.
+ * The admin's markup (EGP per USD) is added on top of rates from the API only (automatic mode): rate() is then
+ * live rate + markup, and that is what visitors see and bookings keep. The admin's own rate (manual mode, or the
+ * fallback when the API never worked) is used as entered. The cache holds the API rate only, so a new markup
+ * applies at once.
  */
 class CurrencyService
 {
@@ -67,14 +71,32 @@ class CurrencyService
         return $rate > 0 ? $rate : (float) config('cruise.default_exchange_rate');
     }
 
-    /** How many units of $code one USD buys: 1 for USD, the EGP rate of the current mode for EGP. */
+    /** EGP the admin adds to every USD of the live rate (0 when not set); saved in both modes, used in automatic. */
+    public function markup(): float
+    {
+        return max(0.0, (float) SiteSetting::value('exchange_rate_markup'));
+    }
+
+    /** EGP per 1 USD before the markup: the admin's rate or the live rate, by mode. */
+    public function baseRate(): float
+    {
+        return $this->mode() === self::MODE_MANUAL ? $this->manualRate() : $this->liveRate()['rate'];
+    }
+
+    /** The markup added right now: only to a rate from the API, never to the admin's own rate. */
+    public function appliedMarkup(): float
+    {
+        return $this->mode() === self::MODE_API && $this->liveRate()['source'] !== 'manual' ? $this->markup() : 0.0;
+    }
+
+    /** How many units of $code one USD buys: 1 for USD; for EGP the base rate of the current mode + any markup. */
     public function rate(?string $code = null): float
     {
         if (($code ?? $this->active()) === self::BASE) {
             return 1.0;
         }
 
-        return $this->mode() === self::MODE_MANUAL ? $this->manualRate() : $this->liveRate()['rate'];
+        return $this->baseRate() + $this->appliedMarkup();
     }
 
     /** A USD amount in $code (the visitor's currency by default). Display only: nothing is saved converted. */
