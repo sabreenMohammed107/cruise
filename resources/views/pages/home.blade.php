@@ -3,7 +3,7 @@
 @extends('layouts.app')
 
 @php
-  $hero = $home['hero']; $search = $home['search']; $ship = $home['ship']; $sailingsSec = $home['sailings'];
+  $hero = $home['hero']; $search = $home['search']; $ship = $home['ship']; $video = $home['video']; $sailingsSec = $home['sailings'];
   $why = $home['why']; $facilitiesSec = $home['facilities']; $cabins = $home['cabins'];
   $destinationsSec = $home['destinations']; $testimonialsSec = $home['testimonials']; $newsletter = $home['newsletter'];
 @endphp
@@ -118,6 +118,31 @@
         </div>
       </div>
     </section>
+
+    <!-- =========================================================
+         VIDEO (Admin → Homepage → Video: YouTube link, optional heading and text)
+         ========================================================= -->
+    @if ($video->is_visible && ($videoEmbed = $video->videoEmbedUrl()))
+      <section id="video" class="scroll-mt-24 max-w-site mx-auto px-4 sm:px-6 pt-20 sm:pt-24" @if ($video->filledBi('title')) aria-labelledby="video-title" @endif>
+        @if ($video->filledBi('eyebrow') || $video->filledBi('title') || $video->filledBi('body'))
+          <div class="max-w-3xl mx-auto text-center mb-8">
+            @if ($video->filledBi('eyebrow'))
+              <p class="inline-flex items-center gap-2 text-sm font-semibold text-ocean-600 bg-ocean-50 px-3 py-1.5 rounded-full"><i data-icon="ship" class="w-4 h-4"></i> {{ $video->bi('eyebrow') }}</p>
+            @endif
+            @if ($video->filledBi('title'))
+              <h2 id="video-title" class="font-display font-bold text-3xl sm:text-4xl {{ $video->filledBi('eyebrow') ? 'mt-4' : '' }}">{{ $video->bi('title') }}</h2>
+            @endif
+            @if ($video->filledBi('body'))
+              <p class="mt-4 text-muted text-lg leading-relaxed">{{ $video->bi('body') }}</p>
+            @endif
+          </div>
+        @endif
+        <div class="max-w-5xl mx-auto rounded-[28px] overflow-hidden bg-ocean-900 aspect-video shadow-[0_30px_60px_-30px_rgba(12,45,78,.45)]">
+          <iframe src="{{ $videoEmbed }}" title="{{ $video->filledBi('title') ? $video->tr('title') : 'YouTube' }}" class="w-full h-full" loading="lazy"
+                  allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+      </section>
+    @endif
 
     <!-- =========================================================
          FEATURED SAILINGS

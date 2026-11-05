@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\HomeSection;
+use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -129,7 +130,7 @@ class HomeSectionController extends Controller
             $rules['eyebrow'] = $text(255);
         }
         if ($section->supports('title')) {
-            $rules['title'] = $text(255, 'required');
+            $rules['title'] = $text(255, $section->config('title_required', true) ? 'required' : 'nullable');
         }
         if ($section->supports('body')) {
             $rules['body'] = $text(2000);
@@ -149,6 +150,13 @@ class HomeSectionController extends Controller
         }
         if ($section->supports('subheading')) {
             $rules['caption_label'] = $text(80);
+        }
+        if ($section->supports('video')) {
+            $rules['video_url'] = ['nullable', 'string', 'max:255', function (string $attribute, mixed $value, Closure $fail) {
+                if (HomeSection::youtubeId($value) === null) {
+                    $fail('Paste a YouTube video link, e.g. https://www.youtube.com/watch?v=P-Vzn04vPEQ or https://youtu.be/P-Vzn04vPEQ.');
+                }
+            }];
         }
         if ($section->supports('caption')) {
             $rules['caption_label'] = $text(80);
@@ -195,6 +203,9 @@ class HomeSectionController extends Controller
                     $columns->push($button.'_url');
                 }
             }
+        }
+        if ($section->supports('video')) {
+            $columns->push('video_url');
         }
 
         return $columns->all();

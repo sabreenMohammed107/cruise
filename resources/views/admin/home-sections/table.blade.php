@@ -20,6 +20,8 @@
           <td class="p-4">
             @if ($section->supports('image') && ($url = $section->imageUrl()))
               <img src="{{ $url }}" alt="" class="w-20 h-12 rounded-lg object-cover bg-ocean-50">
+            @elseif ($section->supports('video') && ($id = \App\Models\HomeSection::youtubeId($section->video_url)))
+              <img src="https://i.ytimg.com/vi/{{ $id }}/mqdefault.jpg" alt="" class="w-20 h-12 rounded-lg object-cover bg-ocean-50">
             @else
               <span class="text-muted">—</span>
             @endif

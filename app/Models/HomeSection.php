@@ -24,7 +24,7 @@ class HomeSection extends Model
     protected $fillable = [
         'page', 'key', 'eyebrow', 'eyebrow_ar', 'title', 'title_ar', 'body', 'body_ar',
         'primary_label', 'primary_label_ar', 'primary_url', 'secondary_label', 'secondary_label_ar', 'secondary_url',
-        'image_path', 'image_alt', 'image_alt_ar', 'caption_label', 'caption_label_ar', 'caption_value', 'caption_value_ar',
+        'image_path', 'image_alt', 'image_alt_ar', 'video_url', 'caption_label', 'caption_label_ar', 'caption_value', 'caption_value_ar',
         'is_visible',
     ];
 
@@ -147,6 +147,28 @@ class HomeSection extends Model
         }
 
         return null;
+    }
+
+    /**
+     * The 11-character video id of a YouTube link: youtube.com/watch?v=…, youtu.be/…, /embed/…, /shorts/…, /live/….
+     * Null for anything else, so only YouTube videos are ever embedded.
+     */
+    public static function youtubeId(?string $url): ?string
+    {
+        $pattern = '~^(?:https?://)?(?:www\.|m\.)?(?:youtube(?:-nocookie)?\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([A-Za-z0-9_-]{11})(?:[?&#/].*)?$~';
+
+        return $url !== null && preg_match($pattern, trim($url), $m) ? $m[1] : null;
+    }
+
+    /**
+     * Privacy-friendly player address of the section's video (no YouTube cookies until it plays), or null.
+     * Starts muted (mute=1); the visitor can turn the sound on from the player.
+     */
+    public function videoEmbedUrl(): ?string
+    {
+        $id = static::youtubeId($this->video_url);
+
+        return $id ? "https://www.youtube-nocookie.com/embed/{$id}?rel=0&mute=1" : null;
     }
 
     public function primaryHref(): string

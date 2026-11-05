@@ -104,6 +104,34 @@ class HomeContentTest extends TestCase
             ->assertDontSee('Meet the ship');
     }
 
+    public function test_video_section_shows_the_youtube_video_and_is_edited_in_the_admin(): void
+    {
+        $this->assertSame('P-Vzn04vPEQ', HomeSection::youtubeId('https://www.youtube.com/watch?v=P-Vzn04vPEQ'));
+        $this->assertSame('P-Vzn04vPEQ', HomeSection::youtubeId('https://youtu.be/P-Vzn04vPEQ?si=abc'));
+        $this->assertSame('P-Vzn04vPEQ', HomeSection::youtubeId('youtube.com/shorts/P-Vzn04vPEQ'));
+        $this->assertNull(HomeSection::youtubeId('https://evil.example/watch?v=P-Vzn04vPEQ'));
+
+        $this->get('/')->assertOk()
+            ->assertSee('src="https://www.youtube-nocookie.com/embed/P-Vzn04vPEQ?rel=0&amp;mute=1"', false)
+            ->assertSee('Take a look on board AROYA');
+
+        $video = HomeSection::where('page', 'home')->where('key', 'video')->firstOrFail();
+        $this->asAdmin()->get('/admin/home-sections/video/edit')->assertOk()->assertSee('name="video_url"', false);
+
+        // Only YouTube links
+        $this->put('/admin/home-sections/video', $this->formData($video, ['video_url' => 'https://vimeo.com/123']))->assertSessionHasErrors('video_url');
+
+        // Heading and text are optional: the video can be shown alone
+        $this->put('/admin/home-sections/video', $this->formData($video, [
+            'video_url' => 'https://youtu.be/dQw4w9WgXcQ', 'eyebrow' => '', 'eyebrow_ar' => '', 'title' => '', 'title_ar' => '', 'body' => '', 'body_ar' => '',
+        ]))->assertSessionHasNoErrors();
+        $this->get('/')->assertSee('youtube-nocookie.com/embed/dQw4w9WgXcQ', false)->assertDontSee('id="video-title"', false);
+
+        // An empty link hides the section
+        $this->put('/admin/home-sections/video', $this->formData($video, ['video_url' => '']))->assertSessionHasNoErrors();
+        $this->get('/')->assertOk()->assertDontSee('youtube-nocookie.com', false);
+    }
+
     /** Requests from here on are made as a visitor who chose عربي (the sc_lang cookie set by core.js). */
     private function inArabic(): static
     {

@@ -7,8 +7,9 @@
 | One entry per section, in page order. Each entry says:
 |   name     label in the admin panel
 |   fields   which columns the admin can edit: eyebrow, title, body, primary, secondary,
-|            image, caption, items (primary/secondary = button label + link; label only
-|            when 'link' is false)
+|            image, caption, items, video (primary/secondary = button label + link; label only
+|            when 'link' is false; video = a YouTube link)
+|   title_required  false = the heading may be left empty (default true)
 |   image    default picture when nothing is uploaded: ['asset' => path under public/]
 |            or ['ship' => 'image' | 'hero_image'] (that photo of the ship, from Admin → Ships)
 |   content  default copy, from legacy-html/index.html. HomeSectionSeeder writes it to the
@@ -98,6 +99,23 @@ return [
                 'caption_label_ar' => 'العلم وميناء الانطلاق',
                 'caption_value' => 'Saudi Arabia, Jeddah',
                 'caption_value_ar' => 'المملكة العربية السعودية، جدة',
+            ],
+        ],
+
+        // A YouTube video with an optional heading and text. Hidden on the site while the link is empty.
+        'video' => [
+            'name' => 'Video',
+            'fields' => ['eyebrow', 'title', 'body', 'video'],
+            'title_required' => false,
+            'help' => 'A YouTube video under "The ship". The heading, small label and text are optional: leave them empty to show the video alone.',
+            'content' => [
+                'eyebrow' => 'Watch',
+                'eyebrow_ar' => 'شاهد',
+                'title' => 'Take a look on board AROYA',
+                'title_ar' => 'جولة على متن أرويا',
+                'body' => 'See the cabins, pools, restaurants and shows waiting for you on board.',
+                'body_ar' => 'شاهد الكبائن والمسابح والمطاعم والعروض التي تنتظرك على متن السفينة.',
+                'video_url' => 'https://www.youtube.com/watch?v=P-Vzn04vPEQ',
             ],
         ],
 

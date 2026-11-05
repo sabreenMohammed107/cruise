@@ -32,7 +32,7 @@
       @endif
 
       @if ($section->supports('title'))
-        @include('admin.home-sections.bi-field', ['name' => 'title', 'label' => $section->label('title', 'Heading'), 'model' => $section, 'required' => true])
+        @include('admin.home-sections.bi-field', ['name' => 'title', 'label' => $section->label('title', 'Heading'), 'model' => $section, 'required' => $section->config('title_required', true)])
       @endif
 
       @if ($section->supports('body'))
@@ -98,6 +98,30 @@
                 <input type="checkbox" name="remove_image" value="1" class="check">
                 <span class="font-semibold">Remove the uploaded photo and use the default again</span>
               </label>
+            @endif
+          </div>
+        </div>
+      </fieldset>
+    @endif
+
+    @if ($section->supports('video'))
+      <fieldset class="mt-8 pt-6 border-t border-line">
+        <legend class="font-display font-semibold text-lg">Video</legend>
+        <div class="mt-3 grid md:grid-cols-[280px_1fr] gap-5 items-start">
+          <div class="aspect-video rounded-2xl overflow-hidden bg-ocean-50 grid place-items-center text-sm text-muted">
+            @if ($embed = $section->videoEmbedUrl())
+              <iframe src="{{ $embed }}" title="Video preview" class="w-full h-full" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+            @else
+              No video
+            @endif
+          </div>
+          <div>
+            <label class="label" for="f-video-url">YouTube link</label>
+            <input id="f-video-url" name="video_url" dir="ltr" class="field {{ $invalid('video_url') }}" value="{{ old('video_url', $section->video_url) }}" placeholder="https://www.youtube.com/watch?v=…">
+            @if ($e = $err('video_url'))
+              <p class="err show">{{ $e }}</p>
+            @else
+              <p class="text-xs text-muted mt-1.5">Copy the address of the video on YouTube (or its Share link) and paste it here. Same video for both languages. Leave it empty to hide the section.</p>
             @endif
           </div>
         </div>
