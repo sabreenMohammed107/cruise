@@ -78,7 +78,7 @@ class CurrencyTest extends TestCase
 
         $this->from(self::PAGE)->post('/currency', ['currency' => 'EGP'])->assertRedirect(self::PAGE)->assertSessionHas('currency', 'EGP');
 
-        $response = $this->get(self::PAGE)->assertOk()->assertSee('1 USD = 48.50 EGP. Bookings are charged in US dollars.');
+        $response = $this->get(self::PAGE)->assertOk()->assertDontSee('Bookings are charged in US dollars');
         $this->assertMatchesRegularExpression('#aria-pressed="true"[^>]*>EGP</button>#', $response->getContent());
         $data = $response->viewData('scData');
         $this->assertSame(['EGP', 'EGP ', 48.5], [$data['displayCurrency'], $data['displaySymbol'], $data['exchangeRate']]);
@@ -197,7 +197,7 @@ class CurrencyTest extends TestCase
 
         // Visitors get the total, with no trace of the markup
         $page = $this->withSession(['currency' => 'EGP'])->get(self::PAGE)->assertOk()
-            ->assertSee('1 USD = 50.75 EGP')->assertDontSee('49.25')->assertDontSee('markup', false);
+            ->assertDontSee('49.25')->assertDontSee('markup', false);
         $this->assertSame(50.75, $page->viewData('scData')['exchangeRate']);
 
         // The admin sees how the total is made

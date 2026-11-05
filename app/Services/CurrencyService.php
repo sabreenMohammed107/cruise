@@ -53,9 +53,12 @@ class CurrencyService
         session([self::SESSION => $code]);
     }
 
+    /** "$" / "EGP "; on Arabic pages a currency's symbol_ar when it has one ("جنيه مصري "). */
     public function symbol(?string $code = null): string
     {
-        return config('cruise.display_currencies.'.($code ?? $this->active()).'.symbol', '');
+        $currency = config('cruise.display_currencies.'.($code ?? $this->active()), []);
+
+        return (app()->getLocale() === 'ar' ? ($currency['symbol_ar'] ?? null) : null) ?? $currency['symbol'] ?? '';
     }
 
     public function mode(): string

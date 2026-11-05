@@ -44,6 +44,8 @@ class CruiseSeeder extends Seeder
 
             // Route stops from the route ports (PortSeeder), in order
             $cruise->syncRoute(Port::idsFor($data['route']));
+            // Ports a cruise starts or ends at are departure & arrival ports (the cruise form only offers those)
+            Port::whereIn('name_en', [$data['departure_port'], $data['arrival_port']])->update(['role' => Port::HOME]);
 
             foreach ($data['itinerary'] as $i => [$port, $time, $text]) {
                 $cruise->itinerary()->updateOrCreate(['day_number' => $i + 1], [

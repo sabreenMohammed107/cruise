@@ -4,6 +4,7 @@ namespace App\Admin;
 
 use App\Models\Cruise;
 use App\Models\Highlight;
+use App\Models\Port;
 use App\Models\Ship;
 
 /**
@@ -41,6 +42,19 @@ final class Options
         return Highlight::ordered()->get()
             ->mapWithKeys(fn (Highlight $h) => [$h->key => $h->name_en.($h->is_active ? '' : ' (hidden)')])
             ->all();
+    }
+
+    /**
+     * Departure & arrival ports (Admin → Route ports), by English name as cruises store them. A port used by a
+     * cruise can't be made "port of call only" (PortResource), and renaming one renames it on the cruises.
+     *
+     * @return array<string, string>
+     */
+    public static function homePorts(): array
+    {
+        $names = Port::home()->ordered()->pluck('name_en')->all();
+
+        return $names ? array_combine($names, $names) : [];
     }
 
     public static function cruises(): array

@@ -694,7 +694,7 @@
         </div>
       </div>
       <div class="mt-6 flex flex-wrap items-baseline justify-between gap-2">
-        <div><p class="font-display font-semibold text-xl">${c.nameEn}</p>${SC.lang() === 'ar' ? '' : `<p class="text-muted" lang="ar" dir="rtl">${c.nameAr}</p>`}</div>
+        <div><p class="font-display font-semibold text-xl">${c.nameEn}</p></div>
         ${c.balcony ? `<span class="tag tag-lagoon">${SC.icon('sun', 'w-4 h-4')} ${SC.t('ui.cabin.private_balcony')}</span>` : `<span class="tag tag-ocean">${SC.t('ui.cabin.no_balcony')}</span>`}
       </div>
       <p class="mt-3 leading-relaxed text-ink/90 max-w-[70ch]">${c.description}</p>

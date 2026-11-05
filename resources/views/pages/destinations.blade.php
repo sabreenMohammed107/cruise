@@ -62,7 +62,6 @@
                 <span class="absolute top-4 start-4 tag tag-white"><i data-icon="pin" class="w-3.5 h-3.5"></i> {{ $port['country'] }}</span>
               </div>
               <div class="min-w-0">
-                @if (! $arabic && $d->name_ar)<p class="text-muted" lang="ar" dir="rtl">{{ $d->name_ar }}</p>@endif
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <h2 class="font-display font-bold text-3xl sm:text-4xl">{{ $port['name'] }}</h2>
                   @if ($port['total'])

@@ -12,7 +12,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  */
 class Port extends Model
 {
-    protected $fillable = ['name_en', 'name_ar', 'sort_order', 'is_active'];
+    /** Cruises depart from / arrive at it (departure and arrival port of the cruise form, homepage search). */
+    public const HOME = 'home';
+
+    /** Cruises only stop there on the way. */
+    public const CALL = 'call';
+
+    public const ROLES = [self::HOME => 'Departure & arrival port', self::CALL => 'Port of call only'];
+
+    protected $fillable = ['name_en', 'name_ar', 'role', 'sort_order', 'is_active'];
+
+    protected $attributes = ['role' => self::CALL];
 
     protected function casts(): array
     {
@@ -27,6 +37,10 @@ class Port extends Model
         static::updated(function (Port $port) {
             if ($port->wasChanged('name_en')) {
                 $port->cruises()->withTrashed()->get()->unique('id')->each->refreshRoute();
+                // Departure / arrival ports are stored by name too
+                foreach (['departure_port', 'arrival_port'] as $column) {
+                    Cruise::withTrashed()->where($column, $port->getOriginal('name_en'))->update([$column => $port->name_en]);
+                }
             }
         });
     }
@@ -40,6 +54,20 @@ class Port extends Model
     public function scopeOrdered(Builder $query): void
     {
         $query->orderBy('sort_order')->orderBy('name_en');
+    }
+
+    /** Departure & arrival ports. */
+    public function scopeHome(Builder $query): void
+    {
+        $query->where('role', self::HOME);
+    }
+
+    /** Cruises departing from or arriving at this port (by name, as cruises store it). */
+    public function homeCruises(): Builder
+    {
+        return Cruise::withTrashed()->where(fn (Builder $q) => $q
+            ->where('departure_port', $this->getOriginal('name_en') ?? $this->name_en)
+            ->orWhere('arrival_port', $this->getOriginal('name_en') ?? $this->name_en));
     }
 
     /** The name in the current language (Arabic falls back to English). */

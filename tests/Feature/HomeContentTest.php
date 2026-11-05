@@ -135,8 +135,8 @@ class HomeContentTest extends TestCase
         $keys = fn (string $locale) => array_keys(\Illuminate\Support\Arr::dot(trans('site', [], $locale)));
         $this->assertSame($keys('en'), $keys('ar'));
 
-        $en = ['Destination', 'Departure month', 'Guests', 'sailings match', 'Cruises', 'My bookings', 'Contact us', '© '.now()->year.' Safer. All rights reserved.'];
-        $ar = ['الوجهة', 'شهر المغادرة', 'الضيوف', 'رحلة مطابقة', 'الرحلات', 'حجوزاتي', 'تواصل معنا', '© '.now()->year.' Safer. جميع الحقوق محفوظة.'];
+        $en = ['Departure port','Departure month', 'Guests', 'sailings match', 'Cruises', 'My bookings', 'Contact us', '© '.now()->year.' Safer. All rights reserved.'];
+        $ar = ['ميناء المغادرة','شهر المغادرة', 'الضيوف', 'رحلة مطابقة', 'الرحلات', 'حجوزاتي', 'تواصل معنا', '© '.now()->year.' Safer. جميع الحقوق محفوظة.'];
         $this->get('/')->assertOk()->assertSee($en)->assertSee('>عربي</button>', false);
 
         // Header and footer on every page; the logo stays as it is

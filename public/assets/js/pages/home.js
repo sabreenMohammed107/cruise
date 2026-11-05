@@ -11,7 +11,8 @@ document.addEventListener('sc:ready', () => {
 
   /* ---------- Search widget ---------- */
   const portSel = $('#s-dest'), monthSel = $('#s-month'), nightSel = $('#s-nights');
-  SC.allPorts().sort().forEach((p) => portSel.add(new Option(p, p)));
+  // Departure & arrival ports (Admin → Route ports) with an upcoming sailing leaving from them
+  (D.homePorts || []).filter((p) => sailings.some((s) => s.departurePort === p)).forEach((p) => portSel.add(new Option(p, p)));
   [...new Set(sailings.map((s) => s.departure.slice(0, 7)))].forEach((m) => monthSel.add(new Option(m, m)));
   [...new Set(sailings.map((s) => s.nights))].sort((a, b) => a - b).forEach((n) => nightSel.add(new Option(n, n)));
 
@@ -42,7 +43,7 @@ document.addEventListener('sc:ready', () => {
 
   // Live count of matching sailings
   const matches = () => sailings.filter((s) =>
-    (!portSel.value || s.route.some((p) => p.startsWith(portSel.value))) &&
+    (!portSel.value || s.departurePort === portSel.value) &&
     (!monthSel.value || s.departure.startsWith(monthSel.value)) &&
     (!nightSel.value || s.nights === Number(nightSel.value)));
   const updateCount = () => { $('#s-count').textContent = matches().length; };
@@ -52,7 +53,7 @@ document.addEventListener('sc:ready', () => {
   $('#search-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const q = new URLSearchParams();
-    if (portSel.value) q.set('port', portSel.value);
+    if (portSel.value) q.set('depart', portSel.value); // the "Departure port" filter of the cruises list
     if (monthSel.value) q.set('month', monthSel.value);
     if (nightSel.value) q.set('nights', nightSel.value);
     location.href = SC.route('catalog') + (q.toString() ? '?' + q : '');
@@ -103,7 +104,6 @@ document.addEventListener('sc:ready', () => {
     // Specs as one tidy 2×2 block of equal tiles
     const spec = (icon, label, val) => `<div class="flex items-start gap-3 rounded-2xl bg-ocean-50/50 p-3"><span class="grid place-items-center w-9 h-9 rounded-xl bg-white text-ocean-600 shadow-sm shrink-0">${SC.icon(icon, 'w-[18px] h-[18px]')}</span><div class="min-w-0"><p class="text-[0.7rem] font-semibold text-muted">${label}</p><p class="font-bold text-sm leading-snug">${val}</p></div></div>`;
     $('#cs-info').innerHTML = `
-      ${SC.lang() === 'ar' ? '' : `<p class="text-sm text-muted" lang="ar" dir="rtl">${cab.nameAr}</p>`}
       <h3 class="font-display font-bold text-2xl sm:text-[1.75rem] leading-tight mt-1">${cab.nameEn}</h3>
       <p class="mt-3 text-[0.95rem] leading-relaxed text-ink/80 line-clamp-3">${cab.description}</p>
       <div class="grid grid-cols-2 gap-2.5 mt-5">

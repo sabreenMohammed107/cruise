@@ -94,12 +94,12 @@ class SupervisorRoleTest extends TestCase
     {
         $this->actingAs($this->supervisor(), 'admin');
 
-        $this->post('/admin/routes', ['name_en' => 'Test Harbour', 'name_ar' => 'ينبع', 'sort_order' => 0, 'is_active' => 1])
+        $this->post('/admin/routes', ['name_en' => 'Test Harbour', 'name_ar' => 'ينبع', 'role' => 'call', 'sort_order' => 0, 'is_active' => 1])
             ->assertRedirect('/admin/routes')->assertSessionHasNoErrors();
         $port = Port::where('name_en', 'Test Harbour')->firstOrFail();
 
         $this->get("/admin/routes/{$port->id}/edit")->assertOk();
-        $this->put("/admin/routes/{$port->id}", ['name_en' => 'Test Harbour East', 'name_ar' => 'ينبع', 'sort_order' => 1, 'is_active' => 1])
+        $this->put("/admin/routes/{$port->id}", ['name_en' => 'Test Harbour East', 'name_ar' => 'ينبع', 'role' => 'call', 'sort_order' => 1, 'is_active' => 1])
             ->assertSessionHasNoErrors();
         $this->assertSame('Test Harbour East', $port->fresh()->name_en);
 

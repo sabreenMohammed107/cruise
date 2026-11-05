@@ -66,6 +66,8 @@ class CruiseResource extends Resource
 
     public static function fields(): array
     {
+        $homePorts = Options::homePorts();
+
         return [
             Field::text('name', 'Name')->rules(['required', 'string', 'max:255'])->index(),
             Field::text('slug', 'URL slug')->rules(fn (?Model $r) => ['required', 'alpha_dash', 'max:255', Rule::unique('cruises', 'slug')->ignore($r?->id)])
@@ -73,9 +75,11 @@ class CruiseResource extends Resource
             Field::text('name_ar', 'Name (Arabic)')->rules(['nullable', 'string', 'max:255']),
             Field::select('ship_id', 'Ship', Options::ships())->rules(['required', 'exists:ships,id']),
             Field::number('nights', 'Nights')->rules(['required', 'integer', 'min:1', 'max:60'])->index(),
-            Field::text('departure_port', 'Departure port')->rules(['required', 'string', 'max:255'])->index(),
+            // Only ports marked "Departure & arrival port" in Route ports
+            Field::select('departure_port', 'Departure port', $homePorts)->rules(['required', Rule::in(array_keys($homePorts))])->index()
+                ->help('Missing a port? Set its type to "Departure & arrival port" in Cruises → Route ports.'),
             Field::date('next_sailing', 'Next sailing')->indexOnly(),
-            Field::text('arrival_port', 'Arrival port')->rules(['required', 'string', 'max:255']),
+            Field::select('arrival_port', 'Arrival port', $homePorts)->rules(['required', Rule::in(array_keys($homePorts))]),
             // The route (ordered stops from Route ports) is edited under the fields: admin.cruises.route
             Field::checkboxes('tags', 'Highlights', Options::highlights())
                 ->help('Add, rename or hide highlights in Cruises → Highlights.'),

@@ -48,13 +48,14 @@ class RoutePortsTest extends TestCase
         $this->get('/admin/routes/create')->assertOk()->assertSee('name="name_ar"', false);
 
         // Both names are required, the English one unique
-        $this->post('/admin/routes', ['name_en' => 'Duba'])->assertSessionHasErrors('name_ar');
-        $this->post('/admin/routes', ['name_en' => 'Jeddah', 'name_ar' => 'جدة'])->assertSessionHasErrors('name_en');
-        $this->post('/admin/routes', ['name_en' => 'Duba', 'name_ar' => 'ضباء', 'is_active' => '1'])->assertSessionHasNoErrors()->assertRedirect('/admin/routes');
+        $this->post('/admin/routes', ['name_en' => 'Duba', 'role' => 'call'])->assertSessionHasErrors('name_ar');
+        $this->post('/admin/routes', ['name_en' => 'Jeddah', 'name_ar' => 'جدة', 'role' => 'call'])->assertSessionHasErrors('name_en');
+        $this->post('/admin/routes', ['name_en' => 'Duba', 'name_ar' => 'ضباء', 'role' => 'transit'])->assertSessionHasErrors('role');
+        $this->post('/admin/routes', ['name_en' => 'Duba', 'name_ar' => 'ضباء', 'role' => 'call', 'is_active' => '1'])->assertSessionHasNoErrors()->assertRedirect('/admin/routes');
 
         $duba = Port::where('name_en', 'Duba')->firstOrFail();
-        $this->assertSame('ضباء', $duba->name_ar);
-        $this->put("/admin/routes/{$duba->id}", ['name_en' => 'Duba', 'name_ar' => 'ميناء ضباء', 'is_active' => '0'])->assertSessionHasNoErrors();
+        $this->assertSame(['ضباء', Port::CALL], [$duba->name_ar, $duba->role]);
+        $this->put("/admin/routes/{$duba->id}", ['name_en' => 'Duba', 'name_ar' => 'ميناء ضباء', 'role' => 'call', 'is_active' => '0'])->assertSessionHasNoErrors();
         $this->assertFalse($duba->fresh()->is_active);
 
         // A port no cruise uses can be deleted; one in a route can't
@@ -106,9 +107,38 @@ class RoutePortsTest extends TestCase
         $this->actingAs($this->admin(), 'admin');
         $port = Port::where('name_en', 'Sokhna')->firstOrFail();
 
-        $this->put("/admin/routes/{$port->id}", ['name_en' => 'Ain Sokhna', 'name_ar' => 'العين السخنة', 'is_active' => '1'])->assertSessionHasNoErrors();
+        $this->put("/admin/routes/{$port->id}", ['name_en' => 'Ain Sokhna', 'name_ar' => 'العين السخنة', 'role' => 'home', 'is_active' => '1'])->assertSessionHasNoErrors();
 
-        $this->assertSame(['Jeddah', 'Safaga', 'Ain Sokhna'], Cruise::where('slug', 'aroya-repositioning')->firstOrFail()->route);
+        $cruise = Cruise::where('slug', 'aroya-repositioning')->firstOrFail();
+        $this->assertSame(['Jeddah', 'Safaga', 'Ain Sokhna'], $cruise->route);
+        $this->assertSame('Ain Sokhna', $cruise->arrival_port); // stored by name too
+    }
+
+    public function test_ports_are_departure_and_arrival_ports_or_ports_of_call(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+
+        // Seeded: the ports cruises start or end at are departure & arrival ports, the others ports of call
+        $this->assertSame(['Jeddah', 'Sokhna', 'Yanbu'], Port::home()->orderBy('name_en')->pluck('name_en')->all());
+        $this->get('/admin/routes')->assertOk()->assertSee('Departure &amp; arrival port', false)->assertSee('Port of call only');
+
+        // The cruise form only offers departure & arrival ports
+        $cruise = Cruise::where('slug', 'saudi-coast-weekend')->firstOrFail();
+        $form = $this->get("/admin/cruises/{$cruise->id}/edit")->assertOk()->getContent();
+        $this->assertStringContainsString('<option value="Sokhna"', $form);
+        $this->assertStringNotContainsString('<option value="Safaga"', $form);
+        $this->put("/admin/cruises/{$cruise->id}", $this->cruiseForm($cruise, ['departure_port' => 'Safaga']))->assertSessionHasErrors('departure_port');
+
+        // A port a cruise still departs from can't become a port of call; an unused one can
+        $yanbu = Port::where('name_en', 'Yanbu')->firstOrFail();
+        $this->put("/admin/routes/{$yanbu->id}", ['name_en' => 'Yanbu', 'name_ar' => 'ينبع', 'role' => 'call', 'is_active' => '1'])->assertSessionHasErrors('role');
+        $safaga = Port::where('name_en', 'Safaga')->firstOrFail();
+        $this->put("/admin/routes/{$safaga->id}", ['name_en' => 'Safaga', 'name_ar' => 'سفاجا', 'role' => 'home', 'is_active' => '1'])->assertSessionHasNoErrors();
+        $this->put("/admin/cruises/{$cruise->id}", $this->cruiseForm($cruise, ['departure_port' => 'Safaga']))->assertSessionHasNoErrors();
+        $this->assertSame('Safaga', $cruise->fresh()->departure_port);
+
+        // The homepage search lists the departure & arrival ports
+        $this->assertEqualsCanonicalizing(['Jeddah', 'Safaga', 'Sokhna', 'Yanbu'], $this->get('/')->assertOk()->viewData('scData')['homePorts']);
     }
 
     public function test_website_shows_route_names_in_the_page_language(): void

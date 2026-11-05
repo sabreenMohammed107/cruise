@@ -49,7 +49,6 @@ document.addEventListener('sc:ready', () => {
         ${c.badge ? `<span class="absolute top-3 start-3 tag tag-sun">${c.badge}</span>` : ''}</div>
       <div class="p-5 flex-1 flex flex-col">
         <h3 class="font-display font-semibold text-lg">${c.nameEn}</h3>
-        ${SC.lang() === 'ar' ? '' : `<p class="text-sm text-muted" lang="ar" dir="rtl">${c.nameAr}</p>`}
         <p class="mt-3 text-[0.95rem] leading-relaxed">${c.short}</p>
         <ul class="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted">
           <li class="flex items-center gap-1.5">${SC.icon('users', 'w-4 h-4')} ${SC.t('ui.guests_up_to', { count: c.maxGuests })}</li>

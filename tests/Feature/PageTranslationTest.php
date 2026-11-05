@@ -74,8 +74,8 @@ class PageTranslationTest extends TestCase
                 'ar' => ['<title>السفينة: أرويا | Safer Cruise</title>', '>عن السفينة</a>', '>الأسئلة</a>', 'mt-2">أرويا</h1>'],
             ],
             '/cruises' => [
-                'en' => ['<title>All cruises | Safer Cruise</title>', 'Departure port', 'Price per person', '>Most popular</option>', '>Show results</button>'],
-                'ar' => ['<title>كل الرحلات | Safer Cruise</title>', 'ميناء المغادرة', 'السعر للشخص', '>الأكثر شعبية</option>', '>عرض النتائج</button>'],
+                'en' => ['<title>All cruises | Safer Cruise</title>', 'aria-expanded="true">Departure port <','Price per person', '>Most popular</option>', '>Show results</button>'],
+                'ar' => ['<title>كل الرحلات | Safer Cruise</title>', 'aria-expanded="true">ميناء المغادرة <','السعر للشخص', '>الأكثر شعبية</option>', '>عرض النتائج</button>'],
             ],
             '/cruises/red-sea-discovery' => [
                 'en' => ['<title>Red Sea Discovery | Safer Cruise</title>', '>Cabins &amp; prices</a>', 'View all photos', '>Expand all</button>', '>Continue</button>'],

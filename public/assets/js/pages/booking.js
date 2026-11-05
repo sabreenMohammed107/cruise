@@ -340,7 +340,7 @@ document.addEventListener('sc:ready', () => {
             <img src="${c.images[0]}" alt="${c.nameEn}" class="w-full sm:w-44 aspect-[4/3] object-cover rounded-xl">
             <dl class="flex-1 grid grid-cols-2 gap-4">
               ${several ? `<p class="col-span-2 font-display font-semibold">${r.label}</p>` : ''}
-              ${row(t('cabin_type'), c.nameEn)}${row(t('category'), `${c.nameAr} (${CAT_CODE[c.id] || c.id})`)}
+              ${row(t('cabin_type'), c.nameEn)}${row(t('category'), CAT_CODE[c.id] || c.id)}
               ${row(t('guests_in_cabin'), t('guests_of', { count: SC.guestTotal(r.guests), max: c.maxGuests }))}${row(t('size'), c.size + (c.balcony ? ` + ${SC.t('ui.balcony_size', { size: c.balcony })}` : ''))}
               <div class="col-span-2"><button class="text-sm font-bold text-ocean-600 hover:underline" data-cabin-info="${c.id}">${t('cabin_info')}</button></div>
             </dl>

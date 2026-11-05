@@ -209,7 +209,6 @@ document.addEventListener('sc:ready', () => {
         </div>
         <div class="p-5 flex-1 flex flex-col">
           <h3 class="font-display font-semibold text-lg leading-snug">${c.nameEn}</h3>
-          ${SC.lang() === 'ar' ? '' : `<p class="text-sm text-muted" lang="ar" dir="rtl">${c.nameAr}</p>`}
           <p class="text-sm mt-3 leading-relaxed">${c.short}</p>
           <ul class="mt-4 grid gap-1.5 text-sm text-muted">
             ${fact('users', SC.t('ui.guests_up_to_long', { count: c.maxGuests }), tooSmall ? 'text-[#C42F2F] font-semibold' : '')}

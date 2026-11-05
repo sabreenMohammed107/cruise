@@ -75,6 +75,8 @@ class ScDataPresenter
             'lang' => app()->getLocale(),
             // Port and country names for display in the current language (routes keep the English names as keys)
             'portNames' => (object) $this->portNames(),
+            // Admin → Route ports marked "Departure & arrival port" (English names): the homepage port search
+            'homePorts' => Port::home()->ordered()->pluck('name_en')->all(),
             'page' => (object) $page,
             'account' => $account,
         ], fn ($value) => $value !== null);

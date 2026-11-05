@@ -18,7 +18,7 @@ return [
     // database, quotes and bookings stay in USD. EGP uses the live rate or the admin's rate (Admin → Currency).
     'display_currencies' => [
         'USD' => ['symbol' => '$'],
-        'EGP' => ['symbol' => 'EGP '],
+        'EGP' => ['symbol' => 'EGP ', 'symbol_ar' => 'جنيه مصري '],
     ],
 
     // EGP per 1 USD until an admin saves one; also the fallback when the live rate can't be fetched
