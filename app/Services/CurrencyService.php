@@ -40,10 +40,18 @@ class CurrencyService
         return array_keys(config('cruise.display_currencies'));
     }
 
-    /** The visitor's currency (session), USD when never chosen. */
+    /** The visitor's currency (session); when never chosen, the site default (config cruise.default_display_currency). */
     public function active(): string
     {
         $code = session(self::SESSION);
+
+        return in_array($code, $this->currencies(), true) ? $code : $this->default();
+    }
+
+    /** The currency a first-time visitor sees (EGP), or USD if the setting names no known currency. */
+    public function default(): string
+    {
+        $code = config('cruise.default_display_currency');
 
         return in_array($code, $this->currencies(), true) ? $code : self::BASE;
     }

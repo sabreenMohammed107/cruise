@@ -21,6 +21,11 @@ return [
         'EGP' => ['symbol' => 'EGP ', 'symbol_ar' => 'جنيه مصري '],
     ],
 
+    // What a first-time visitor sees, until they press the language or currency switch (their choice is then kept:
+    // the sc_lang cookie, the session). Language: "ar" or "en". Currency: one of display_currencies.
+    'default_locale' => env('CRUISE_DEFAULT_LOCALE', 'ar'),
+    'default_display_currency' => env('CRUISE_DEFAULT_CURRENCY', 'EGP'),
+
     // EGP per 1 USD until an admin saves one; also the fallback when the live rate can't be fetched
     'default_exchange_rate' => 50.00,
 

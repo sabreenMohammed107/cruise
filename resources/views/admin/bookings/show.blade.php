@@ -247,12 +247,12 @@
           <div>
             <label class="label" for="receipts">Payment receipts / proof <span class="font-normal text-muted">(optional, several allowed)</span></label>
             <input id="receipts" name="receipts[]" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
-                   data-max-bytes="{{ \App\Support\MediaLibrary::maxUploadBytes() }}"
+                   data-max-bytes="{{ \App\Models\PaymentReceipt::maxBytes() }}"
                    data-max-total="{{ \App\Support\MediaLibrary::maxPostBytes() }}"
                    data-max-files="{{ \App\Models\PaymentReceipt::MAX_FILES }}"
                    class="field !py-1.5 text-sm file:me-3 file:rounded-full file:border-0 file:bg-ocean-50 file:px-3 file:py-1 file:text-ocean-800 file:font-bold">
             <ul id="receipts-chosen" class="mt-1.5 grid gap-0.5 text-xs text-muted" hidden></ul>
-            <p class="text-xs text-muted mt-1">Transfer slips, InstaPay screenshots or PDFs: up to {{ \App\Models\PaymentReceipt::MAX_FILES }} files, JPG, PNG, WebP or PDF, {{ \App\Support\MediaLibrary::maxUploadLabel() }} each. Hold Ctrl (⌘ on Mac) to pick several. Only staff can open them.</p>
+            <p class="text-xs text-muted mt-1">Transfer slips, InstaPay screenshots or PDFs: up to {{ \App\Models\PaymentReceipt::MAX_FILES }} files, JPG, PNG, WebP or PDF, {{ \App\Models\PaymentReceipt::maxLabel() }} each. Hold Ctrl (⌘ on Mac) to pick several. Only staff can open them.</p>
             {{-- The whole form was over PHP's post_max_size (bootstrap/app.php) --}}
             @if (request('receipts') === 'too-large')
               <p class="text-xs text-[#C42F2F] mt-1" data-receipts-too-large>The files were too large to send together (about {{ round(\App\Support\MediaLibrary::maxPostBytes() / 1024 ** 2) }} MB at once). Nothing was recorded: choose fewer or smaller files and try again.</p>

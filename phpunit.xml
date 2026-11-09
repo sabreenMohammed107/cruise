@@ -32,6 +32,9 @@
         <env name="SUPER_ADMIN_EMAIL" value="" force="true"/>
         <env name="SUPER_ADMIN_PASSWORD" value="" force="true"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <!-- Most tests are written for English / USD; DefaultLanguageCurrencyTest checks the real defaults (Arabic / EGP) -->
+        <env name="CRUISE_DEFAULT_LOCALE" value="en" force="true"/>
+        <env name="CRUISE_DEFAULT_CURRENCY" value="USD" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

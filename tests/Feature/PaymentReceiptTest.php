@@ -82,7 +82,9 @@ class PaymentReceiptTest extends TestCase
             ->assertSee('name="receipts[]" type="file" multiple', false)
             ->assertSeeInOrder(['name="reference"', 'name="notes"', 'name="receipts[]"'], false)
             ->assertSee('Payment receipts / proof')
-            ->assertSee('data-max-files="10"', false);
+            ->assertSee('data-max-files="3"', false)
+            ->assertSee('data-max-bytes="'.(10 * 1024 ** 2).'"', false)
+            ->assertSee('up to 3 files, JPG, PNG, WebP or PDF, 10 MB each.');
     }
 
     public function test_a_payment_with_several_receipts(): void
@@ -135,6 +137,10 @@ class PaymentReceiptTest extends TestCase
 
         $this->record()->assertSessionHasNoErrors()->assertSessionHas('status', 'Payment of $1,000.00 recorded.');
         $this->assertCount(0, $this->lastPayment()->receipts);
+
+        // A scan of 8 MB (over the 5 MB photo limit elsewhere) is fine for a receipt
+        $this->record(['receipts' => [UploadedFile::fake()->create('big scan.pdf', 8 * 1024, 'application/pdf')]])
+            ->assertSessionHasNoErrors()->assertSessionHas('status', 'Payment of $1,000.00 recorded with 1 receipt.');
     }
 
     public function test_only_photos_and_pdfs_within_the_limits_are_accepted(): void
@@ -148,11 +154,12 @@ class PaymentReceiptTest extends TestCase
             ->assertSessionHasErrors(['receipts.1' => 'Receipt 2 must be a photo (JPG, PNG, WebP) or a PDF.']);
         $this->record(['receipts' => [$this->upload('photo.png', $html)]])->assertSessionHasErrors('receipts.0');
         $this->record(['receipts' => [$this->upload('notes.txt', 'Paid in full')]])->assertSessionHasErrors('receipts.0');
-        $this->record(['receipts' => [UploadedFile::fake()->create('scan.pdf', 6 * 1024, 'application/pdf')]])
-            ->assertSessionHasErrors('receipts.0');
-        // At most 10 at a time
-        $this->record(['receipts' => array_map(fn ($i) => $this->png("p{$i}.png"), range(1, 11))])
-            ->assertSessionHasErrors(['receipts' => 'Attach at most 10 receipts at a time.']);
+        // Up to 10 MB each
+        $this->record(['receipts' => [UploadedFile::fake()->create('scan.pdf', 10 * 1024 + 1, 'application/pdf')]])
+            ->assertSessionHasErrors(['receipts.0' => 'Receipt 1 is too large: the limit is 10 MB per file. Send a smaller photo or PDF.']);
+        // At most 3 at a time
+        $this->record(['receipts' => array_map(fn ($i) => $this->png("p{$i}.png"), range(1, 4))])
+            ->assertSessionHasErrors(['receipts' => 'Attach at most 3 receipts at a time.']);
 
         // Nothing recorded, nothing stored; the errors show under the field
         $this->assertSame($payments, Payment::count());

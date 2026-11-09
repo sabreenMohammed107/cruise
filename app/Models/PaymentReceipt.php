@@ -24,7 +24,10 @@ class PaymentReceipt extends Model
     public const TYPES = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
 
     /** Files in one go. */
-    public const MAX_FILES = 10;
+    public const MAX_FILES = 3;
+
+    /** Largest receipt: 10 MB each (photos elsewhere in the panel stay at 5 MB). */
+    public const MAX_MB = 10;
 
     protected $fillable = ['path', 'name', 'size'];
 
@@ -54,6 +57,18 @@ class PaymentReceipt extends Model
             'name' => Str::limit(preg_replace('/[\x00-\x1F\x7F\/\\\\]+/u', '', basename($file->getClientOriginalName())) ?: 'receipt.'.$file->extension(), 180, ''),
             'size' => (int) $file->getSize(),
         ];
+    }
+
+    /** MAX_MB in bytes, or less when PHP's own upload limits are lower. */
+    public static function maxBytes(): int
+    {
+        return \App\Support\MediaLibrary::cappedByPhp(self::MAX_MB * 1024 ** 2);
+    }
+
+    /** maxBytes() for people: "10 MB". */
+    public static function maxLabel(): string
+    {
+        return \App\Support\MediaLibrary::megabytes(self::maxBytes());
     }
 
     public function fileExists(): bool

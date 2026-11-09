@@ -155,12 +155,12 @@ class BookingController extends Controller
             'received_at' => ['required', 'date', 'before_or_equal:now'],
             // Optional proof, several files: photos or PDFs (checked on the content), each within the upload limit
             'receipts' => ['nullable', 'array', 'max:'.PaymentReceipt::MAX_FILES],
-            'receipts.*' => ['file', 'mimes:'.implode(',', PaymentReceipt::TYPES), 'max:'.intdiv(MediaLibrary::maxUploadBytes(), 1024)],
+            'receipts.*' => ['file', 'mimes:'.implode(',', PaymentReceipt::TYPES), 'max:'.intdiv(PaymentReceipt::maxBytes(), 1024)],
         ], [
             'receipts.max' => 'Attach at most '.PaymentReceipt::MAX_FILES.' receipts at a time.',
             'receipts.*.mimes' => 'Receipt :position must be a photo (JPG, PNG, WebP) or a PDF.',
             // "uploaded": PHP refused it before Laravel saw it, almost always because of its size
-            'receipts.*.max' => $tooBig = 'Receipt :position is too large: the limit is '.MediaLibrary::maxUploadLabel().' per file. Send a smaller photo or PDF.',
+            'receipts.*.max' => $tooBig = 'Receipt :position is too large: the limit is '.PaymentReceipt::maxLabel().' per file. Send a smaller photo or PDF.',
             'receipts.*.uploaded' => $tooBig,
         ]);
         unset($data['receipts']);
