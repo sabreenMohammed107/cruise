@@ -16,6 +16,7 @@ use App\Notifications\AgentApproved;
 use App\Services\AgentPricing;
 use App\Support\ScDataPresenter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -156,6 +157,57 @@ class AgentAccountsTest extends TestCase
         AgentApplication::sole()->forceFill(['status' => AgentRequestStatus::Rejected])->save();
         $this->post('/agents', $form + ['email' => 'omar@redsea.example'])->assertSessionHasNoErrors();
         $this->assertSame(2, AgentApplication::count());
+    }
+
+    public function test_the_application_form_needs_a_company_email(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class); // more than the route's 5 posts a minute
+        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
+
+        foreach (['omar@gmail.com', 'Omar@YAHOO.com', 'omar@hotmail.com', 'omar@outlook.com', 'omar@icloud.com', 'omar@aol.com',
+            'omar@yahoo.co.uk', 'omar@hotmail.fr', 'omar@outlook.sa', 'omar@live.com.eg', 'omar@mail.yahoo.com', 'omar@mailinator.com'] as $email) {
+            $this->post('/agents', $form + ['email' => $email])->assertSessionHasErrors(['email' => __('pages.agents.email_not_business')]);
+        }
+        $this->assertSame(0, AgentApplication::count());
+
+        // Company domains that only look like a provider are fine
+        $this->post('/agents', $form + ['email' => 'omar@live.redsea-travel.com'])->assertSessionHasNoErrors();
+        $this->post('/agents', $form + ['email' => 'omar@gmailtravel.com'])->assertSessionHasNoErrors();
+        $this->assertSame(2, AgentApplication::count());
+
+        // Arabic message
+        app()->setLocale('ar');
+        $this->assertStringContainsString('Gmail', __('pages.agents.email_not_business'));
+        $this->assertNotSame(trans('pages.agents.email_not_business', [], 'en'), __('pages.agents.email_not_business'));
+    }
+
+    public function test_one_agent_per_company_domain(): void
+    {
+        $this->withoutMiddleware(ThrottleRequests::class);
+        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Ahmed', 'dial' => '+966', 'phone' => '501 234 567'];
+
+        $this->post('/agents', $form + ['email' => 'ahmed@redsea.example'])->assertSessionHasNoErrors();
+        // Same company, another person, any case: refused while the first application is open
+        $this->post('/agents', $form + ['email' => 'Ali@RedSea.example'])->assertSessionHasErrors(['email' => __('pages.agents.domain_taken')]);
+        // Another company, and a domain that only ends the same, are fine
+        $this->post('/agents', $form + ['email' => 'ali@other.example'])->assertSessionHasNoErrors();
+        $this->post('/agents', $form + ['email' => 'ali@notredsea.example'])->assertSessionHasNoErrors();
+
+        // Approved: the domain stays taken by the agent account
+        $first = AgentApplication::where('email', 'ahmed@redsea.example')->sole();
+        $this->actingAs($this->staff('admin@safercruise.test'), 'admin')->post(route('admin.agent-requests.approve', $first));
+        $this->assertSame(AgentRequestStatus::Accepted, $first->fresh()->status);
+        auth('admin')->logout();
+        $this->post('/agents', $form + ['email' => 'ali@redsea.example'])->assertSessionHasErrors(['email' => __('pages.agents.domain_taken')]);
+
+        // A rejected application frees its domain
+        $other = AgentApplication::where('email', 'ali@other.example')->sole();
+        $other->forceFill(['status' => AgentRequestStatus::Rejected])->save();
+        $this->post('/agents', $form + ['email' => 'sara@other.example'])->assertSessionHasNoErrors();
+
+        // The limit is a setting: 0 = no limit
+        config(['agents.max_per_domain' => 0]);
+        $this->post('/agents', $form + ['email' => 'ali@redsea.example'])->assertSessionHasNoErrors();
     }
 
     public function test_a_double_submit_saves_one_application(): void

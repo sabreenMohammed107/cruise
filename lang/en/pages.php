@@ -160,6 +160,9 @@ return [
         // An agent account needs an email that has no account yet (App\Http\Requests\AgentRequest)
         'email_has_account' => 'This email already has an account on Safer Cruise. Apply with another email for your agency.',
         'email_already_applied' => 'There is already an application with this email. Our team will contact you soon.',
+        // Company emails only, one agency per company domain (App\Rules\BusinessEmail, config/agents.php)
+        'email_not_business' => 'Please use your company email address (for example name@your-agency.com). Personal emails such as Gmail, Yahoo, Hotmail or Outlook are not accepted.',
+        'domain_taken' => 'Your company is already registered as an agent or has an application under review. Please contact us if you need another account.',
     ],
 
     // Headings and texts of the page itself: Admin → Cruise pages → Pre-boarding guide
