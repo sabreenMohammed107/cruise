@@ -179,8 +179,7 @@ class StaffCustomersSellersTest extends TestCase
         $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $other->id]);
         $this->assertSame($other->id, $booking->fresh()->seller_id);
 
-        // Only sellers can be assigned
-        $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $this->admin()->id])->assertSessionHasErrors('seller_id');
+        // Staff only: a customer can't be assigned (admins and supervisors can: AssignBookingsToStaffTest)
         $reem = User::where('email', 'reem@example.com')->firstOrFail();
         $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $reem->id])->assertSessionHasErrors('seller_id');
         $this->assertSame($other->id, $booking->fresh()->seller_id);
@@ -189,7 +188,7 @@ class StaffCustomersSellersTest extends TestCase
         $this->get("/admin/bookings?seller={$other->id}")->assertSee('SC2611-K4P2Q');
         $this->get("/admin/bookings?seller={$seller->id}")->assertDontSee('SC2611-K4P2Q');
         $this->get('/admin/bookings?seller=none')->assertDontSee('SC2611-K4P2Q');
-        $this->get("/admin/bookings/{$booking->reference}")->assertSee('Assigned seller');
+        $this->get("/admin/bookings/{$booking->reference}")->assertSee('Assigned to');
 
         $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => ''])->assertSessionHasNoErrors();
         $this->assertNull($booking->fresh()->seller_id);

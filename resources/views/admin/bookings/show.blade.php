@@ -133,29 +133,21 @@
 
     {{-- Payments --}}
     <aside class="grid gap-6 xl:sticky xl:top-[88px]">
-      {{-- Assigned seller: admins and supervisors choose, the seller sees it --}}
+      {{-- Assigned to: admins and supervisors choose any admin, supervisor or seller; a seller sees it --}}
       <section class="card p-5">
-        <h2 class="font-display font-semibold text-lg">Assigned seller</h2>
+        <h2 class="font-display font-semibold text-lg">Assigned to</h2>
         @can('assign-bookings')
           <form method="POST" action="{{ route('admin.bookings.seller', $booking) }}" class="mt-3 flex gap-2">
             @csrf @method('PATCH')
-            <label for="seller_id" class="sr-only">Seller</label>
+            <label for="seller_id" class="sr-only">Assigned to</label>
             <select id="seller_id" name="seller_id" class="field !py-2">
               <option value="">Unassigned</option>
-              @foreach ($sellers as $s)
-                <option value="{{ $s->id }}" @selected($booking->seller_id === $s->id)>{{ $s->name }}</option>
-              @endforeach
+              @include('admin.bookings.assignee-options', ['selected' => $booking->seller_id, 'assignedUser' => $booking->seller])
             </select>
             <button class="btn btn-primary btn-sm shrink-0">Save</button>
           </form>
           @error('seller_id')<p class="err show">{{ $message }}</p>@enderror
-          @if ($sellers->isEmpty())
-            @can('manage-users')
-              <p class="text-xs text-muted mt-2">No sellers yet. Add one in <a href="{{ route('admin.users.create') }}" class="underline">Admins &amp; staff</a> with the Seller role.</p>
-            @else
-              <p class="text-xs text-muted mt-2">No sellers yet. Ask an admin to add one.</p>
-            @endcan
-          @endif
+          <p class="text-xs text-muted mt-2">Any admin, supervisor or seller. A seller sees only the bookings assigned to them.</p>
         @else
           <p class="mt-2 font-bold">{{ $booking->seller?->name ?? 'Unassigned' }}</p>
         @endcan
@@ -182,6 +174,25 @@
                   <p class="font-bold {{ $refund ? 'text-[#C42F2F]' : '' }}">{{ $refund ? 'Refund' : 'Payment' }} · {{ Str::headline($p->method->value) }}</p>
                   <p class="text-xs text-muted">{{ Format::date($p->received_at, 'j M Y') }}@if ($p->reference) · {{ $p->reference }}@endif {{-- The hidden super admin is not named --}}@if ($p->recordedBy && ! $p->recordedBy->isSuperAdmin()) · by {{ $p->recordedBy->first_name ?: $p->recordedBy->name }}@endif</p>
                   @if ($p->notes)<p class="text-xs text-muted mt-0.5">{{ $p->notes }}</p>@endif
+                  {{-- Proof of payment: private files, opened through the panel --}}
+                  @if ($p->receipts->isNotEmpty())
+                    <ul class="mt-1.5 grid gap-1.5" data-receipts>
+                      @foreach ($p->receipts as $r)
+                        @php($receiptUrl = route('admin.bookings.payments.receipt', [$booking, $p, $r]))
+                        <li class="flex items-center gap-2" data-receipt>
+                          @if ($r->isImage())
+                            <a href="{{ $receiptUrl }}" target="_blank" rel="noopener" class="shrink-0"><img src="{{ $receiptUrl }}" alt="Receipt {{ $loop->iteration }}" class="w-10 h-10 rounded object-cover border border-line" loading="lazy"></a>
+                          @else
+                            <a href="{{ $receiptUrl }}" target="_blank" rel="noopener" class="shrink-0 w-10 h-10 rounded border border-line bg-white grid place-items-center text-[10px] font-bold text-[#C42F2F]">PDF</a>
+                          @endif
+                          <p class="text-xs min-w-0">
+                            <a href="{{ $receiptUrl }}" target="_blank" rel="noopener" class="font-bold text-ocean-700 underline break-all">{{ $r->name }}</a>
+                            · <a href="{{ $receiptUrl }}?download=1" class="text-muted underline">Download</a>
+                          </p>
+                        </li>
+                      @endforeach
+                    </ul>
+                  @endif
                 </div>
                 <div class="text-end shrink-0">
                   <p class="font-bold tabular">{{ $refund ? '−' : '' }}{{ Format::money($p->amount, 2) }}</p>
@@ -197,7 +208,7 @@
           </ul>
         @endif
 
-        <form method="POST" action="{{ route('admin.bookings.payments.store', $booking) }}" class="border-t border-line p-5 grid gap-3 bg-page/60">
+        <form method="POST" action="{{ route('admin.bookings.payments.store', $booking) }}" enctype="multipart/form-data" class="border-t border-line p-5 grid gap-3 bg-page/60">
           @csrf
           <h3 class="font-bold">Record a payment or refund</h3>
           <div class="grid grid-cols-2 gap-3">
@@ -233,6 +244,23 @@
             <label class="label" for="notes">Note</label>
             <input id="notes" name="notes" class="field !py-2" value="{{ old('notes') }}">
           </div>
+          <div>
+            <label class="label" for="receipts">Payment receipts / proof <span class="font-normal text-muted">(optional, several allowed)</span></label>
+            <input id="receipts" name="receipts[]" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                   data-max-bytes="{{ \App\Support\MediaLibrary::maxUploadBytes() }}"
+                   data-max-total="{{ \App\Support\MediaLibrary::maxPostBytes() }}"
+                   data-max-files="{{ \App\Models\PaymentReceipt::MAX_FILES }}"
+                   class="field !py-1.5 text-sm file:me-3 file:rounded-full file:border-0 file:bg-ocean-50 file:px-3 file:py-1 file:text-ocean-800 file:font-bold">
+            <ul id="receipts-chosen" class="mt-1.5 grid gap-0.5 text-xs text-muted" hidden></ul>
+            <p class="text-xs text-muted mt-1">Transfer slips, InstaPay screenshots or PDFs: up to {{ \App\Models\PaymentReceipt::MAX_FILES }} files, JPG, PNG, WebP or PDF, {{ \App\Support\MediaLibrary::maxUploadLabel() }} each. Hold Ctrl (⌘ on Mac) to pick several. Only staff can open them.</p>
+            {{-- The whole form was over PHP's post_max_size (bootstrap/app.php) --}}
+            @if (request('receipts') === 'too-large')
+              <p class="text-xs text-[#C42F2F] mt-1" data-receipts-too-large>The files were too large to send together (about {{ round(\App\Support\MediaLibrary::maxPostBytes() / 1024 ** 2) }} MB at once). Nothing was recorded: choose fewer or smaller files and try again.</p>
+            @endif
+            @foreach ($errors->get('receipts*') as $messages)
+              @foreach ((array) $messages as $message)<p class="text-xs text-[#C42F2F] mt-1">{{ $message }}</p>@endforeach
+            @endforeach
+          </div>
           <button class="btn btn-primary btn-sm">Record</button>
         </form>
       </section>
@@ -243,4 +271,33 @@
       </section>
     </aside>
   </div>
+
+  @push('scripts')
+    <script>
+      // Receipts: list the chosen files, and refuse too many / too large before uploading (the server checks again)
+      (function () {
+        var input = document.getElementById('receipts'), list = document.getElementById('receipts-chosen');
+        if (!input) return;
+        var mb = function (b) { return (b / 1048576).toFixed(1).replace(/\.0$/, '') + ' MB'; };
+        input.addEventListener('change', function () {
+          var files = Array.prototype.slice.call(this.files), d = this.dataset, problem = null;
+          var total = files.reduce(function (s, f) { return s + f.size; }, 0);
+          var big = files.filter(function (f) { return f.size > +d.maxBytes; });
+          if (files.length > +d.maxFiles) problem = 'Choose at most ' + d.maxFiles + ' files at a time.';
+          else if (big.length) problem = big.map(function (f) { return f.name + ' is ' + mb(f.size); }).join(', ') + '; the limit is ' + mb(+d.maxBytes) + ' per file.';
+          // Leave room for the rest of the form
+          else if (total > +d.maxTotal - 65536) problem = 'Together these files are ' + mb(total) + '; the server accepts about ' + mb(+d.maxTotal) + ' at once. Choose fewer or smaller files.';
+          if (problem) { alert(problem); this.value = ''; files = []; }
+
+          list.textContent = '';
+          files.forEach(function (f) {
+            var li = document.createElement('li');
+            li.textContent = '📎 ' + f.name + ' (' + mb(f.size) + ')';
+            list.appendChild(li);
+          });
+          list.hidden = !files.length;
+        });
+      })();
+    </script>
+  @endpush
 @endsection

@@ -90,6 +90,13 @@ return [
     'agent_button' => 'Sign in',
     'agent_footer' => 'You received this email because your agent application on Safer Cruise was approved.',
 
+    // Guest booking without an account: one is made for them, sign-in details in the booking email (App\Services\GuestAccounts)
+    'new_account_title' => 'Welcome aboard: your Safer Cruise account is ready',
+    'new_account_intro' => 'We created an account for you with this email, so you can sign in at any time to see this booking, its payment status and your future trips.',
+    'new_account_button' => 'Sign in to my account',
+    'new_account_change_password' => 'For your security, change this password after you sign in: My account → Password. Lost it? Use "Forgot password?" on the sign-in page.',
+    'team_account_created' => 'New account created with this booking; sign-in details were sent to the guest.',
+
     'footer_rights' => '© :year Safer. All rights reserved.',
     'footer_why' => 'You received this email because a booking was made on Safer Cruise with this address.',
 ];

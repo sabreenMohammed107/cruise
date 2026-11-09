@@ -1,5 +1,6 @@
 @use('App\Support\Format')
-{{-- $sellers (AppServiceProvider): admins get a seller picker on each row; sellers just see the name. --}}
+{{-- $assignees (AppServiceProvider): admins and supervisors get an "Assigned to" picker on each row (admins,
+     supervisors, sellers); sellers just see the name. --}}
 <div class="overflow-x-auto">
   <table class="w-full text-sm">
     <thead class="bg-ocean-50 text-ocean-800">
@@ -10,7 +11,7 @@
         <th class="text-end font-semibold p-3">Total</th>
         <th class="text-end font-semibold p-3">Due</th>
         <th class="text-start font-semibold p-3">Status</th>
-        <th class="text-start font-semibold p-3">Seller</th>
+        <th class="text-start font-semibold p-3">Assigned to</th>
         <th class="text-start font-semibold p-3">Booked</th>
       </tr>
     </thead>
@@ -33,15 +34,13 @@
           <td class="p-3 text-end tabular font-bold">{{ $b->status === \App\Enums\BookingStatus::Cancelled ? '—' : Format::money($b->amountDue()) }}</td>
           <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b->status])@include('admin.partials.badge', ['status' => $b->payment_status])@include('admin.partials.currency-tag', ['booking' => $b])</div></td>
           <td class="p-3">
-            @if ($sellers->isNotEmpty())
+            @if ($assignees->isNotEmpty())
               <form method="POST" action="{{ route('admin.bookings.seller', $b) }}">
                 @csrf @method('PATCH')
-                <label for="seller-{{ $b->id }}" class="sr-only">Seller for {{ $b->reference }}</label>
+                <label for="seller-{{ $b->id }}" class="sr-only">Assigned to, for {{ $b->reference }}</label>
                 <select id="seller-{{ $b->id }}" name="seller_id" onchange="this.form.submit()" class="field !py-1.5 !px-2 !w-auto text-xs min-w-32">
                   <option value="">Unassigned</option>
-                  @foreach ($sellers as $s)
-                    <option value="{{ $s->id }}" @selected($b->seller_id === $s->id)>{{ $s->name }}</option>
-                  @endforeach
+                  @include('admin.bookings.assignee-options', ['selected' => $b->seller_id, 'assignedUser' => $b->seller])
                 </select>
                 <noscript><button class="btn btn-ghost btn-sm">Save</button></noscript>
               </form>

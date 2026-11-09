@@ -32,6 +32,8 @@ Route::get('bookings', [BookingController::class, 'index'])->name('bookings.inde
 Route::get('bookings/{booking:reference}', [BookingController::class, 'show'])->name('bookings.show');
 Route::patch('bookings/{booking:reference}', [BookingController::class, 'update'])->name('bookings.update');
 Route::post('bookings/{booking:reference}/payments', [BookingController::class, 'storePayment'])->name('bookings.payments.store');
+// A payment's receipts (private files): staff who can see the booking
+Route::get('bookings/{booking:reference}/payments/{payment}/receipts/{receipt}', [BookingController::class, 'receipt'])->name('bookings.payments.receipt');
 
 Route::middleware('can:manage-content')->group(function () {
     // Admins and supervisors: cancel, assign bookings to sellers, and remove payment entries (a delete: admins only)

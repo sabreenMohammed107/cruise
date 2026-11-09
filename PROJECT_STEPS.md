@@ -1747,6 +1747,88 @@ so no migration).
 - **Deploy:** upload the files, then `php artisan route:clear`, `php artisan config:clear`, `php artisan view:clear`
   (no migration).
 
+### Step 28: Agent applications need a company email, one agency per domain (2026-11-09)
+
+- `App\Rules\BusinessEmail` on `AgentRequest`: free / public providers and throwaway inboxes are refused (gmail,
+  yahoo, hotmail, outlook, live, icloud, aol, proton, gmx, yandex, mailinator…), including subdomains
+  (`mail.yahoo.com`) and country variants (`yahoo.co.uk`, `outlook.sa`). Lists in the new `config/agents.php`.
+- One agent per company domain (`AGENTS_MAX_PER_DOMAIN`, default 1, 0 = no limit): agent accounts and open
+  applications count; a rejected application frees the domain. `AgentController::store` locks per domain.
+- Messages `pages.agents.email_not_business` and `pages.agents.domain_taken` (EN + AR).
+- Tests: 2 new in `AgentAccountsTest`.
+
+### Step 29: Guest bookings make a customer account; sign-in details in the booking email (2026-11-09)
+
+- `App\Services\GuestAccounts`, called by `BookingService::confirm()` after the booking is saved, when the guest is
+  **not signed in** and the contact email has **no account**: a customer account (names, date of birth and
+  nationality from the primary guest, phone from the contact, 12-character temporary password, `hashed` cast) is
+  created and set as the booking's `user_id`. Switch: `CRUISE_GUEST_ACCOUNTS` (default true).
+- **D10 still holds:** an email that already has an account (customer, agent, staff) is left alone, and later guest
+  bookings with that email are not added to the account. Failures never stop the booking (reported only).
+- `BookingConfirmed` takes the password and shows a "your account is ready" box (email, temporary password,
+  Sign in button, change-password / forgot-password hint), in the booking's language. Sent, never queued, so the
+  password isn't stored in a job. `NewBookingForTeam` says "New account created with this booking" (no password).
+- Words: `emails.new_account_*`, `emails.team_account_created` (EN + AR).
+- Tests: new `GuestAccountOnBookingTest` (7); `BookingEmailsTest` updated for the team email's account line.
+- **Deploy:** upload the files, `php artisan config:clear`, `php artisan view:clear` (no migration).
+
+### Step 30: Receipt / proof attached to a recorded payment (2026-11-09)
+
+- Migration `2026_11_09_000001_add_receipt_to_payments_table`: `payments.receipt_path` (path on the private `local`
+  disk) and `receipt_name` (name as uploaded), both nullable.
+- **Private, not under `public/`** (unlike D8 / D13 photos): receipts are financial documents, and `public/uploads` is
+  listed by the media library. Files go to `storage/app/private/payment-receipts/{reference}/{random}.{ext}` and open
+  only through `GET admin/bookings/{ref}/payments/{payment}/receipt` (`?download=1` to download), gate `view-booking`
+  (admins, supervisors, the seller assigned). Headers: `nosniff`, `no-store`, CSP `sandbox` on photos.
+- Validation: optional; JPG, PNG, WebP or PDF **by content** (a renamed file is refused); size limit
+  `MediaLibrary::maxUploadBytes()` (5 MB or PHP's lower limit), also checked in the browser before upload.
+- Admin → booking: "Payment receipt / proof" field under Note (form is `multipart/form-data`); payment history shows a
+  thumbnail for photos, "Receipt" (opens in a new tab) and "Download". Removing a payment entry deletes its file.
+- Tests: new `PaymentReceiptTest` (7). Applied locally (backup
+  `db-backups\safer_cruise_db-2026-11-09-before-payment-receipts.sql`).
+
+**Step 30b (same day): several receipts per payment.**
+- Migration `2026_11_09_000002_create_payment_receipts_table`: new `payment_receipts` (`payment_id` cascade, `path`,
+  `name`, `size`); a receipt already in `payments.receipt_path` is moved over, then those two columns are dropped
+  (down: the first receipt of each payment goes back). Model `PaymentReceipt` (disk, folder, types, `MAX_FILES` = 10,
+  `store()`, `isImage()`; deleting a receipt deletes its file); `Payment::receipts()`, and deleting a payment deletes
+  its receipts one by one so the files go too.
+- Form: `receipts[]` with `multiple`; the chosen files are listed under the field; the browser refuses more than 10
+  files, a file over the per-file limit, or files that together exceed PHP's `post_max_size`
+  (`MediaLibrary::maxPostBytes()`). Errors name the file's place ("Receipt 2 must be…"); one bad file refuses the
+  whole entry, and nothing is stored.
+- Over `post_max_size` anyway: PHP drops the form and Laravel throws `PostTooLargeException` before routing and
+  sessions, so `bootstrap/app.php` redirects to the booking with `?receipts=too-large` and the page shows the message.
+- Route is now `admin/bookings/{ref}/payments/{payment}/receipts/{receipt}` (same name, same gate); the history lists
+  every receipt (thumbnail for photos, "PDF" tile for PDFs, name opens it, Download).
+- Tests: `PaymentReceiptTest` rewritten (7); `payment_receipts` listed as not content in `BilingualContentTest`.
+  Migration checked up (with a receipt moved) and down on SQLite; applied locally (backup
+  `db-backups\safer_cruise_db-2026-11-09-before-multi-receipts.sql`).
+- **Deploy:** upload the files, back up, `php artisan migrate` (runs both step 30 migrations),
+  `php artisan route:clear`, `php artisan view:clear`, `php artisan config:clear`. Back up
+  `storage/app/private/payment-receipts` with the database.
+
+### Step 31: Bookings assigned to any staff member, not only sellers (2026-11-09)
+
+Replaces "only sellers can be chosen" from steps 8 and 27. Who assigns is unchanged (admins and supervisors, gate
+`assign-bookings`); who can be **chosen** is now any admin, supervisor or seller.
+
+- `User::assignable()`: `staff()` (admins, supervisors, sellers; never the hidden super admin, customers or agents),
+  ordered admins → supervisors → sellers, then by name. The bookings view composer passes it as `$assignees`.
+- `Admin\BookingController::assignSeller`: `seller_id` must belong to a staff role ("Choose an admin, supervisor or
+  seller."). The list filter `?seller=` accepts any staff id or `none` (same parameter name, so the "Bookings (n)"
+  links on Admins & staff keep working, now for admins and supervisors too).
+- **Column unchanged:** `bookings.seller_id` / `Booking::seller()` now hold whoever the booking is assigned to (no
+  migration; renaming would touch exports, dashboards and every query for no change in behaviour).
+- Views: "Seller" → **"Assigned to"** (list column, row picker, filter, booking page). Shared partial
+  `admin/bookings/assignee-options` groups the options (Admins / Supervisors / Sellers) and keeps showing an assignee
+  who is no longer staff ("… (no longer staff)") instead of looking unassigned. The filter adds "Assigned to me".
+- Sellers: unchanged, they see only bookings assigned to them, and a booking assigned to an admin or supervisor is
+  not theirs. Admins and supervisors see every booking whether or not it is assigned to them.
+- Tests: new `AssignBookingsToStaffTest` (6); `StaffCustomersSellersTest` and `SupervisorRoleTest` updated (admins and
+  supervisors can now be chosen; customers still can't).
+- **Deploy:** upload the files, `php artisan view:clear` (no migration).
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.

@@ -44,15 +44,18 @@
         @endforeach
       </select>
     </div>
-    @if ($sellers->isNotEmpty())
+    @if ($assignees->isNotEmpty())
       <div>
-        <label for="seller" class="label">Seller</label>
+        <label for="seller" class="label">Assigned to</label>
         <select id="seller" name="seller" class="field !py-2 !w-auto">
           <option value="">All</option>
           <option value="none" @selected(($filters['seller'] ?? '') === 'none')>Unassigned</option>
-          @foreach ($sellers as $s)
-            <option value="{{ $s->id }}" @selected(($filters['seller'] ?? '') === (string) $s->id)>{{ $s->name }}</option>
-          @endforeach
+          {{-- Shortcut to the bookings assigned to me; when chosen, it is the selected one (not my name further down) --}}
+          @php($mine = $assignees->contains('id', auth()->id()) && ($filters['seller'] ?? '') === (string) auth()->id())
+          @if ($assignees->contains('id', auth()->id()))
+            <option value="{{ auth()->id() }}" @selected($mine)>Assigned to me</option>
+          @endif
+          @include('admin.bookings.assignee-options', ['selected' => $mine ? null : ($filters['seller'] ?? null), 'assignedUser' => null])
         </select>
       </div>
     @endif

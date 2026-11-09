@@ -18,7 +18,8 @@ class NewBookingForTeam extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Booking $booking)
+    /** @param  bool  $accountCreated  the guest had no account and one was made with this booking (App\Services\GuestAccounts) */
+    public function __construct(public Booking $booking, public bool $accountCreated = false)
     {
         // Set here, not in envelope()/content(): Mailable::send() switches to $this->locale before building them
         $this->locale($booking->emailLocale());
@@ -33,6 +34,7 @@ class NewBookingForTeam extends Mailable
     {
         return new Content(view: 'mail.new-booking-for-team', with: [
             'booking' => $this->booking->loadMissing([...BookingEmailData::RELATIONS, 'user']),
+            'accountCreated' => $this->accountCreated,
         ]);
     }
 }

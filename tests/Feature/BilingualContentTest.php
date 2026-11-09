@@ -41,7 +41,7 @@ class BilingualContentTest extends TestCase
     /** Tables with no site copy: personal or operational data, links, framework tables. */
     private const NOT_CONTENT = [
         'users', 'password_reset_tokens', 'sessions', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
-        'migrations', 'bookings', 'booking_cabins', 'booking_travellers', 'payments', 'favorites', 'newsletter_subscribers',
+        'migrations', 'bookings', 'booking_cabins', 'booking_travellers', 'payments', 'payment_receipts', 'favorites', 'newsletter_subscribers',
         'contact_messages', 'agent_requests', 'agent_rates', 'agent_tiers', 'sailings', 'sailing_cabin_prices', 'cruise_port',
     ];
 

@@ -174,23 +174,23 @@ class SupervisorRoleTest extends TestCase
         $booking = Booking::where('reference', 'SC2611-K4P2Q')->firstOrFail();
         $seller = $this->seller();
 
-        // The picker lists sellers only
+        // The picker lists every staff member: admins, supervisors and sellers
         $this->get("/admin/bookings/{$booking->reference}")->assertOk()
             ->assertSee("<option value=\"{$seller->id}\"", false)
-            ->assertDontSee("<option value=\"{$this->admin()->id}\"", false)
-            ->assertDontSee("<option value=\"{$this->supervisor()->id}\"", false);
+            ->assertSee("<option value=\"{$this->admin()->id}\"", false)
+            ->assertSee("<option value=\"{$this->supervisor()->id}\"", false);
 
         $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $seller->id])
             ->assertSessionHasNoErrors()->assertSessionHas('status', 'Booking SC2611-K4P2Q assigned to Sara Seller.');
         $this->assertDatabaseHas('bookings', ['id' => $booking->id, 'seller_id' => $seller->id]);
         $this->get("/admin/bookings?seller={$seller->id}")->assertSee('SC2611-K4P2Q');
 
-        // Admins, supervisors and customers can't be assigned
+        // A supervisor can assign to themselves or an admin; never to a customer
+        $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $this->supervisor()->id])->assertSessionHasNoErrors();
+        $this->assertSame($this->supervisor()->id, $booking->fresh()->seller_id);
         $reem = User::where('email', 'reem@example.com')->firstOrFail();
-        foreach ([$this->admin(), $this->supervisor(), $reem] as $notASeller) {
-            $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $notASeller->id])->assertSessionHasErrors('seller_id');
-        }
-        $this->assertSame($seller->id, $booking->fresh()->seller_id);
+        $this->patch("/admin/bookings/{$booking->reference}/seller", ['seller_id' => $reem->id])->assertSessionHasErrors('seller_id');
+        $this->assertSame($this->supervisor()->id, $booking->fresh()->seller_id);
     }
 
     /* ---------- Menu and command line ---------- */

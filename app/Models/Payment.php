@@ -6,9 +6,11 @@ use App\Enums\PaymentMethod;
 use App\Enums\PaymentType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * An offline payment or refund recorded by the team. The site itself takes no online payments.
+ * It can carry several receipts (PaymentReceipt: private files, opened through the admin panel).
  */
 class Payment extends Model
 {
@@ -26,6 +28,12 @@ class Payment extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // One by one, so each receipt deletes its file (the database cascade alone would leave the files)
+        static::deleting(fn (Payment $payment) => $payment->receipts->each->delete());
+    }
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
@@ -34,5 +42,10 @@ class Payment extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function receipts(): HasMany
+    {
+        return $this->hasMany(PaymentReceipt::class)->orderBy('id');
     }
 }

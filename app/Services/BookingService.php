@@ -22,7 +22,12 @@ use Throwable;
  */
 class BookingService
 {
-    public function __construct(private PricingService $pricing, private CurrencyService $currency, private AgentPricing $agents) {}
+    public function __construct(
+        private PricingService $pricing,
+        private CurrencyService $currency,
+        private AgentPricing $agents,
+        private GuestAccounts $guestAccounts,
+    ) {}
 
     /**
      * A booking of one or more cabins on the same sailing (step 15).
@@ -123,9 +128,31 @@ class BookingService
             return $booking;
         });
 
-        $this->sendEmails($booking);
+        // Booked without signing in: an account for a new email, its sign-in details in the booking email
+        $password = $user ? null : $this->makeGuestAccount($booking);
+
+        $this->sendEmails($booking, $password);
 
         return $booking;
+    }
+
+    /**
+     * The temporary password of the account made for this guest booking, or null (switched off, the email already has
+     * an account, or it failed). Never stops the booking: it is already saved, and a failure is only reported.
+     */
+    private function makeGuestAccount(Booking $booking): ?string
+    {
+        if (! config('cruise.guest_accounts')) {
+            return null;
+        }
+
+        try {
+            return $this->guestAccounts->createFor($booking)[1] ?? null;
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /** adult-1, adult-2, child-1, infant-1 … whatever order the browser sent them in. */
@@ -162,12 +189,13 @@ class BookingService
     /**
      * The booking is saved either way; a mail failure is reported, not shown to the guest.
      */
-    private function sendEmails(Booking $booking): void
+    private function sendEmails(Booking $booking, ?string $newAccountPassword = null): void
     {
         try {
-            Mail::to($booking->contact_email)->send(new BookingConfirmed($booking));
+            // Sent now (send, not queue), so the temporary password is never stored in a queued job
+            Mail::to($booking->contact_email)->send(new BookingConfirmed($booking, $newAccountPassword));
             if ($team = config('cruise.team_email')) {
-                Mail::to($team)->send(new NewBookingForTeam($booking));
+                Mail::to($team)->send(new NewBookingForTeam($booking, accountCreated: $newAccountPassword !== null));
             }
         } catch (Throwable $e) {
             report($e);

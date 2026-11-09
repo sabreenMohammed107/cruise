@@ -38,16 +38,17 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('delete-records', fn (User $user) => $user->isAdmin());
         // Adding and editing people (Customers, Admins & staff): admins only; supervisors can look at the lists.
         Gate::define('manage-users', fn (User $user) => $user->isAdmin());
-        // Choosing a booking's seller: admins and supervisors.
+        // Choosing who a booking is assigned to (any admin, supervisor or seller): admins and supervisors.
         Gate::define('assign-bookings', fn (User $user) => $user->isAdmin() || $user->isSupervisor());
         // A booking's admin page and voucher: admins, supervisors, and the seller it is assigned to.
         Gate::define('view-booking', fn (User $user, Booking $booking) => $user->can('manage-content')
             || ($user->isSeller() && $booking->seller_id === $user->id));
 
-        // Bookings screens: the sellers a booking can be assigned to (sellers themselves get none)
+        // Bookings screens: the staff a booking can be assigned to, admins, supervisors and sellers (User::assignable).
+        // Only for people who assign (admins, supervisors); sellers get none and just see the name.
         View::composer(['admin.bookings.index', 'admin.bookings.table', 'admin.bookings.show'], function ($view) {
-            $view->with('sellers', auth('admin')->user()?->can('assign-bookings')
-                ? User::sellers()->orderBy('name')->get(['id', 'name'])
+            $view->with('assignees', auth('admin')->user()?->can('assign-bookings')
+                ? User::assignable()->get(['id', 'name', 'role'])
                 : collect());
         });
 

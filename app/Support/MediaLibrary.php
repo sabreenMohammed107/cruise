@@ -146,19 +146,27 @@ class MediaLibrary
     /** Largest photo upload accepted: 5 MB, or less when PHP's upload_max_filesize / post_max_size are lower. */
     public static function maxUploadBytes(): int
     {
-        $bytes = function (string $setting): int {
-            $value = trim((string) ini_get($setting));
-            $number = (int) $value;
+        return min(5 * 1024 ** 2, self::iniBytes('upload_max_filesize'), self::iniBytes('post_max_size'));
+    }
 
-            return match (strtolower(substr($value, -1))) {
-                'g' => $number * 1024 ** 3,
-                'm' => $number * 1024 ** 2,
-                'k' => $number * 1024,
-                default => $number,
-            } ?: PHP_INT_MAX; // 0 = no limit
-        };
+    /** Largest whole form PHP accepts (post_max_size): several files sent together must fit in it. */
+    public static function maxPostBytes(): int
+    {
+        return self::iniBytes('post_max_size');
+    }
 
-        return min(5 * 1024 ** 2, $bytes('upload_max_filesize'), $bytes('post_max_size'));
+    /** "8M" → bytes; 0 (no limit) → PHP_INT_MAX. */
+    private static function iniBytes(string $setting): int
+    {
+        $value = trim((string) ini_get($setting));
+        $number = (int) $value;
+
+        return match (strtolower(substr($value, -1))) {
+            'g' => $number * 1024 ** 3,
+            'm' => $number * 1024 ** 2,
+            'k' => $number * 1024,
+            default => $number,
+        } ?: PHP_INT_MAX;
     }
 
     /** maxUploadBytes() for people, e.g. "5 MB" or "1.5 MB". */

@@ -40,5 +40,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo(fn (Request $request) => $isAdmin($request) ? route('admin.dashboard') : route('account'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Receipts together bigger than PHP's post_max_size: PHP drops the whole form. Back to the booking with a
+        // message instead of a bare "413" page (the page's script normally stops this before sending).
+        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, \Illuminate\Http\Request $request) {
+            // Thrown by global middleware, before routing and before the session starts: match the path, and pass the
+            // message in the address (a flashed error would be lost). The booking page shows it (admin/bookings/show).
+            if ($request->isMethod('post') && $request->is('admin/bookings/*/payments')) {
+                return redirect()->route('admin.bookings.show', ['booking' => $request->segment(3), 'receipts' => 'too-large']);
+            }
+        });
     })->create();

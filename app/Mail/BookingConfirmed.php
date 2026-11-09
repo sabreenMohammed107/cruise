@@ -17,7 +17,12 @@ class BookingConfirmed extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public Booking $booking)
+    /**
+     * @param  ?string  $password  set when an account was made for this guest booking (App\Services\GuestAccounts): the
+     *                             email then also welcomes them and gives their sign-in details. Send this mail, never
+     *                             queue it, so the password isn't stored in the jobs table.
+     */
+    public function __construct(public Booking $booking, public ?string $password = null)
     {
         // Set here, not in envelope()/content(): Mailable::send() switches to $this->locale before building them
         $this->locale($booking->emailLocale());
@@ -32,6 +37,7 @@ class BookingConfirmed extends Mailable
     {
         return new Content(view: 'mail.booking-confirmed', with: [
             'booking' => $this->booking->loadMissing(BookingEmailData::RELATIONS),
+            'password' => $this->password,
         ]);
     }
 }

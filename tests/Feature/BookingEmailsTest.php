@@ -86,7 +86,8 @@ class BookingEmailsTest extends TestCase
         $team = $this->sent(NewBookingForTeam::class);
         $team->assertHasSubject("New booking {$booking->reference}: arrange payment");
         $html = $team->render();
-        foreach (['Booked in', 'English', 'Guest checkout (no account)', 'Amount due', 'Born 15 Jan 1960', 'tel:+966551234567',
+        // Booked signed out with a new email: an account was made with the booking (GuestAccountOnBookingTest)
+        foreach (['Booked in', 'English', 'Noura Alqahtani (noura@example.com)', 'New account created with this booking', 'Amount due', 'Born 15 Jan 1960', 'tel:+966551234567',
             'https://wa.me/966551234567', route('admin.bookings.show', $booking)] as $text) {
             $this->assertStringContainsString(e($text), $html, $text);
         }

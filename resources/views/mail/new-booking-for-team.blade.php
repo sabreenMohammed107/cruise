@@ -48,7 +48,7 @@
     <tr><td style="{{ $label }}">{{ __('emails.email_guest') }}</td><td style="{{ $value }}"><a href="mailto:{{ $d['contact']['email'] }}" style="color:#155C9E;">{{ $d['contact']['email'] }}</a></td></tr>
     <tr><td style="{{ $label }}">{{ __('emails.booked_in') }}</td><td style="{{ $value }}">{{ __('emails.language_names.'.$booking->emailLocale()) }}</td></tr>
     <tr><td style="{{ $label }}">{{ __('emails.booked_at') }}</td><td style="{{ $value }}">{{ ($booking->confirmed_at ?? $booking->created_at)?->translatedFormat('j F Y · H:i') }}</td></tr>
-    <tr><td style="{{ $label }}">{{ __('emails.account') }}</td><td style="{{ $value }}">{{ $booking->user ? $booking->user->name.' ('.$booking->user->email.')' : __('emails.guest_checkout') }}</td></tr>
+    <tr><td style="{{ $label }}">{{ __('emails.account') }}</td><td style="{{ $value }}">{{ $booking->user ? $booking->user->name.' ('.$booking->user->email.')' : __('emails.guest_checkout') }}@if ($accountCreated ?? false)<br><span style="font-size:12px;color:#5B6B7C;">{{ __('emails.team_account_created') }}</span>@endif</td></tr>
   </table>
 
   @include('mail.partials.booking-details', ['d' => $d, 'team' => true])

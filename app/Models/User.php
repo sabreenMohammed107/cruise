@@ -142,6 +142,17 @@ class User extends Authenticatable
         $query->where('role', UserRole::Seller);
     }
 
+    /**
+     * Who a booking can be assigned to (bookings.seller_id): every staff member (admins, supervisors, sellers), not
+     * the hidden super admin. Admins first, then supervisors, then sellers; by name within each.
+     */
+    public function scopeAssignable(Builder $query): void
+    {
+        $query->staff()
+            ->orderByRaw("case role when 'admin' then 1 when 'supervisor' then 2 else 3 end")
+            ->orderBy('name');
+    }
+
     /** An agent's type (Standard, Gold, …): its agent rates come first (App\Services\AgentPricing). */
     public function agentTier(): BelongsTo
     {
@@ -160,7 +171,7 @@ class User extends Authenticatable
         return $this->hasMany(Booking::class, 'agent_id');
     }
 
-    /** Bookings assigned to this seller to follow up. */
+    /** Bookings assigned to this staff member (admin, supervisor or seller) to follow up. */
     public function assignedBookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'seller_id');

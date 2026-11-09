@@ -40,6 +40,10 @@ return [
     // Receives a "new booking" email so the team can arrange payment.
     'team_email' => env('CRUISE_TEAM_EMAIL', 'Info@Safer.Travel'),
 
+    // A guest who books without signing in, with an email that has no account yet, gets a customer account and its
+    // sign-in details in the booking email (App\Services\GuestAccounts). false = guest bookings stay without an account.
+    'guest_accounts' => (bool) env('CRUISE_GUEST_ACCOUNTS', true),
+
     'nationalities' => [
         'Saudi Arabia', 'Egypt', 'United Arab Emirates', 'Kuwait', 'Qatar', 'Bahrain', 'Oman', 'Jordan', 'Lebanon',
         'Syria', 'Iraq', 'Palestine', 'Yemen', 'Sudan', 'Libya', 'Tunisia', 'Algeria', 'Morocco', 'Turkey', 'Pakistan',

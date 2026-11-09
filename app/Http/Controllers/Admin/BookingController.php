@@ -11,13 +11,19 @@ use App\Http\Controllers\Controller;
 use App\Models\AgentTier;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\PaymentReceipt;
 use App\Models\User;
+use App\Support\MediaLibrary;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Bookings come from the website only. The team follows up on payment (offline), records
@@ -34,8 +40,9 @@ class BookingController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::enum(BookingStatus::class)],
             'payment' => ['nullable', Rule::enum(PaymentStatus::class)],
-            // a seller's id, or "none" for unassigned bookings (admins and supervisors)
-            'seller' => ['nullable', Rule::in(['none', ...User::sellers()->pluck('id')->map(fn ($id) => (string) $id)])],
+            // "Assigned to": a staff member's id (admin, supervisor or seller), or "none" for unassigned bookings
+            // (admins and supervisors; the parameter keeps its old name so existing links keep working)
+            'seller' => ['nullable', Rule::in(['none', ...User::staff()->pluck('id')->map(fn ($id) => (string) $id)])],
             // B2C (customers and guest checkout) or agent bookings; for agents, a type ("none": no type) or one agent
             'channel' => ['nullable', Rule::in(['b2c', 'agent'])],
             'agent_tier' => ['nullable', Rule::in(['none', ...AgentTier::pluck('id')->map(fn ($id) => (string) $id)])],
@@ -90,7 +97,7 @@ class BookingController extends Controller
     public function show(Booking $booking): View
     {
         Gate::authorize('view-booking', $booking);
-        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers', 'payments.recordedBy', 'promoCode', 'user', 'seller', 'agent', 'agentTier']);
+        $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers', 'payments.recordedBy', 'payments.receipts', 'promoCode', 'user', 'seller', 'agent', 'agentTier']);
 
         return view('admin.bookings.show', [
             'booking' => $booking,
@@ -116,12 +123,17 @@ class BookingController extends Controller
         return back()->with('status', "Booking {$booking->reference} cancelled. Record any refund below.");
     }
 
-    /** Assign the booking to a seller, or unassign it (empty seller_id). Admins and supervisors; only sellers can be chosen. */
+    /**
+     * Assign the booking to a staff member, or unassign it (empty seller_id). Done by admins and supervisors; any
+     * admin, supervisor or seller can be chosen (not customers, agents or the hidden super admin). The column is
+     * still called seller_id: it holds whoever the booking is assigned to.
+     */
     public function assignSeller(Request $request, Booking $booking): RedirectResponse
     {
+        $staff = array_map(fn (UserRole $role) => $role->value, UserRole::staff());
         $data = $request->validate([
-            'seller_id' => ['nullable', Rule::exists('users', 'id')->where('role', UserRole::Seller->value)],
-        ], ['seller_id.exists' => 'Choose one of the sellers.']);
+            'seller_id' => ['nullable', Rule::exists('users', 'id')->whereIn('role', $staff)],
+        ], ['seller_id.exists' => 'Choose an admin, supervisor or seller.']);
 
         $booking->update(['seller_id' => $data['seller_id'] ?? null]);
         $seller = $booking->seller()->value('name');
@@ -141,23 +153,80 @@ class BookingController extends Controller
             'reference' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'received_at' => ['required', 'date', 'before_or_equal:now'],
+            // Optional proof, several files: photos or PDFs (checked on the content), each within the upload limit
+            'receipts' => ['nullable', 'array', 'max:'.PaymentReceipt::MAX_FILES],
+            'receipts.*' => ['file', 'mimes:'.implode(',', PaymentReceipt::TYPES), 'max:'.intdiv(MediaLibrary::maxUploadBytes(), 1024)],
+        ], [
+            'receipts.max' => 'Attach at most '.PaymentReceipt::MAX_FILES.' receipts at a time.',
+            'receipts.*.mimes' => 'Receipt :position must be a photo (JPG, PNG, WebP) or a PDF.',
+            // "uploaded": PHP refused it before Laravel saw it, almost always because of its size
+            'receipts.*.max' => $tooBig = 'Receipt :position is too large: the limit is '.MediaLibrary::maxUploadLabel().' per file. Send a smaller photo or PDF.',
+            'receipts.*.uploaded' => $tooBig,
         ]);
+        unset($data['receipts']);
 
-        $booking->payments()->create($data + [
-            'currency' => $booking->currency,
-            'recorded_by' => $request->user()->id,
-        ]);
+        // Files first; if the entry can't be saved, they are removed again (no orphan files)
+        $stored = [];
+        try {
+            foreach ($request->file('receipts', []) as $file) {
+                $stored[] = PaymentReceipt::store($file, $booking);
+            }
+
+            DB::transaction(function () use ($booking, $data, $request, $stored) {
+                $payment = $booking->payments()->create($data + [
+                    'currency' => $booking->currency,
+                    'recorded_by' => $request->user()->id,
+                ]);
+                $payment->receipts()->createMany($stored);
+            });
+        } catch (Throwable $e) {
+            foreach ($stored as $receipt) {
+                Storage::disk(PaymentReceipt::DISK)->delete($receipt['path']);
+            }
+            throw $e;
+        }
         $booking->syncPaymentTotals();
 
         $what = $data['type'] === PaymentType::Refund->value ? 'Refund' : 'Payment';
+        $with = match (count($stored)) {
+            0 => '.',
+            1 => ' with 1 receipt.',
+            default => ' with '.count($stored).' receipts.',
+        };
 
-        return back()->with('status', "{$what} of ".config('cruise.currency_symbol').number_format($data['amount'], 2).' recorded.');
+        return back()->with('status', "{$what} of ".config('cruise.currency_symbol').number_format($data['amount'], 2).' recorded'.$with);
+    }
+
+    /**
+     * One receipt of a payment, for staff who can see the booking (sellers: their assigned bookings). Opens in the
+     * browser (photos, PDF), or downloads with ?download=1 under the name it was uploaded with.
+     */
+    public function receipt(Request $request, Booking $booking, Payment $payment, PaymentReceipt $receipt): StreamedResponse
+    {
+        Gate::authorize('view-booking', $booking);
+        abort_unless($payment->booking_id === $booking->id && $receipt->payment_id === $payment->id && $receipt->fileExists(), 404);
+
+        $disk = Storage::disk(PaymentReceipt::DISK);
+        $headers = [
+            // The type found from the content when it was checked, never the browser's guess
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ];
+        // A photo never runs anything (not set on PDFs: Chrome's PDF viewer refuses sandboxed documents)
+        if ($receipt->isImage()) {
+            $headers['Content-Security-Policy'] = 'sandbox';
+        }
+
+        return $request->boolean('download')
+            ? $disk->download($receipt->path, $receipt->name, $headers)
+            : $disk->response($receipt->path, $receipt->name, $headers);
     }
 
     public function destroyPayment(Booking $booking, Payment $payment): RedirectResponse
     {
         abort_unless($payment->booking_id === $booking->id, 404);
 
+        // Its receipt files go with it (Payment::booted)
         $payment->delete();
         $booking->syncPaymentTotals();
 
