@@ -129,7 +129,7 @@
           <button class="btn btn-primary mt-6" data-clear-all>{{ $sections['empty']->filledBi('primary_label') ? $sections['empty']->bi('primary_label') : 'Clear all filters' }}</button>
         </div>
 
-        <nav id="pagination" class="mt-10 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2" aria-label="{{ __('pages.catalog.pagination') }}"></nav>
+        <nav id="pagination" class="mt-10 flex flex-wrap items-center justify-center gap-1.5" aria-label="{{ __('pages.catalog.pagination') }}"></nav>
       </section>
     </div>
   </main>

@@ -146,22 +146,76 @@ document.addEventListener('sc:ready', () => {
     const badge = $('#f-badge'); badge.textContent = c.length; badge.classList.toggle('hidden', !c.length); badge.classList.toggle('grid', !!c.length);
     $('#f-price-out').textContent = SC.money(state.maxPrice);
 
-    // pagination
-    const pg = $('#pagination');
-    if (pages <= 1) { pg.innerHTML = ''; } else {
-      const btn = (p, label, aria, disabled) => `<button class="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full grid place-items-center font-bold border ${p === state.page && !aria ? 'bg-ocean-600 text-white border-ocean-600' : 'bg-white border-line hover:border-ocean-500'} ${disabled ? 'opacity-40 pointer-events-none' : ''}" data-page="${p}" ${aria ? `aria-label="${aria}"` : ''} ${p === state.page && !aria ? 'aria-current="page"' : ''}>${label}</button>`;
-      // Laravel: with many sailings a button per page was wider than a phone (61 sailings = 11 pages = 616 px).
-      // Show the first, the last and the current page (± 1 from sm up), "…" for the gaps.
-      const near = window.matchMedia('(min-width: 640px)').matches ? 1 : 0;
-      const shown = [...new Set([1, pages, ...Array.from({ length: near * 2 + 1 }, (_, i) => state.page - near + i)])]
-        .filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b);
-      const gap = '<span class="w-6 text-center text-muted shrink-0" aria-hidden="true">…</span>';
-      pg.innerHTML = btn(state.page - 1, SC.icon('chevron-left', 'w-4 h-4 rtl:rotate-180'), SC.t('ui.catalog.previous_page'), state.page === 1) +
-        shown.map((p, i) => (i && p - shown[i - 1] > 1 ? gap : '') + btn(p, p)).join('') +
-        btn(state.page + 1, SC.icon('chevron-right', 'w-4 h-4 rtl:rotate-180'), SC.t('ui.catalog.next_page'), state.page === pages);
-    }
+    lastPages = pages;
+    renderPager(pages);
     syncUrl();
   };
+
+  /* ---------- Pagination: numbered on every screen, as many numbers as the row has room for ----------
+     Wide rows:  ‹ 1 … 4 5 [6] 7 8 … 46 ›   (current ± 2, first and last; ± 1 when a little narrower)
+     Phones:     ‹ 4 5 [6] 7 8 ›            (a window of 5 pages around the current one that slides with it;
+                                              3 on very narrow screens)
+     The layout is chosen from the row's width, not from the page, so it doesn't jump around while paging.
+     In Arabic the row runs right to left (the page is dir="rtl"): ‹ previous › stays at the start (right), page 1
+     next to it, and the arrows are mirrored. Buttons are 40 px for comfortable taps. */
+  const BTN = 40, GAP = 6; // w-10 buttons, gap-1.5 on #pagination (pages/catalog.blade.php)
+  const LAYOUTS = [
+    { edges: true, near: 2 },  // 9 slots
+    { edges: true, near: 1 },  // 7 slots
+    { edges: false, size: 5 },
+    { edges: false, size: 3 },
+    { edges: false, size: 1 }
+  ];
+  const slots = (l) => (l.edges ? l.near * 2 + 5 : l.size);
+  // Widest the row can get with this layout (every slot counted as a button, plus ‹ and ›)
+  const widthOf = (l) => (slots(l) + 2) * BTN + (slots(l) + 1) * GAP;
+
+  /** Page numbers to show, with null for a "…" gap; always the same number of slots for a given layout. */
+  const pageItems = (page, pages, l) => {
+    const n = slots(l);
+    const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+    if (pages <= n) return range(1, pages);
+    if (!l.edges) {
+      const start = Math.min(Math.max(1, page - Math.floor(n / 2)), pages - n + 1);
+      return range(start, start + n - 1);
+    }
+    // Near either end, one block runs from the edge; the current page always keeps its `near` neighbours
+    const inner = n - 2;
+    if (page <= inner - l.near) return [...range(1, inner), null, pages];                         // 1 2 3 [4] 5 6 7 … 46
+    if (page >= pages - inner + l.near + 1) return [1, null, ...range(pages - inner + 1, pages)]; // 1 … 40 41 [42] … 46
+    return [1, null, ...range(page - l.near, page + l.near), null, pages];                       // 1 … 4 5 [6] 7 8 … 46
+  };
+
+  let lastPages = 1, lastLayout = null;
+  const renderPager = (pages) => {
+    const pg = $('#pagination');
+    if (pages <= 1) { pg.innerHTML = ''; lastLayout = null; return; }
+    const room = pg.clientWidth || window.innerWidth - 32;
+    const layout = LAYOUTS.find((l) => widthOf(l) <= room) || LAYOUTS[LAYOUTS.length - 1];
+    lastLayout = layout;
+
+    const base = 'w-10 h-10 shrink-0 rounded-full grid place-items-center font-bold tabular-nums border touch-manipulation transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ocean-500 focus-visible:ring-offset-2';
+    const num = (p) => p === state.page
+      ? `<button type="button" class="${base} bg-ocean-600 text-white border-ocean-600" data-page="${p}" aria-current="page">${p}</button>`
+      : `<button type="button" class="${base} bg-white border-line hover:border-ocean-500 active:bg-ocean-50" data-page="${p}">${p}</button>`;
+    const arrow = (p, icon, label, disabled) => `<button type="button" class="${base} bg-white border-line ${disabled ? 'opacity-40 pointer-events-none' : 'hover:border-ocean-500 active:bg-ocean-50'}" data-page="${p}" aria-label="${SC.esc(label)}" ${disabled ? 'disabled aria-disabled="true"' : ''}>${SC.icon(icon, 'w-4 h-4 rtl:rotate-180')}</button>`;
+    const gap = '<span class="w-5 shrink-0 text-center text-muted select-none" aria-hidden="true">…</span>';
+
+    pg.innerHTML = arrow(state.page - 1, 'chevron-left', SC.t('ui.catalog.previous_page'), state.page === 1) +
+      pageItems(state.page, pages, layout).map((p) => (p === null ? gap : num(p))).join('') +
+      arrow(state.page + 1, 'chevron-right', SC.t('ui.catalog.next_page'), state.page === pages);
+  };
+
+  // Turning a phone or resizing the window: redraw the numbers only when another layout fits
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const room = $('#pagination').clientWidth;
+      const fits = LAYOUTS.find((l) => widthOf(l) <= room) || LAYOUTS[LAYOUTS.length - 1];
+      if (lastLayout && fits !== lastLayout) renderPager(lastPages);
+    }, 120);
+  });
 
   const syncUrl = () => {
     const p = new URLSearchParams();

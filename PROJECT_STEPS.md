@@ -1829,6 +1829,23 @@ Replaces "only sellers can be chosen" from steps 8 and 27. Who assigns is unchan
   supervisors can now be chosen; customers still can't).
 - **Deploy:** upload the files, `php artisan view:clear` (no migration).
 
+### Step 32: Defaults, receipt limits and sliding pagination (2026-11-09 / 10)
+
+- **Arabic and EGP by default:** `config/cruise.php` `default_locale` (`CRUISE_DEFAULT_LOCALE`, `ar`) and
+  `default_display_currency` (`CRUISE_DEFAULT_CURRENCY`, `EGP`) apply until the visitor uses the language or currency
+  switch (`SetLocale`, `CurrencyService::active()`). Admin panel still English. `phpunit.xml` sets `en` / `USD` for
+  the older tests; `DefaultLanguageCurrencyTest` checks the real defaults.
+- **Receipts:** at most 3 per payment entry (`PaymentReceipt::MAX_FILES`), 10 MB each (`MAX_MB`, capped by PHP's
+  `upload_max_filesize` / `post_max_size`; the live server needs ≥ 10M / ≥ 32M). Photo uploads elsewhere stay 5 MB.
+- **Cruises list pagination** (`catalog.js`, replaces step-30-era "‹ 1 … 20 … 46 ›" on phones): numbered on every
+  screen. The layout is chosen from the row's width (not the page, so it doesn't jump): wide rows
+  `‹ 1 … 4 5 [6] 7 8 … 63 ›` (± 2, then ± 1), phones a sliding window of 5 `‹ 4 5 [6] 7 8 ›` (3 on very narrow
+  screens), redrawn on resize. 40 px buttons, real `<button>`s with focus rings, disabled arrows at the ends. In Arabic
+  the row runs right to left (inherited `dir="rtl"`) with mirrored arrows. Checked headless at 360 / 390 / 768 /
+  1280 px, Arabic and English, 63 pages: always one row, page width = screen width, no console errors.
+  **Deploy:** upload `public/assets/js/pages/catalog.js` and `resources/views/pages/catalog.blade.php`,
+  `php artisan view:clear`.
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.
