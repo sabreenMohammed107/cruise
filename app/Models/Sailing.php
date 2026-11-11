@@ -48,6 +48,21 @@ class Sailing extends Model
     }
 
     /**
+     * Can be booked right now: status open (not closed / cancelled), not archived (departs after today, as
+     * upcoming()), and its cruise is active and not deleted. The one rule ConfirmBookingRequest and
+     * BookingService both apply, so a direct link or an old page can't book anything else.
+     */
+    public function isBookable(): bool
+    {
+        return $this->status === SailingStatus::Open
+            && $this->departure_date !== null
+            && $this->departure_date->greaterThan(self::archiveCutoff())
+            && $this->cruise !== null
+            && $this->cruise->is_active
+            && ! $this->cruise->trashed();
+    }
+
+    /**
      * Last departure date that is archived: a sailing goes to the archive at the start (00:00) of the day it
      * departs, when bookings close (the same day upcoming() drops it from the website). departure_date has no
      * time, so everything departing today or earlier is archived. sailings:close sets their status to closed.

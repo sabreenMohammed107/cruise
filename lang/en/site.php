@@ -267,7 +267,7 @@ return [
             'gender_each' => 'Select a gender for every traveller.',
             'nationality_each' => 'Select a nationality for every traveller.',
             'travellers' => 'Enter the details of every traveller.',
-            'sailing_gone' => 'This sailing is no longer available. Choose another date.',
+            'sailing_gone' => 'This sailing is closed or no longer available for booking. Please choose another date.',
             'choose_cabin' => 'Choose a cabin for this sailing.',
             'cabin_sold_out' => ':cabin is sold out on this date. Choose another cabin.',
             'cabin_just_sold_out' => 'This cabin has just sold out on this date. Choose another cabin or date.',

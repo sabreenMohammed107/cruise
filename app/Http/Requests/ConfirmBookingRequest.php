@@ -112,8 +112,11 @@ class ConfirmBookingRequest extends FormRequest
             return;
         }
 
-        $this->sailing = Sailing::upcoming()->with('cruise')->where('code', $this->input('sailing'))->first();
-        if (! $this->sailing || ! $this->sailing->cruise->is_active || $this->sailing->cruise->trashed()) {
+        // Closed, cancelled, archived (departing today or earlier), unknown, or its cruise is hidden / deleted:
+        // refused before anything else, whatever link or saved page the request came from
+        $this->sailing = Sailing::with('cruise')->where('code', $this->input('sailing'))->first();
+        if (! $this->sailing?->isBookable()) {
+            $this->sailing = null;
             $validator->errors()->add('sailing', __('site.booking.errors.sailing_gone'));
 
             return;

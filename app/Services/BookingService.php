@@ -9,6 +9,7 @@ use App\Mail\NewBookingForTeam;
 use App\Models\Booking;
 use App\Models\BookingCabin;
 use App\Models\PromoCode;
+use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +40,10 @@ class BookingService
     public function confirm(array $cabins, array $contact, ?PromoCode $promo = null, ?User $user = null): Booking
     {
         $booking = DB::transaction(function () use ($cabins, $contact, $promo, $user) {
+            // The sailing again, locked: closed, cancelled or archived since the request was validated → refused.
+            // Locked first (before the cabin rows), so an admin closing it waits for this booking or wins outright.
+            $this->ensureBookable(array_map(fn ($c) => $c['price']->sailing_id, $cabins));
+
             // Lock the sailing × cabin rows so two guests can't take the last cabin at the same time.
             $ids = array_values(array_unique(array_map(fn ($c) => $c['price']->id, $cabins)));
             $locked = SailingCabinPrice::with(['sailing.cruise', 'cabinCategory'])->lockForUpdate()->findMany($ids)->keyBy('id');
@@ -167,6 +172,23 @@ class BookingService
         });
 
         return $travellers;
+    }
+
+    /**
+     * Every cabin is on one sailing, and that sailing can still be booked (Sailing::isBookable).
+     *
+     * @param  list<int>  $sailingIds
+     */
+    private function ensureBookable(array $sailingIds): void
+    {
+        $sailingIds = array_values(array_unique($sailingIds));
+        $sailing = count($sailingIds) === 1 ? Sailing::with('cruise')->lockForUpdate()->find($sailingIds[0]) : null;
+
+        if (! $sailing?->isBookable()) {
+            throw ValidationException::withMessages([
+                'sailing' => __('site.booking.errors.sailing_gone'),
+            ]);
+        }
     }
 
     /**
