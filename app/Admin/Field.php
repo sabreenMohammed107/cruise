@@ -38,6 +38,22 @@ final class Field
     /** Right-to-left input (the Arabic twin). */
     public bool $rtl = false;
 
+    /**
+     * Shown only while another field has one of these values, e.g. ['target', ['age']] (admin form script in
+     * admin/resources/form.blade.php). Hidden fields aren't sent, so they save empty.
+     *
+     * @var array{0: string, 1: list<string>}|null
+     */
+    public ?array $showWhen = null;
+
+    /**
+     * In the form only, never saved on the model (a section heading, or a switch that shows other fields). The
+     * closure gives its value when editing a record.
+     */
+    public bool $virtual = false;
+
+    public ?Closure $virtualValue = null;
+
     private function __construct(public string $name, public string $label, public string $type) {}
 
     public static function text(string $name, string $label): self
@@ -110,6 +126,33 @@ final class Field
     public static function password(string $name, string $label): self
     {
         return new self($name, $label, 'password');
+    }
+
+    /** A section heading across the form, with an optional line under it. */
+    public static function heading(string $label, ?string $help = null): self
+    {
+        $field = (new self('_heading_'.md5($label), $label, 'heading'))->wide();
+        $field->virtual = true;
+        $field->help = $help;
+
+        return $field;
+    }
+
+    /** Show this field only while $field has one of $values ("1" for a ticked checkbox). */
+    public function showWhen(string $field, string ...$values): self
+    {
+        $this->showWhen = [$field, $values];
+
+        return $this;
+    }
+
+    /** Form only (see $virtual): $value(?Model) gives what it shows when editing. */
+    public function virtual(?Closure $value = null): self
+    {
+        $this->virtual = true;
+        $this->virtualValue = $value;
+
+        return $this;
     }
 
     public function rules(array|Closure $rules): self
@@ -208,6 +251,7 @@ final class Field
         };
 
         return match ($this->type) {
+            'heading' => [],
             'images' => [
                 $this->name => ['nullable', 'array'], $this->name.'.*' => ['nullable', 'string', $pick],
                 $this->name.'_upload' => ['nullable', 'array', 'max:12'], $this->name.'_upload.*' => $photo,
@@ -262,7 +306,9 @@ final class Field
      */
     public function display(?Model $record): mixed
     {
-        $value = old($this->name, $record ? $record->getAttribute($this->name) : $this->default);
+        $value = $this->virtual
+            ? old($this->name, $record && $this->virtualValue ? ($this->virtualValue)($record) : $this->default)
+            : old($this->name, $record ? $record->getAttribute($this->name) : $this->default);
 
         return match ($this->type) {
             'lines' => is_array($value) ? implode("\n", $value) : $value,

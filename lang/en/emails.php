@@ -60,6 +60,7 @@ return [
     'tax_included' => 'Tax included',
     'discount' => 'Discount',
     'discount_code' => 'Discount (:code)',
+    'offer' => 'Offer: :name', // time-limited offers (Admin → Offers)
     'agent_discount' => 'Agent commission', // agent bookings: already in the fare
     'agent_saved' => ':amount saved',
     'total' => 'Total',

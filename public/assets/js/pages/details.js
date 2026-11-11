@@ -296,7 +296,9 @@ document.addEventListener('sc:ready', () => {
     const g = state.guests;
     const ret = SC.addDays(sailing.departure, cruise.nights);
     const cab = state.cabinId && SC.getCabin(state.cabinId);
-    const q = cab && SC.quote({ cruise, sailing, cabinId: cab.id, guests: g });
+    // Through quoteRooms (one cabin) so the sailing's offers are in the total (step 26)
+    const qr = cab && SC.quoteRooms({ cruise, sailing, rooms: [{ cabinId: cab.id, guests: g }] });
+    const q = qr && { ...qr.rooms[0], offers: qr.offers, total: qr.total };
     $('#summary').innerHTML = `
       <div class="bg-ocean-700 text-white p-5">
         <p class="text-xs text-ocean-200 font-semibold">${SC.t('ui.details.your_sailing')}</p>
@@ -316,8 +318,9 @@ document.addEventListener('sc:ready', () => {
         ${q ? `<dl class="grid gap-2 text-sm">
             ${/* Agents: the lines at the public price, then the commission (agentRows) */ (q.agent ? SC.fareLines(q.prices.public, g) : q.lines).map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
             ${agentRows(q)}
+            ${offerRows(q)}
           </dl>
-          ${totalRow(q.total, q.agent)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
+          ${totalRow(q.total, q.agent)}${ageOfferNote()}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
         ${q ? `<button type="button" class="btn btn-ghost btn-sm w-full mt-2" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : ''}
       </div>`;
@@ -332,6 +335,16 @@ document.addEventListener('sc:ready', () => {
     const label = q.agent.percent === null ? SC.t('ui.details.agent_commission_mixed') : SC.t('ui.details.agent_commission', { percent: q.agent.percent });
     return `<div class="flex justify-between gap-3 pt-2 mt-1 border-t border-line"><dt class="font-semibold">${SC.t('ui.details.agent_original')}</dt><dd class="tabular font-semibold">${SC.money(q.agent.publicFare)}</dd></div>
             <div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-agent-commission><dt>${label}</dt><dd class="tabular">− ${SC.money(q.agent.saving)}</dd></div>`;
+  }
+
+  /* Laravel (step 26): what each offer of the sailing takes off (Admin → Offers), and a note for offers by age, which
+     apply once the travellers' dates of birth are entered on the next step. */
+  function offerRows(q) {
+    return (q.offers || []).map((o) => `<div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-offer-row="${o.id}"><dt>${SC.esc(SC.t('ui.details.offer', { name: o.name }))}</dt><dd class="tabular">− ${SC.money(o.discount)}</dd></div>`).join('');
+  }
+  function ageOfferNote() {
+    const list = SC.ageOffers(sailing);
+    return list.length ? `<p class="mt-3 rounded-xl bg-sun-50 p-3 text-xs font-semibold text-sun-600" data-age-offers>${SC.icon('tag', 'w-3.5 h-3.5 inline -mt-0.5 me-1')}${SC.esc(SC.t('ui.details.age_offer_note', { offers: list.map((o) => o.name).join(SC.lang() === 'ar' ? '، ' : ', ') }))}</p>` : '';
   }
 
   /* Total of the summary. Prices include tax: no separate taxes or port fees (step 21). */
@@ -375,8 +388,9 @@ document.addEventListener('sc:ready', () => {
         ${q ? `<dl class="grid gap-2 text-sm">
             <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.guests')}</dt><dd class="font-bold text-end">${SC.guestText(allGuests())}</dd></div>
             ${agentRows(q)}
+            ${offerRows(q)}
           </dl>
-          ${totalRow(q.total, q.agent)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
+          ${totalRow(q.total, q.agent)}${ageOfferNote()}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
       </div>`;
     $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');

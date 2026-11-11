@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use App\Enums\OfferTarget;
 use App\Enums\PromoType;
 use App\Enums\TravellerBand;
 use App\Models\Cruise;
+use App\Models\Offer;
 use App\Models\PromoCode;
 use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
+use App\Models\User;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -121,32 +126,60 @@ class PricingService
      * For an agent each cabin carries its agentPercent (AgentPricing::percentFor()): fares are then agent fares and
      * "agent" sums the public fare and the saving over the cabins.
      *
-     * @param  list<array{price: SailingCabinPrice, guests: array{adult?: int, child?: int, infant?: int}, agentPercent?: float}>  $cabins
+     * Offers (App\Models\Offer, step 26), after the agent rate and before the promo code — selectOffers() picks them.
+     * In each cabin of fare F, in this order (percent / fixed / free / fixed price, see Offer::amountOff()):
+     *
+     *   upgrade      F − the same guests' fare in the upgrade_from cabin (its own agent rate for agents)
+     *   fare         what is left of F (fixed and fixed price: per cabin)
+     *   free nights  what is left × free nights ÷ the cruise's nights (always free)
+     *                                                           → left fraction k = (F − the three above) ÷ F
+     *   3rd guest    the 3rd-guest line × k (fixed: per 3rd guest)
+     *   single       the single supplement (single − double ÷ 2) × k, for a guest alone in the cabin
+     *   2nd guest    what the 2nd guest adds (double − single) × k, with two paying guests or more
+     *   age          each paying guest of the range: their share = (F − everything above) ÷ paying guests
+     *                (fixed: per guest)
+     *   per offer    summed over the booking, rounded to the cent, then capped at max_discount
+     *   promo        on fare − offers, and only when every offer used is combinable (otherwise left out:
+     *                ConfirmBookingRequest refuses that code first)
+     *   total        fare − offers − promo
+     *
+     * An offer marked "instead of the commission" drops the agent rate: the booking is priced at the public prices.
+     * Same as SC.quoteRooms() in core.js.
+     *
+     * @param  list<array{price: SailingCabinPrice, guests: array{adult?: int, child?: int, infant?: int}, agentPercent?: float, travellers?: array<string, array>}>  $cabins
+     * @param  iterable<Offer>  $offers  live offers of this sailing for this visitor (OfferService::forSailing())
+     * @param  User|null  $agent  the booking agent: the upgrade offer prices the cheaper cabin at its agent rate
      */
-    public function quoteBooking(array $cabins, ?PromoCode $promo = null): array
+    public function quoteBooking(array $cabins, ?PromoCode $promo = null, iterable $offers = [], ?CarbonInterface $departure = null, ?User $agent = null): array
     {
-        $parts = [];
-        foreach (array_values($cabins) as $i => $cabin) {
-            $price = $cabin['price']->loadMissing('cabinCategory');
-            $quote = $this->quote($price, $cabin['guests'], null, (float) ($cabin['agentPercent'] ?? 0));
-            $parts[] = [
-                'position' => $i + 1,
-                'cabin' => $price->cabinCategory->slug,
-                'name' => $price->cabinCategory->name_en,
-                'guests' => array_map('intval', array_merge(['adult' => 0, 'child' => 0, 'infant' => 0], $cabin['guests'])),
-                'prices' => $quote['prices'],
-                'lines' => $quote['lines'],
-                'fare' => $quote['fare'],
-                'fees' => $quote['fees'],
-                'agent' => $quote['agent'],
-                'total' => $quote['fare'] + $quote['fees'],
-                'count' => $quote['count'],
-            ];
+        $cabins = array_values($cabins);
+        $chosen = $this->selectOffers($cabins, $offers, $departure);
+
+        // Priced at the agent rates, unless an offer "instead of the commission" really takes something off at the
+        // public prices: then the whole booking is at the public prices (no commission). An offer that ends up taking
+        // nothing off never drops the commission.
+        [$parts, $context] = $this->priceCabins($cabins, $chosen, false, $agent);
+        $used = $this->offerLines($parts, $chosen, $context);
+        $hasCommission = collect($cabins)->contains(fn ($c) => (float) ($c['agentPercent'] ?? 0) > 0);
+        if ($hasCommission && collect($chosen['applied'])->contains(fn (Offer $o) => $o->replacesCommission())) {
+            [$publicParts, $publicContext] = $this->priceCabins($cabins, $chosen, true, $agent);
+            $publicUsed = $this->offerLines($publicParts, $chosen, $publicContext);
+            if (collect($publicUsed)->contains(fn ($l) => $l['offer']->replacesCommission())) {
+                [$parts, $used] = [$publicParts, $publicUsed];
+            }
         }
 
         $fare = (float) array_sum(array_column($parts, 'fare'));
         $fees = (float) array_sum(array_column($parts, 'fees'));
-        $discount = $promo ? $this->discount($promo, $fare) : 0.0;
+
+        $offerLines = array_map(fn ($l) => array_diff_key($l, ['offer' => true]), $used);
+        $offerDiscount = self::cents(array_sum(array_column($offerLines, 'discount')));
+        // A promo code only with offers that allow it (among the ones that took something off)
+        $promoBlocked = $promo && collect($used)->contains(fn ($l) => ! $l['offer']->combinable);
+        if ($promoBlocked) {
+            $promo = null;
+        }
+        $discount = $promo ? $this->discount($promo, $fare - $offerDiscount) : 0.0;
 
         // One percent when every cabin had the same rate (cabins without a rate count as 0)
         $agent = null;
@@ -170,12 +203,241 @@ class PricingService
             'cabins' => $parts,
             'fare' => $fare,
             'fees' => $fees,
+            // Offers used, each with what it took off (step 26); offerDiscount is their sum
+            'offers' => $offerLines,
+            'offerDiscount' => $offerDiscount,
             'discount' => $discount,
             'promo' => $promo ? ['code' => $promo->code, 'type' => $promo->type->value, 'value' => (float) $promo->value, 'label' => $promo->label] : null,
+            'promoBlocked' => $promoBlocked,
             'agent' => $agent,
-            'total' => $fare + $fees - $discount,
+            'total' => $fare + $fees - $offerDiscount - $discount,
             'count' => (int) array_sum(array_column($parts, 'count')),
         ];
+    }
+
+    /**
+     * Each cabin's quote, at the agent rates or ($public) the public prices, and what offerLines() needs per cabin:
+     * the cruise's nights and the same guests' fare in the upgrade offer's cabin (its own agent rate for agents).
+     *
+     * @return array{0: list<array>, 1: list<array{nights: int, upgradeFare: ?float}>}
+     */
+    private function priceCabins(array $cabins, array $chosen, bool $public, ?User $agent): array
+    {
+        $parts = [];
+        $context = [];
+        foreach ($cabins as $i => $cabin) {
+            $price = $cabin['price']->loadMissing('cabinCategory');
+            $quote = $this->quote($price, $cabin['guests'], null, $public ? 0.0 : (float) ($cabin['agentPercent'] ?? 0));
+
+            $context[$i] = ['nights' => 0, 'upgradeFare' => null];
+            if ($chosen['cabins'][$i]['nights']) {
+                $context[$i]['nights'] = (int) $price->sailing->cruise->nights;
+            }
+            if ($upgrade = $chosen['cabins'][$i]['upgrade']) {
+                $from = $chosen['upgradePrices'][$upgrade->upgrade_from];
+                $fromPercent = $agent && ! $public ? app(AgentPricing::class)->percentFor($from->setRelation('sailing', $price->sailing), $agent) : 0.0;
+                $context[$i]['upgradeFare'] = $this->quote($from, $cabin['guests'], null, $fromPercent)['fare'];
+            }
+            $parts[] = [
+                'position' => $i + 1,
+                'cabin' => $price->cabinCategory->slug,
+                'name' => $price->cabinCategory->name_en,
+                'guests' => array_map('intval', array_merge(['adult' => 0, 'child' => 0, 'infant' => 0], $cabin['guests'])),
+                'prices' => $quote['prices'],
+                'lines' => $quote['lines'],
+                'fare' => $quote['fare'],
+                'fees' => $quote['fees'],
+                'agent' => $quote['agent'],
+                'total' => $quote['fare'] + $quote['fees'],
+                'count' => $quote['count'],
+            ];
+        }
+
+        return [$parts, $context];
+    }
+
+    /**
+     * Which offers apply, before any amount is worked out. Cabin by cabin, among the offers whose cabin types and
+     * nationalities (every traveller of the cabin) fit, the most specific (sailing → cruise → every cruise), then the
+     * newest:
+     *
+     *   fare     one per cabin
+     *   nights   one free-nights offer per cabin
+     *   upgrade  one per cabin, when its upgrade_from cabin is another cabin priced on this sailing
+     *   third    one per cabin with a 3rd paying guest
+     *   single   one per cabin with a single paying guest
+     *   second   one per cabin with two paying guests or more
+     *   age      one per paying guest (adults, then children) with a date of birth, whose age on the departure date
+     *            is in range and whose own nationality fits; infants are free, so they get none
+     *
+     * Nationalities and ages come from the travellers: without them (before the travellers step) those offers wait.
+     *
+     * @param  list<array{price: SailingCabinPrice, guests: array, travellers?: array<string, array>}>  $cabins
+     * @param  iterable<Offer>  $offers
+     * Whether the commission is dropped and a promo code allowed is decided in quoteBooking(), on the offers that
+     * actually take something off.
+     *
+     * @return array{cabins: list<array{fare: ?Offer, nights: ?Offer, upgrade: ?Offer, third: ?Offer, single: ?Offer, second: ?Offer, age: list<Offer>}>, upgradePrices: array<string, SailingCabinPrice>, applied: list<Offer>}
+     */
+    public function selectOffers(array $cabins, iterable $offers, ?CarbonInterface $departure = null): array
+    {
+        $cabins = array_values($cabins);
+        $offers = collect($offers);
+        $best =fn (Collection $list) => $list->sort(fn (Offer $a, Offer $b) => [$b->level(), $b->id] <=> [$a->level(), $a->id])->first();
+
+        // Upgrade offers: the price rows of their "price of" cabins on this sailing (none: the offer can't apply)
+        $upgradePrices = [];
+        $upgradeSlugs = $offers->where('target', OfferTarget::Upgrade)->pluck('upgrade_from')->filter()->unique()->values();
+        if ($upgradeSlugs->isNotEmpty() && $cabins) {
+            $upgradePrices = SailingCabinPrice::with('cabinCategory')->where('sailing_id', $cabins[0]['price']->sailing_id)
+                ->whereHas('cabinCategory', fn ($q) => $q->whereIn('slug', $upgradeSlugs))->get()
+                ->keyBy(fn (SailingCabinPrice $p) => $p->cabinCategory->slug)->all();
+        }
+
+        $chosen = [];
+        foreach ($cabins as $cabin) {
+            $slug = $cabin['price']->loadMissing('cabinCategory')->cabinCategory->slug;
+            $travellers = (array) ($cabin['travellers'] ?? []);
+            $nationalities = array_column($travellers, 'nationality');
+            $here = $offers->filter(fn (Offer $o) => $o->fitsCabin($slug));
+            $whole = $here->filter(fn (Offer $o) => $o->fitsNationalities($nationalities));
+            $paying = (int) ($cabin['guests']['adult'] ?? 0) + (int) ($cabin['guests']['child'] ?? 0);
+
+            $age = [];
+            $ageOffers = $here->where('target', OfferTarget::Age);
+            if ($ageOffers->isNotEmpty()) {
+                $departure ??= $cabin['price']->sailing->departure_date;
+                foreach (['adult', 'child'] as $band) {
+                    for ($n = 1; $n <= (int) ($cabin['guests'][$band] ?? 0); $n++) {
+                        $t = $travellers["$band-$n"] ?? [];
+                        if (empty($t['dob'])) {
+                            continue;
+                        }
+                        $years = self::yearsOn($t['dob'], $departure);
+                        $fits = $ageOffers->filter(fn (Offer $o) => $o->fitsAge($years) && $o->fitsNationalities([$t['nationality'] ?? null]));
+                        if ($offer = $best($fits)) {
+                            $age[] = $offer;
+                        }
+                    }
+                }
+            }
+
+            $chosen[] = [
+                'fare' => $best($whole->where('target', OfferTarget::Fare)),
+                'nights' => $best($whole->where('target', OfferTarget::FreeNights)),
+                'upgrade' => $best($whole->where('target', OfferTarget::Upgrade)
+                    ->filter(fn (Offer $o) => $o->upgrade_from !== $slug && isset($upgradePrices[$o->upgrade_from]))),
+                'third' => $paying > 2 ? $best($whole->where('target', OfferTarget::ThirdGuest)) : null,
+                'single' => $paying === 1 ? $best($whole->where('target', OfferTarget::Single)) : null,
+                'second' => $paying >= 2 ? $best($whole->where('target', OfferTarget::SecondGuest)) : null,
+                'age' => $age,
+            ];
+        }
+
+        $applied = [];
+        foreach ($chosen as $c) {
+            array_push($applied, ...array_filter([$c['upgrade'], $c['fare'], $c['nights'], $c['third'], $c['single'], $c['second'], ...$c['age']]));
+        }
+
+        return [
+            'cabins' => $chosen,
+            'upgradePrices' => $upgradePrices,
+            'applied' => $applied,
+        ];
+    }
+
+    /**
+     * What each chosen offer takes off the booking, in the order they were met (see quoteBooking()); only offers that
+     * take something off. "offer" is the model, for quoteBooking() (left out of the saved quote).
+     *
+     * @param  list<array{nights: int, upgradeFare: ?float}>  $context  per cabin, from priceCabins()
+     * @return list<array{id: int, name: string, nameAr: ?string, target: string, discount: float, offer: Offer}>
+     */
+    private function offerLines(array $parts, array $chosen, array $context): array
+    {
+        $totals = [];
+        $add = function (Offer $offer, float $amount) use (&$totals) {
+            $totals[$offer->id] ??= ['offer' => $offer, 'amount' => 0.0];
+            $totals[$offer->id]['amount'] += $amount;
+        };
+
+        foreach ($parts as $i => $part) {
+            $c = $chosen['cabins'][$i];
+            $fare = (float) $part['fare'];
+            $paying = $part['guests']['adult'] + $part['guests']['child'];
+            $taken = 0.0; // off this cabin so far
+
+            // Whole-cabin offers, one after the other on what is left
+            if ($c['upgrade']) {
+                $off = $c['upgrade']->amountOff(max(0.0, $fare - (float) $context[$i]['upgradeFare']));
+                $add($c['upgrade'], $off);
+                $taken += $off;
+            }
+            if ($c['fare']) {
+                $off = $c['fare']->amountOff($fare - $taken);
+                $add($c['fare'], $off);
+                $taken += $off;
+            }
+            if ($c['nights'] && $context[$i]['nights'] > 0) {
+                $off = ($fare - $taken) * min($c['nights']->free_nights, $context[$i]['nights']) / $context[$i]['nights'];
+                $add($c['nights'], $off);
+                $taken += $off;
+            }
+            $left = $fare > 0 ? ($fare - $taken) / $fare : 0.0;
+
+            // Parts of the cabin price, at what is left of it
+            if ($c['third']) {
+                $extra = (float) array_sum(array_column(array_filter($part['lines'], fn ($l) => $l['band'] === 'extra'), 'total'));
+                $off = $c['third']->amountOff($extra * $left, max(0, $paying - 2));
+                $add($c['third'], $off);
+                $taken += $off;
+            }
+            if ($c['single']) {
+                $supplement = max(0.0, (float) $part['prices']['single'] - (float) $part['prices']['double'] / 2);
+                $off = $c['single']->amountOff($supplement * $left);
+                $add($c['single'], $off);
+                $taken += $off;
+            }
+            if ($c['second']) {
+                $second = max(0.0, (float) $part['prices']['double'] - (float) $part['prices']['single']);
+                $off = $c['second']->amountOff($second * $left);
+                $add($c['second'], $off);
+                $taken += $off;
+            }
+
+            $share = $paying > 0 ? max(0.0, $fare - $taken) / $paying : 0.0;
+            foreach ($c['age'] as $offer) {
+                $add($offer, $offer->amountOff($share));
+            }
+        }
+
+        $lines = [];
+        foreach ($totals as ['offer' => $offer, 'amount' => $amount]) {
+            $amount = self::cents($amount);
+            if ($offer->max_discount !== null) {
+                $amount = min($amount, (float) $offer->max_discount);
+            }
+            if ($amount > 0) {
+                $lines[] = ['id' => $offer->id, 'name' => $offer->name, 'nameAr' => $offer->name_ar, 'target' => $offer->target->value, 'discount' => $amount, 'offer' => $offer];
+            }
+        }
+
+        return $lines;
+    }
+
+    /** Whole years on a date (the departure date), as SC.ageAt() in core.js and the age band checks. */
+    public static function yearsOn(string $dob, CarbonInterface $on): int
+    {
+        $born = Carbon::parse($dob);
+        $months = ($on->year - $born->year) * 12 + ($on->month - $born->month) - ($on->day < $born->day ? 1 : 0);
+
+        return (int) floor($months / 12);
+    }
+
+    /** To the cent, rounding halves up — the same float steps as cents() in core.js, so both give the same amount. */
+    public static function cents(float $n): float
+    {
+        return floor($n * 100 + 0.5) / 100;
     }
 
     /**

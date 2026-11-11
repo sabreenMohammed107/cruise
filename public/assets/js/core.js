@@ -228,8 +228,12 @@
     const available = priced.filter((cab) => !(s.soldOut || []).includes(cab.id));
     // Every cabin sold out: the card still shows the price (from all its cabins), marked sold out
     const allSoldOut = priced.length > 0 && !available.length;
-    const fromPrice = SC.fromPrice(c, s, (allSoldOut ? priced : available).map((cab) => cab.id));
+    const fromIds = (allSoldOut ? priced : available).map((cab) => cab.id);
+    const fromPrice = SC.fromPrice(c, s, fromIds);
+    // Before the offers (step 26): shown struck through when an offer lowers the price
+    const fromBefore = SC.fromPrice(c, s, fromIds, false);
     return {
+      fromBefore, offers: s.offers || [],
       key: s.id, cruiseId: c.id, sailingId: s.id, name: c.name, ship: SC.getShip(c.shipId).name,
       nights: c.nights, days: c.nights + 1, departure: s.departure, returnDate: SC.addDays(s.departure, c.nights),
       departurePort: c.departurePort, arrivalPort: c.arrivalPort, route: c.route, tags: c.tags,
@@ -264,10 +268,19 @@
   SC.agentSaving = (percent, publicFare, fare) => ({ percent, publicFare, saving: Math.round((publicFare - fare) * 100) / 100 });
   /* "From, per person" (step 17): the lowest Double price ÷ 2 among the given cabin types. Cabins without a Double
      price (0) are skipped unless no cabin has one, so a card never says "From $0". Same as Sailing::fromPrice(). */
-  SC.fromPrice = (cruise, sailing, cabinIds) => {
-    const all = cabinIds.map((id) => SC.prices(cruise, sailing, id).perPerson);
-    const priced = all.filter((x) => x > 0);
-    return all.length ? Math.min(...(priced.length ? priced : all)) : Infinity;
+  // Laravel (step 26): with a fare offer on the sailing, the figure is after the offer (two adults sharing ÷ 2,
+  // through SC.quoteRooms); withOffers = false gives the price before it (struck through on cards)
+  SC.fromPrice = (cruise, sailing, cabinIds, withOffers = true) => {
+    const all = cabinIds.map((id) => ({ id, raw: SC.prices(cruise, sailing, id).perPerson }));
+    const priced = all.filter((x) => x.raw > 0);
+    const pick = priced.length ? priced : all;
+    if (!pick.length) return Infinity;
+    // Offers that change two adults sharing a cabin
+    const fareOffer = withOffers && (sailing.offers || []).some((o) => ['fare', 'free_nights', 'upgrade', 'second_guest'].includes(o.target));
+    const value = (x) => (fareOffer && x.raw > 0
+      ? SC.quoteRooms({ cruise, sailing, rooms: [{ cabinId: x.id, guests: { adult: 2, child: 0, infant: 0 } }] }).total / 2
+      : x.raw);
+    return Math.min(...pick.map(value));
   };
   /* 1 paying guest → single; 2 → double; 3 → double + extra; infants free */
   SC.fareLines = (prices, guests) => {
@@ -280,8 +293,10 @@
       guests.infant > 0 && line('infant', 0, guests.infant)
     ].filter(Boolean);
   };
-  SC.quote = ({ cruise, sailing, cabinId, guests, promoCode }) => {
-    const prices = SC.prices(cruise, sailing, cabinId);
+  // publicOnly: an offer replaces the agent commission (SC.selectOffers), so the cabin is priced at the public prices
+  SC.quote = ({ cruise, sailing, cabinId, guests, promoCode, publicOnly }) => {
+    let prices = SC.prices(cruise, sailing, cabinId);
+    if (publicOnly && prices.public) prices = { ...prices.public, perPerson: prices.public.double / 2 };
     const bands = ['adult', 'child', 'infant'];
     const lines = SC.fareLines(prices, guests);
     const fare = lines.reduce((s, l) => s + l.total, 0);
@@ -293,22 +308,134 @@
   };
   // Laravel: percent codes are rounded to $5; fixed codes take at most the fare (PricingService::discount)
   SC.promoDiscount = (promo, fare) => (!promo ? 0 : promo.type === 'fixed' ? Math.min(promo.value, fare) : r5(fare * promo.value / 100));
+  /* Laravel (step 26): time-limited offers, Admin → Pricing & offers → Offers. sailing.offers holds the live offers of
+     this sailing for this visitor (customer or agent, ScDataPresenter); the rest is PricingService::selectOffers() /
+     quoteBooking():
+       choice     per cabin, among offers fitting its cabin type and the nationalities of its travellers: the most
+                  specific (sailing → cruise → every cruise), then the newest
+                  — one each of upgrade (its cabin priced on the sailing), fare, free nights, 3rd guest (3 paying
+                  guests), single (1 paying guest) and 2nd guest (2+ paying guests), and per paying guest with a date
+                  of birth one age offer (their age on the departure date, their nationality)
+       amounts    upgrade: F − the same guests' fare in the cheaper cabin; fare: of what is left; free nights: what is
+                  left × free nights ÷ nights → fraction left k; 3rd guest: the extra line × k; single:
+                  (single − double ÷ 2) × k; 2nd guest: (double − single) × k; age: each guest's share of what is
+                  left. Fixed: per cabin or per guest; free: all of it; fixed price: what is above the value.
+       per offer  summed, rounded to the cent, capped at maxDiscount
+       promo      on fare − offers, only if every offer used is combinable
+     An offer with replaceAgent prices an agent's booking at the public prices (no commission). */
+  const cents = (n) => Math.floor(n * 100 + 0.5) / 100;
+  const bestOffer = (list) => list.reduce((best, o) => (!best || o.level > best.level || (o.level === best.level && o.id > best.id) ? o : best), null);
+  SC.offerAmount = (o, base, units = 1) => (base <= 0 ? 0
+    : o.type === 'free' ? base
+    : o.type === 'fixed' ? Math.min(o.value * units, base)
+    : o.type === 'fixed_price' ? Math.max(0, base - o.value * units)
+    : base * o.value / 100);
+  const fitsNationalities = (o, list) => {
+    if (!o.nationalities) return true;
+    const given = list.filter(Boolean);
+    return given.length > 0 && given.every((n) => o.nationalities.includes(n));
+  };
+  // rooms[].travellers: { 'adult-1': { dob, nationality }, … } of that cabin (optional: until the travellers are
+  // entered, offers by age or nationality wait)
+  SC.selectOffers = (sailing, rooms) => {
+    const offers = sailing.offers || [];
+    const cabins = rooms.map((r) => {
+      const travellers = r.travellers || {};
+      const here = offers.filter((o) => !o.cabins || o.cabins.includes(r.cabinId));
+      const whole = here.filter((o) => fitsNationalities(o, Object.values(travellers).map((t) => t.nationality)));
+      const paying = (r.guests.adult || 0) + (r.guests.child || 0);
+      const ageOffers = here.filter((o) => o.target === 'age');
+      const age = [];
+      if (ageOffers.length) for (const band of ['adult', 'child']) for (let n = 1; n <= (r.guests[band] || 0); n++) {
+        const t = travellers[`${band}-${n}`] || {};
+        if (!t.dob || !/^\d{4}-\d{2}-\d{2}$/.test(t.dob)) continue;
+        const years = SC.ageAt(t.dob, sailing.departure).years;
+        const o = bestOffer(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge) && fitsNationalities(x, [t.nationality])));
+        if (o) age.push(o);
+      }
+      return {
+        fare: bestOffer(whole.filter((o) => o.target === 'fare')),
+        nights: bestOffer(whole.filter((o) => o.target === 'free_nights')),
+        upgrade: bestOffer(whole.filter((o) => o.target === 'upgrade' && o.upgradeFrom !== r.cabinId && (sailing.prices || {})[o.upgradeFrom])),
+        third: paying > 2 ? bestOffer(whole.filter((o) => o.target === 'third_guest')) : null,
+        single: paying === 1 ? bestOffer(whole.filter((o) => o.target === 'single')) : null,
+        second: paying >= 2 ? bestOffer(whole.filter((o) => o.target === 'second_guest')) : null,
+        age
+      };
+    });
+    // Whether the commission is dropped and a promo code allowed is decided in SC.quoteRooms, on the offers that
+    // actually take something off
+    const applied = cabins.flatMap((c) => [c.upgrade, c.fare, c.nights, c.third, c.single, c.second, ...c.age]).filter(Boolean);
+    return { cabins, applied };
+  };
+  // context[i]: { nights: the cruise's nights, upgradeFare: the same guests' fare in the upgrade offer's cabin }
+  const offerLines = (parts, chosen, context) => {
+    const totals = new Map();
+    const add = (o, amount) => { const e = totals.get(o.id) || { offer: o, amount: 0 }; e.amount += amount; totals.set(o.id, e); };
+    parts.forEach((p, i) => {
+      const c = chosen.cabins[i];
+      const paying = (p.guests.adult || 0) + (p.guests.child || 0);
+      let taken = 0;
+      const take = (o, amount) => { add(o, amount); taken += amount; };
+      // Whole-cabin offers, one after the other on what is left
+      if (c.upgrade) take(c.upgrade, SC.offerAmount(c.upgrade, Math.max(0, p.fare - context[i].upgradeFare)));
+      if (c.fare) take(c.fare, SC.offerAmount(c.fare, p.fare - taken));
+      if (c.nights && context[i].nights > 0) take(c.nights, (p.fare - taken) * Math.min(c.nights.freeNights, context[i].nights) / context[i].nights);
+      const left = p.fare > 0 ? (p.fare - taken) / p.fare : 0;
+      // Parts of the cabin price, at what is left of it
+      if (c.third) take(c.third, SC.offerAmount(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2)));
+      if (c.single) take(c.single, SC.offerAmount(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left));
+      if (c.second) take(c.second, SC.offerAmount(c.second, Math.max(0, p.prices.double - p.prices.single) * left));
+      const share = paying > 0 ? Math.max(0, p.fare - taken) / paying : 0;
+      c.age.forEach((o) => add(o, SC.offerAmount(o, share)));
+    });
+    return [...totals.values()].map(({ offer, amount }) => {
+      let a = cents(amount);
+      if (offer.maxDiscount != null) a = Math.min(a, offer.maxDiscount);
+      return { id: offer.id, name: offer.name, target: offer.target, discount: a, offer };
+    }).filter((l) => l.discount > 0);
+  };
+  // Offers of a sailing that wait for the travellers (age or nationality): shown as a note until they are entered
+  SC.ageOffers = (sailing) => (sailing.offers || []).filter((o) => o.target === 'age' || o.nationalities);
   /* Several cabins in one booking (step 15; PricingService::quoteBooking): every cabin priced on its own
-     (tiers, tax included), the promo once on the total fare. rooms = [{ cabinId, guests }, …] */
+     (tiers, tax included), then the offers, then the promo once on what is left. rooms = [{ cabinId, guests, travellers? }, …] */
   SC.quoteRooms = ({ cruise, sailing, rooms, promoCode }) => {
-    const parts = rooms.map((r, i) => ({ position: i + 1, cabinId: r.cabinId, guests: r.guests, ...SC.quote({ cruise, sailing, cabinId: r.cabinId, guests: r.guests }) }));
+    const chosen = SC.selectOffers(sailing, rooms);
+    // Each cabin at the agent rates, or (publicOnly) the public prices; the upgrade cabin priced as published (its
+    // agent price for agents), or public when the commission is dropped
+    const price = (publicOnly) => {
+      const parts = rooms.map((r, i) => ({ position: i + 1, cabinId: r.cabinId, guests: r.guests, ...SC.quote({ cruise, sailing, cabinId: r.cabinId, guests: r.guests, publicOnly }) }));
+      const context = parts.map((p, i) => {
+        const up = chosen.cabins[i].upgrade;
+        const tiers = up && ((publicOnly && sailing.publicPrices) || sailing.prices)[up.upgradeFrom];
+        return { nights: cruise.nights, upgradeFare: tiers ? SC.fareLines(tiers, p.guests).reduce((s, l) => s + l.total, 0) : 0 };
+      });
+      return { parts, used: offerLines(parts, chosen, context) };
+    };
+    // At the agent rates, unless an offer "instead of the commission" really takes something off at the public prices
+    let { parts, used } = price(false);
+    if (parts.some((p) => p.prices.agentPercent > 0) && chosen.applied.some((o) => o.replaceAgent)) {
+      const pub = price(true);
+      if (pub.used.some((l) => l.offer.replaceAgent)) ({ parts, used } = pub);
+    }
     const fare = parts.reduce((s, p) => s + p.fare, 0);
     const fees = parts.reduce((s, p) => s + p.fees, 0);
-    const promo = promoCode && D.promos[promoCode.toUpperCase()];
-    const discount = SC.promoDiscount(promo, fare);
+    const offers = used.map(({ offer, ...line }) => line);
+    const offerDiscount = cents(offers.reduce((s, o) => s + o.discount, 0));
+    const promoFound = promoCode && D.promos[promoCode.toUpperCase()];
+    // A promo code only with offers that allow it (among the ones that took something off)
+    const promoBlocked = !!promoFound && used.some((l) => !l.offer.combinable);
+    const promo = promoBlocked ? null : promoFound;
+    const discount = SC.promoDiscount(promo, fare - offerDiscount);
     // Agent saving over every cabin; one percent only if all cabins had the same rate (as PricingService::quoteBooking)
     const percents = [...new Set(parts.map((p) => (p.agent ? p.agent.percent : 0)))];
     const agent = parts.some((p) => p.agent)
       ? SC.agentSaving(percents.length === 1 ? percents[0] : null, parts.reduce((s, p) => s + (p.agent ? p.agent.publicFare : p.fare), 0), fare)
       : null;
     return {
-      rooms: parts, lines: parts.flatMap((p) => p.lines.map((l) => ({ ...l, cabin: p.position }))), fare, fees, discount,
-      promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, agent, total: fare + fees - discount, count: parts.reduce((s, p) => s + p.count, 0)
+      rooms: parts, lines: parts.flatMap((p) => p.lines.map((l) => ({ ...l, cabin: p.position }))), fare, fees, offers, offerDiscount, discount,
+      promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, promoBlocked, agent,
+      total: fare + fees - offerDiscount - discount, count: parts.reduce((s, p) => s + p.count, 0)
     };
   };
   SC.maxRooms = () => D.maxCabinsPerBooking || 5;
@@ -576,7 +703,14 @@
   /* Laravel (step 22): highlights come from Admin → Cruises → Highlights (SC_DATA.highlights); a cruise's tags are
      their keys. Card photos show the ones marked "on cards", the cruise page the ones marked "on the cruise page". */
   SC.highlights = (tags, where) => (D.highlights || []).filter((h) => h[where] && (tags || []).includes(h.key));
-  SC.ui.tags = (v) => SC.highlights(v.tags, 'onCards').map((h) => `<span class="tag tag-white">${SC.esc(h.label)}</span>`).join('');
+  SC.ui.tags = (v) => SC.ui.offerTag(v.offers) + SC.highlights(v.tags, 'onCards').map((h) => `<span class="tag tag-white">${SC.esc(h.label)}</span>`).join('');
+  /* Laravel (step 26): the sailing's leading offer (a fare offer first, the most specific, then the newest) with its
+     last day, e.g. "Summer deal · until 30 Nov". Empty without offers. */
+  SC.ui.offerTag = (offers, cls = '') => {
+    const list = offers || [];
+    const o = bestOffer(list.filter((x) => ['fare', 'free_nights', 'upgrade'].includes(x.target))) || bestOffer(list);
+    return o ? `<span class="tag tag-sun ${cls}" data-offer="${o.id}">${SC.icon('tag', 'w-3.5 h-3.5')}${SC.esc(o.name)} · ${SC.esc(SC.t('ui.card.offer_until', { date: SC.fmtDate(o.endsOn, { day: 'numeric', month: 'short' }) }))}</span>` : '';
+  };
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 
   /* Sailing card — one departure, shaped like a boarding pass.
@@ -591,8 +725,11 @@
       </dl>`;
     // No priced cabin at all → fromPrice is Infinity: never "$∞"
     const soldOutTag = v.allSoldOut ? `<p class="text-xs font-bold text-rose-600 mt-0.5">${SC.t('ui.details.sold_out')}</p>` : '';
+    // An offer lowers the price: the price before it, struck through
+    const before = !v.allSoldOut && Number.isFinite(v.fromBefore) && v.fromBefore - v.fromPrice >= 0.5
+      ? `<p class="text-xs font-semibold text-muted line-through tabular whitespace-nowrap" data-price-before>${SC.money(v.fromBefore)}</p>` : '';
     const priceBlock = Number.isFinite(v.fromPrice)
-      ? `<div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p><p class="font-display font-bold text-xl tabular ${v.allSoldOut ? 'text-muted line-through' : 'text-ocean-800'}">${SC.money(v.fromPrice)}</p>${soldOutTag}</div>`
+      ? `<div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p>${before}<p class="font-display font-bold text-xl tabular ${v.allSoldOut ? 'text-muted line-through' : 'text-ocean-800'}">${SC.money(v.fromPrice)}</p>${soldOutTag}</div>`
       : `<div><p class="font-display font-bold text-lg text-rose-600">${SC.t('ui.details.sold_out')}</p></div>`;
     const actions = `<div class="flex items-center gap-2">
         <a href="${SC.whatsapp(SC.t('ui.card.whatsapp_message', { cruise: v.name, date: SC.fmtDate(v.departure) }))}" target="_blank" rel="noopener" class="icon-btn" aria-label="${SC.t('ui.card.ask_whatsapp')}">${SC.icon('chat', 'w-5 h-5')}</a>

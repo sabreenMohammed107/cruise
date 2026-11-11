@@ -9,6 +9,8 @@ use App\Models\PromoCode;
 use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
 use App\Services\AgeBandValidator;
+use App\Services\OfferService;
+use App\Services\PricingService;
 use App\Support\PhoneNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -135,8 +137,23 @@ class ConfirmBookingRequest extends FormRequest
             $this->promo = PromoCode::findRedeemable($this->input('promoCode'));
             if (! $this->promo) {
                 $validator->errors()->add('promoCode', __('site.booking.errors.promo_invalid'));
+            } elseif ($validator->errors()->isEmpty() && ! $this->promoCombinable()) {
+                // An offer used by this booking (Admin → Offers, "Can be combined with promo codes" off)
+                $validator->errors()->add('promoCode', __('site.booking.errors.promo_not_combinable'));
             }
         }
+    }
+
+    /**
+     * Every offer that takes something off this booking allows a promo code (PricingService::quoteBooking(), checked
+     * again when the booking is saved).
+     */
+    private function promoCombinable(): bool
+    {
+        $offers = app(OfferService::class)->forSailing($this->sailing, $this->user('web'));
+
+        return $offers->isEmpty()
+            || ! app(PricingService::class)->quoteBooking($this->cabins, $this->promo, $offers, $this->sailing->departure_date)['promoBlocked'];
     }
 
     /**

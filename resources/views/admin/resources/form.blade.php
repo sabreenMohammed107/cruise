@@ -32,4 +32,34 @@
       <button class="btn btn-primary">{{ $record ? 'Save changes' : 'Create '.strtolower($resource::$singular) }}</button>
     </div>
   </form>
+
+  {{-- Field::showWhen(): a field shows only while another field (select, radio or checkbox) has one of the listed
+       values. Hidden fields are disabled, so they aren't sent and save empty. Fields can depend on fields that are
+       themselves hidden: a hidden switch counts as off. --}}
+  <script>
+    (() => {
+      const form = document.currentScript.previousElementSibling;
+      const deps = [...form.querySelectorAll('[data-show-when]')];
+      if (!deps.length) return;
+      const box = (name) => form.querySelector(`[name="${name}"]:not([type=hidden])`)?.closest('[data-show-when], .grid > div');
+      const valueOf = (name) => {
+        const holder = box(name);
+        if (holder && holder.hidden) return '';
+        const inputs = [...form.querySelectorAll(`[name="${name}"]`)];
+        const box1 = inputs.find((i) => i.type === 'checkbox');
+        if (box1) return box1.checked ? '1' : '0';
+        return inputs.find((i) => i.type !== 'hidden')?.value ?? '';
+      };
+      const apply = () => {
+        // Twice, so a field that depends on a field that just appeared or disappeared follows it
+        for (let pass = 0; pass < 2; pass++) deps.forEach((el) => {
+          const show = el.dataset.showValues.split(',').includes(valueOf(el.dataset.showWhen));
+          el.hidden = !show;
+          el.querySelectorAll('input, select, textarea').forEach((i) => { i.disabled = !show; });
+        });
+      };
+      form.addEventListener('change', apply);
+      apply();
+    })();
+  </script>
 @endsection

@@ -72,6 +72,7 @@ final class Menu
             ]),
 
             self::group('Pricing & offers', 'tag', [
+                self::resource(Resources\OfferResource::class),
                 self::resource(Resources\PromoCodeResource::class),
                 self::resource(Resources\AgeBandResource::class),
                 self::link('Currency', null, 'admin.currency.edit', ['admin.currency.*']),

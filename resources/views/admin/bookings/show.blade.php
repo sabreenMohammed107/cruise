@@ -110,6 +110,9 @@
             @if ((float) $booking->agent_discount_total)
               <tr class="border-b border-line text-[#12805C]"><td class="py-2">Agent commission{{ isset($quote['agent']['percent']) ? ' ('.rtrim(rtrim(number_format($quote['agent']['percent'], 2), '0'), '.').'%)' : '' }} <span class="block text-xs">Original price {{ Format::money($quote['agent']['publicFare'] ?? 0) }}, already taken off the prices above</span></td><td></td><td class="text-end font-bold">{{ Format::money($booking->agent_discount_total) }}</td></tr>
             @endif
+            @foreach ($quote['offers'] ?? [] as $offer)
+              <tr class="border-b border-line text-[#12805C]"><td class="py-2">Offer: {{ $offer['name'] }} <span class="block text-xs">{{ \App\Enums\OfferTarget::tryFrom($offer['target'] ?? 'fare')?->label() }}</span></td><td></td><td class="text-end font-bold">− {{ Format::money($offer['discount']) }}</td></tr>
+            @endforeach
             @if ((float) $booking->discount_total)
               <tr class="border-b border-line text-[#12805C]"><td class="py-2">Discount ({{ $quote['promo']['code'] ?? $booking->promoCode?->code }})</td><td></td><td class="text-end font-bold">− {{ Format::money($booking->discount_total) }}</td></tr>
             @endif

@@ -6,8 +6,15 @@
   $readonly = $record && $field->readonlyOnEdit;
   $invalid = $error ? 'is-invalid' : '';
 @endphp
-<div class="{{ $field->wide ? 'sm:col-span-2' : '' }}">
-  @if ($field->type === 'checkbox')
+<div class="{{ $field->wide ? 'sm:col-span-2' : '' }}"
+     @if ($field->showWhen) data-show-when="{{ $field->showWhen[0] }}" data-show-values="{{ implode(',', $field->showWhen[1]) }}" @endif>
+  @if ($field->type === 'heading')
+    {{-- Section heading (Field::heading) --}}
+    <div class="pt-4 mt-2 border-t border-line">
+      <h2 class="font-display font-semibold text-lg">{{ $field->label }}</h2>
+      @if ($field->help)<p class="text-sm text-muted mt-0.5">{{ $field->help }}</p>@endif
+    </div>
+  @elseif ($field->type === 'checkbox')
     <input type="hidden" name="{{ $name }}" value="0">
     <label class="flex items-center gap-3 cursor-pointer mt-6">
       <input type="checkbox" name="{{ $name }}" value="1" class="check" @checked($value)>
@@ -31,10 +38,11 @@
         @break
 
       @case('checkboxes')
-        <div class="flex flex-wrap gap-x-5 gap-y-2 mt-1">
+        {{-- A long list (e.g. nationalities) scrolls in its own box --}}
+        <div class="flex flex-wrap gap-x-5 gap-y-2 mt-1 {{ count($field->options) > 24 ? 'max-h-56 overflow-y-auto rounded-xl border border-line p-3' : '' }}">
           @foreach ($field->options as $optValue => $optLabel)
             <label class="flex items-center gap-2 cursor-pointer text-sm">
-              <input type="checkbox" name="{{ $name }}[]" value="{{ $optValue }}" class="check" @checked(in_array($optValue, (array) $value, true))> {{ $optLabel }}
+              <input type="checkbox" name="{{ $name }}[]" value="{{ $optValue }}" class="check" @checked(in_array((string) $optValue, array_map('strval', (array) $value), true))> {{ $optLabel }}
             </label>
           @endforeach
         </div>
@@ -58,7 +66,7 @@
 
   @if ($error)
     <p class="err show">{{ $error }}</p>
-  @elseif ($field->help)
+  @elseif ($field->help && $field->type !== 'heading')
     <p class="text-xs text-muted mt-1.5">{{ $field->help }}</p>
   @endif
 </div>

@@ -36,6 +36,7 @@ class BilingualContentTest extends TestCase
         Ship::class, ShipSpec::class, ShipZone::class, ShipEssential::class, ShipFaq::class, Facility::class,
         CabinCategory::class, Cruise::class, ItineraryDay::class, Destination::class, Testimonial::class,
         AgeBand::class, PromoCode::class, HomeSection::class, HomeSectionItem::class, SiteSetting::class,
+        \App\Models\Offer::class,
     ];
 
     /** Tables with no site copy: personal or operational data, links, framework tables. */

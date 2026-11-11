@@ -60,6 +60,7 @@ return [
     'tax_included' => 'شامل الضريبة',
     'discount' => 'الخصم',
     'discount_code' => 'الخصم (:code)',
+    'offer' => 'عرض: :name',
     'agent_discount' => 'عمولة الوكيل',
     'agent_saved' => 'وفّرت :amount',
     'total' => 'الإجمالي',

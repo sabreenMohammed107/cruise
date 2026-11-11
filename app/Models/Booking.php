@@ -18,7 +18,7 @@ class Booking extends Model
     protected $fillable = [
         'reference', 'user_id', 'agent_id', 'agent_tier_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
         'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
-        'fare_total', 'fees_total', 'discount_total', 'agent_discount_total', 'grand_total', 'amount_paid', 'currency', 'display_currency', 'exchange_rate', 'locale',
+        'fare_total', 'fees_total', 'discount_total', 'offer_discount_total', 'agent_discount_total', 'grand_total', 'amount_paid', 'currency', 'display_currency', 'exchange_rate', 'locale',
         'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes', 'seller_id',
     ];
 
@@ -30,6 +30,8 @@ class Booking extends Model
             'fare_total' => 'decimal:2',
             'fees_total' => 'decimal:2',
             'discount_total' => 'decimal:2',
+            // What the time-limited offers took off (price_snapshot.offers lists them); discount_total is the promo code
+            'offer_discount_total' => 'decimal:2',
             // What the agent rate took off the public fare (fare_total is already the agent fare)
             'agent_discount_total' => 'decimal:2',
             'grand_total' => 'decimal:2',

@@ -160,7 +160,7 @@ abstract class Resource
     public static function fill(Model $record, Request $request): void
     {
         foreach (static::allFields() as $field) {
-            if ($field->indexOnly || ($record->exists && $field->readonlyOnEdit)) {
+            if ($field->indexOnly || $field->virtual || ($record->exists && $field->readonlyOnEdit)) {
                 continue;
             }
             if ($field->type === 'password' && ! $request->filled($field->name)) {

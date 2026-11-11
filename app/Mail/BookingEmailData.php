@@ -77,6 +77,10 @@ final class BookingEmailData
                 __('emails.agent_discount') => (float) $booking->agent_discount_total > 0
                     ? __('emails.agent_saved', ['amount' => $money($booking->agent_discount_total)])
                     : null,
+                // Time-limited offers (step 26), in the booking's language
+                ...collect($booking->price_snapshot['offers'] ?? [])->mapWithKeys(fn (array $o) => [
+                    __('emails.offer', ['name' => (Bi::isArabic() && filled($o['nameAr'] ?? null)) ? $o['nameAr'] : $o['name']]) => '−'.$money($o['discount']),
+                ])->all(),
                 ($booking->promoCode ? __('emails.discount_code', ['code' => $booking->promoCode->code]) : __('emails.discount'))
                     => (float) $booking->discount_total > 0 ? '−'.$money($booking->discount_total) : null,
             ]),

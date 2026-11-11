@@ -38,6 +38,7 @@ return [
         'ship_from' => ':ship, from :port',
         'select' => 'Select sailing',
         'also_departs' => 'Also departs :dates',
+        'offer_until' => 'until :date', // offer badge: "Summer deal · until 30 Nov"
         'and_more' => ' and :count more',
         'image_alt' => ':cruise on :ship',
         'ask_whatsapp' => 'Ask about this sailing on WhatsApp',
@@ -170,6 +171,9 @@ return [
         'agent_commission' => 'Agent commission (:percent%)',
         'agent_commission_mixed' => 'Agent commission',
         'agent_total' => 'Price after commission',
+        // Time-limited offers (Admin → Offers)
+        'offer' => 'Offer: :name',
+        'age_offer_note' => 'Some offers (:offers) depend on the travellers and are taken off once you enter their details.',
         'continue_guests' => 'Continue to guest details',
         'choose_cabin' => 'Choose a cabin',
         'choose_to_continue' => 'Choose a cabin to continue',

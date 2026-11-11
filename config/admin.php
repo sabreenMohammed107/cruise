@@ -37,6 +37,7 @@ return [
             Resources\FacilityResource::class,
         ],
         'Sales & content' => [
+            Resources\OfferResource::class,
             Resources\PromoCodeResource::class,
             Resources\AgentTierResource::class,
             Resources\AgentRateResource::class,

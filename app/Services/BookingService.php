@@ -8,6 +8,7 @@ use App\Mail\BookingConfirmed;
 use App\Mail\NewBookingForTeam;
 use App\Models\Booking;
 use App\Models\BookingCabin;
+use App\Models\Offer;
 use App\Models\PromoCode;
 use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
@@ -28,6 +29,7 @@ class BookingService
         private CurrencyService $currency,
         private AgentPricing $agents,
         private GuestAccounts $guestAccounts,
+        private OfferService $offers,
     ) {}
 
     /**
@@ -42,7 +44,10 @@ class BookingService
         $booking = DB::transaction(function () use ($cabins, $contact, $promo, $user) {
             // The sailing again, locked: closed, cancelled or archived since the request was validated → refused.
             // Locked first (before the cabin rows), so an admin closing it waits for this booking or wins outright.
-            $this->ensureBookable(array_map(fn ($c) => $c['price']->sailing_id, $cabins));
+            $sailing = $this->ensureBookable(array_map(fn ($c) => $c['price']->sailing_id, $cabins));
+
+            // Offers read again and locked (one may have ended or been used up since the page was shown)
+            $offers = $this->offers->forSailing($sailing, $user, lock: true);
 
             // Lock the sailing × cabin rows so two guests can't take the last cabin at the same time.
             $ids = array_values(array_unique(array_map(fn ($c) => $c['price']->id, $cabins)));
@@ -60,7 +65,11 @@ class BookingService
                 $cabins = array_map(fn ($c) => $c + ['agentPercent' => $this->agents->percentFor($c['price'], $user)], $cabins);
             }
 
-            $quote = $this->pricing->quoteBooking($cabins, $promo);
+            $quote = $this->pricing->quoteBooking($cabins, $promo, $offers, $sailing->departure_date, $agent);
+            // An offer that can't be combined with a promo code started after the request was checked
+            if ($quote['promoBlocked']) {
+                throw ValidationException::withMessages(['promoCode' => __('site.booking.errors.promo_not_combinable')]);
+            }
             $first = $cabins[0]['price'];
             $sum = fn (string $band) => array_sum(array_map(fn ($c) => $c['guests'][$band], $cabins));
 
@@ -85,6 +94,7 @@ class BookingService
                 'fare_total' => $quote['fare'],
                 'fees_total' => $quote['fees'],
                 'discount_total' => $quote['discount'],
+                'offer_discount_total' => $quote['offerDiscount'],
                 'agent_discount_total' => $quote['agent']['saving'] ?? 0,
                 'grand_total' => $quote['total'],
                 'currency' => config('cruise.currency'),
@@ -129,6 +139,10 @@ class BookingService
             }
 
             $promo?->increment('used_count');
+            // Each offer used counts one booking towards its "maximum bookings"
+            if ($used = array_column($quote['offers'], 'id')) {
+                Offer::whereKey($used)->increment('used_count');
+            }
 
             return $booking;
         });
@@ -179,7 +193,7 @@ class BookingService
      *
      * @param  list<int>  $sailingIds
      */
-    private function ensureBookable(array $sailingIds): void
+    private function ensureBookable(array $sailingIds): Sailing
     {
         $sailingIds = array_values(array_unique($sailingIds));
         $sailing = count($sailingIds) === 1 ? Sailing::with('cruise')->lockForUpdate()->find($sailingIds[0]) : null;
@@ -189,6 +203,8 @@ class BookingService
                 'sailing' => __('site.booking.errors.sailing_gone'),
             ]);
         }
+
+        return $sailing;
     }
 
     /**

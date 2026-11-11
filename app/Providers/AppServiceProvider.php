@@ -21,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Agent rates load once per request (and per queued job)
         $this->app->scoped(AgentPricing::class);
+        // Live offers load once per request, like the agent rates
+        $this->app->scoped(\App\Services\OfferService::class);
     }
 
     /**

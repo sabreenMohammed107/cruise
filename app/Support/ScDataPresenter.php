@@ -10,6 +10,7 @@ use App\Models\Cruise;
 use App\Models\Destination;
 use App\Models\Facility;
 use App\Models\Highlight;
+use App\Models\Offer;
 use App\Models\Port;
 use App\Models\Sailing;
 use App\Models\SiteSetting;
@@ -18,6 +19,7 @@ use App\Models\Testimonial;
 use App\Models\User;
 use App\Services\AgentPricing;
 use App\Services\CurrencyService;
+use App\Services\OfferService;
 use Illuminate\Support\Collection;
 
 /**
@@ -281,6 +283,8 @@ class ScDataPresenter
     private function cruises(?User $agent = null): array
     {
         $agents = app(AgentPricing::class);
+        // Live offers (Admin → Offers), each sailing gets the ones for it and for this visitor (agent or not)
+        $offers = app(OfferService::class)->live();
         $tiers = fn ($p) => ['single' => (float) $p->price_single, 'double' => (float) $p->price_double, 'extra' => (float) $p->price_extra];
         $sailingPrices = function (Sailing $sailing) use ($agent, $agents, $tiers) {
             $prices = $sailing->cabinPrices->mapWithKeys(fn ($p) => [$p->cabinCategory->slug => $tiers($p)])->all();
@@ -338,6 +342,8 @@ class ScDataPresenter
                     'soldOut' => $sailing->cabinPrices->where('is_sold_out', true)->map(fn ($p) => $p->cabinCategory->slug)->values()->all(),
                     // Tiered cabin prices for the whole cruise (SC.prices / SC.quote in core.js), agent prices for agents
                     ...$sailingPrices($sailing),
+                    // Time-limited offers (step 26): SC.quoteRooms prices them as PricingService::quoteBooking does
+                    'offers' => OfferService::filter($offers, $sailing, $agent !== null)->map(fn (Offer $o) => $o->toScript())->all(),
                 ])->all(),
             ])
             ->values()

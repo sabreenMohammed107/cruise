@@ -113,6 +113,8 @@ return [
         'new_here' => 'New to Safer Cruise?',
         'have_account' => 'Already have an account?',
         'failed' => "That email and password don't match an account.",
+        // A form sent after the session ended (bootstrap/app.php, instead of "419 Page expired")
+        'session_expired' => 'Your session timed out, so the form wasn’t sent. Please try again.',
         'first_name_invalid' => 'Enter your first name using letters only.',
         'last_name_invalid' => 'Enter your last name using letters only.',
         'email_taken' => 'An account with this email already exists. Sign in instead.',
@@ -225,6 +227,7 @@ return [
         'agent_saving' => 'The prices below are after your commission: :saving off the original price of :public.',
         'agent_included' => 'Included in the prices above',
         'agent_saved' => ':amount saved',
+        'offer' => 'Offer: :name', // time-limited offers (Admin → Offers)
         'agent_public_fare' => 'Public fare :amount',
         'agent_bar' => 'You are signed in as an agent: the prices you see are your agent rates.', // every page (layouts.app)
         'promo_label' => 'Discount code',
@@ -278,6 +281,7 @@ return [
             'in_cabin' => 'Cabin :n: :error',
             'too_many_cabins' => 'You can book up to :max cabins at once. For more, contact our team.',
             'promo_invalid' => "That code isn't valid for this sailing. Remove it and try again.",
+            'promo_not_combinable' => "This discount code can't be combined with the current offer. Remove the code to keep the offer price.",
             'promo_unknown' => "That code isn't valid for this sailing.",
         ],
     ],

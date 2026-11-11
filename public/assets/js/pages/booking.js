@@ -59,7 +59,14 @@ document.addEventListener('sc:ready', () => {
   D.promos = D.promos || {};
   // Signed-in agents: "Your agent discount: 10%" (or "rates vary by cabin" when the cabins had different rates)
   const agentLabel = (agent) => (agent.percent === null ? t('agent_discount_mixed') : t('agent_discount', { percent: agent.percent }));
-  const quote = () => SC.quoteRooms({ cruise, sailing, rooms: b.rooms, promoCode: D.promos[b.promoCode] ? b.promoCode : null });
+  // Each cabin with its travellers ("r2-adult-1" → "adult-1" of cabin 2), so offers by age see the dates of birth
+  const roomTravellers = (i) => Object.fromEntries(Object.entries(b.travellers || {})
+    .filter(([k]) => k.startsWith(`r${i + 1}-`)).map(([k, v]) => [k.slice(`r${i + 1}-`.length), v]));
+  const quote = (code = b.promoCode) => SC.quoteRooms({
+    cruise, sailing, rooms: b.rooms.map((r, i) => ({ ...r, travellers: roomTravellers(i) })), promoCode: D.promos[code] ? code : null
+  });
+  // Offers (Admin → Offers, step 26): "Offer: Summer deal" and what it takes off
+  const offerLabel = (o) => t('offer', { name: o.name });
   const checkPromo = async (code) => {
     const r = await SC.api('POST', SC.route('bookingPromo'), { code, sailing: b.sailingId });
     if (r.ok) D.promos[r.data.code] = r.data;
@@ -294,6 +301,8 @@ document.addEventListener('sc:ready', () => {
     if (el.dataset.key) { (b.travellers[el.dataset.key] ||= {})[el.dataset.f] = el.value.trim(); }
     if (el.dataset.contact) b.contact[el.dataset.contact] = el.value.trim();
     save();
+    // A date of birth can bring an offer by age (step 26): the price summary follows
+    if (el.dataset.f === 'dob' && SC.ageOffers(sailing).length) renderSummary();
     if (el.classList.contains('is-invalid')) showError(el, errorFor(el));
     paintTabs();
   });
@@ -379,6 +388,7 @@ document.addEventListener('sc:ready', () => {
                 ${p.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
                 <tr class="border-t border-line"><td class="py-2.5">${t('cabin_line', { cabin: rooms[p.position - 1].cabin.nameEn })}</td><td class="text-end text-muted" colspan="2">${t('included')}</td><td class="text-end font-bold">${SC.money(0)}</td></tr>`).join('')}
               ${q.agent ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${agentLabel(q.agent)}</td><td class="text-end" colspan="2">${t('agent_included')}</td><td class="text-end font-bold">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</td></tr>` : ''}
+              ${q.offers.map((o) => `<tr class="border-t border-line text-[#12805C]" data-offer-row="${o.id}"><td class="py-2.5">${SC.esc(offerLabel(o))}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(o.discount)}</td></tr>`).join('')}
               ${q.discount ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${t('discount', { code: q.promo.code })}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(q.discount)}</td></tr>` : ''}
             </tbody>
           </table>
@@ -389,7 +399,7 @@ document.addEventListener('sc:ready', () => {
           <input id="promo" class="field uppercase" placeholder="${t('promo_placeholder')}" value="${SC.esc(b.promoCode || '')}">
           ${b.promoCode ? `<button type="button" class="btn btn-outline shrink-0" id="promo-remove">${t('remove')}</button>` : `<button class="btn btn-outline shrink-0">${t('apply')}</button>`}
         </form>
-        <p class="err" id="promo-err">${t('promo_error')}</p>
+        <p class="err ${q.promoBlocked ? 'show' : ''}" id="promo-err">${q.promoBlocked ? err('promo_not_combinable') : t('promo_error')}</p>
 
         <div class="mt-6 rounded-2xl bg-ocean-50 p-5 flex flex-wrap items-end justify-between gap-3">
           <div><p class="font-bold">${t('net_total')} <span class="tag tag-lagoon ms-1 align-middle">${t('tax_included')}</span></p><p class="text-xs text-muted mt-1">${t('total_note', { guests: several ? `${SC.tc('ui.details.cabins_count', rooms.length)}${comma}${SC.guestText(guestsTotal)}` : SC.guestText(guestsTotal) })}</p></div>
@@ -402,7 +412,9 @@ document.addEventListener('sc:ready', () => {
       const code = $('#promo').value.trim().toUpperCase();
       // Laravel: codes are checked on the server (they are not published in SC_DATA)
       const ok = code && await checkPromo(code);
-      if (!ok) { $('#promo').classList.add('is-invalid'); $('#promo-err').classList.add('show'); return; }
+      if (!ok) { $('#promo-err').textContent = t('promo_error'); $('#promo').classList.add('is-invalid'); $('#promo-err').classList.add('show'); return; }
+      // An offer of this booking can't be combined with a promo code (the server refuses it too)
+      if (quote(code).promoBlocked) { $('#promo-err').textContent = err('promo_not_combinable'); $('#promo').classList.add('is-invalid'); $('#promo-err').classList.add('show'); return; }
       b.promoCode = code; save(); renderReview(); renderSummary(); SC.toast(t('promo_applied', { code, label: D.promos[code].label }));
     });
     $('#promo-remove')?.addEventListener('click', () => { delete b.promoCode; save(); renderReview(); renderSummary(); SC.toast(t('promo_removed')); });
@@ -454,6 +466,7 @@ document.addEventListener('sc:ready', () => {
           ? q.rooms.map((p) => `<div class="flex justify-between gap-3"><dt class="text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd>${SC.money(p.fare)}</dd></div>`).join('')
           : q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
         ${q.agent ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${agentLabel(q.agent)}<span class="block text-xs">${t('agent_public_fare', { amount: SC.money(q.agent.publicFare) })}</span></dt><dd class="text-end">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</dd></div>` : ''}
+        ${q.offers.map((o) => `<div class="flex justify-between gap-3 text-[#12805C]" data-offer-row="${o.id}"><dt>${SC.esc(offerLabel(o))}</dt><dd>− ${SC.money(o.discount)}</dd></div>`).join('')}
         ${q.discount ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${t('discount', { code: q.promo.code })}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
         <div class="flex items-end justify-between gap-3 pt-3 mt-1 border-t border-line"><dt><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></dt><dd class="font-display font-bold text-2xl text-ocean-800">${SC.money(q.total)}</dd></div>
       </dl>`;

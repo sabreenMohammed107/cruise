@@ -4,7 +4,9 @@ namespace App\Admin;
 
 use App\Models\Cruise;
 use App\Models\Highlight;
+use App\Models\Offer;
 use App\Models\Port;
+use App\Models\Sailing;
 use App\Models\Ship;
 
 /**
@@ -60,6 +62,20 @@ final class Options
     public static function cruises(): array
     {
         return Cruise::orderBy('name')->pluck('name', 'id')->all();
+    }
+
+    /**
+     * Sailings for the offer form: "Red Sea Discovery · RSD-261213 · 13 Dec 2026", the ones still to depart, plus any
+     * sailing an offer already points at (so editing an older offer doesn't lose its sailing).
+     */
+    public static function sailings(): array
+    {
+        return Sailing::with('cruise')
+            ->where(fn ($q) => $q->current()->orWhereIn('id', Offer::whereNotNull('sailing_id')->select('sailing_id')))
+            ->orderBy('departure_date')
+            ->get()
+            ->mapWithKeys(fn (Sailing $s) => [$s->id => ($s->cruise?->name ?? '?').' · '.$s->code.' · '.$s->departure_date->format('j M Y')])
+            ->all();
     }
 
     /** Icon names drawn by core.js (SC.icon). */
