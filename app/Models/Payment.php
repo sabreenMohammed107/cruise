@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * An offline payment or refund recorded by the team. The site itself takes no online payments.
+ * A payment or refund: recorded by the team (offline), or added automatically when an online EasyKash payment
+ * is confirmed (method "easykash", recorded_by null; see OnlinePayment).
  * It can carry several receipts (PaymentReceipt: private files, opened through the admin panel).
  */
 class Payment extends Model

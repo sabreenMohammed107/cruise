@@ -76,7 +76,12 @@ class BookingController extends Controller
 
     public function confirmation(Request $request, Booking $booking): View
     {
-        abort_unless($this->canView($request, $booking), 404);
+        abort_unless(self::canView($request, $booking), 404);
+
+        // Opened from the signed email link: let this browser also pay for it (the "Pay online" form is not signed)
+        if (! in_array($booking->reference, $request->session()->get(self::VIEWABLE, []), true)) {
+            $request->session()->push(self::VIEWABLE, $booking->reference);
+        }
 
         return view('booking.confirmation', [
             'booking' => $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers']),
@@ -91,7 +96,8 @@ class BookingController extends Controller
         return URL::temporarySignedRoute('booking.confirmation', now()->addDays(60), $booking);
     }
 
-    private function canView(Request $request, Booking $booking): bool
+    /** The confirmation page and paying online for it (InitiatePaymentRequest). */
+    public static function canView(Request $request, Booking $booking): bool
     {
         $user = $request->user('web');
 

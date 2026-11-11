@@ -27,11 +27,25 @@
       ])->all()
       : [[null, $booking->travellers]];
   $cancelled = $booking->status === \App\Enums\BookingStatus::Cancelled;
+  // Online payment (EasyKash): offered while something is due; charged in EGP at today's rate
+  $currency = app(\App\Services\CurrencyService::class);
+  $canPayOnline = ! $cancelled && $booking->amountDue() > 0 && app(\App\Services\EasyKashPaymentService::class)->enabled();
+  $egpRate = $canPayOnline ? $currency->rate('EGP') : null;
+  $paymentFlash = session('payment_status');
 @endphp
 
 @section('content')
-  <!-- Shown after the guest confirms. The site has no online payment; payment is arranged offline. -->
+  <!-- Shown after the guest confirms. Payment: online (EasyKash, below the voucher) or arranged offline by the team. -->
   <main class="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-10 sm:py-14">
+    {{-- Back from EasyKash (PaymentController::callback) --}}
+    @if ($paymentFlash)
+      <div class="no-print mb-8 rounded-xl p-4 text-sm font-semibold {{ $paymentFlash === 'paid' ? 'bg-[#E3F5EE] text-[#0E6B4C]' : 'bg-sun-50 text-sun-600' }}" role="status" data-payment-status="{{ $paymentFlash }}">
+        {{ __('site.payment.status.'.$paymentFlash) }}
+      </div>
+    @endif
+    @error('payment')
+      <div class="no-print mb-8 rounded-xl p-4 text-sm font-semibold bg-sun-50 text-sun-600" role="alert">{{ $message }}</div>
+    @enderror
     <div id="success">
       <div class="text-center">
         <span class="inline-grid place-items-center w-16 h-16 rounded-full bg-[#E3F5EE] text-[#12805C]"><i data-icon="check" class="w-8 h-8"></i></span>
@@ -99,6 +113,28 @@
           @endforeach
         </div>
       </article>
+
+      @if ($canPayOnline)
+        <section class="card p-6 sm:p-7 mt-8 no-print" id="pay-online">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display font-semibold text-xl">{{ __('site.payment.title') }}</h2>
+              <p class="text-sm text-muted mt-1 max-w-[46ch]">{{ __('site.payment.intro') }}</p>
+            </div>
+            <div class="text-end">
+              <p class="text-xs font-semibold text-muted">{{ __('site.payment.due') }}</p>
+              <p class="font-display font-bold text-2xl tabular" dir="ltr">{{ \App\Support\Format::money($booking->amountDue(), 2) }}</p>
+              <p class="text-xs text-muted tabular">{{ __('site.payment.charged_egp', ['amount' => $currency->format($booking->amountDue(), 'EGP', $egpRate), 'rate' => number_format($egpRate, 2)]) }}</p>
+            </div>
+          </div>
+          <form method="POST" action="{{ route('payment.initiate', $booking) }}" class="mt-5">
+            @csrf
+            <button class="btn btn-accent w-full sm:w-auto"><i data-icon="check" class="w-5 h-5"></i> {{ __('site.payment.pay_now') }}</button>
+          </form>
+        </section>
+      @elseif (! $cancelled && $booking->payment_status === \App\Enums\PaymentStatus::Paid)
+        <p class="mt-8 text-center font-semibold text-[#0E6B4C] no-print">{{ __('site.payment.paid') }}</p>
+      @endif
 
       <div class="mt-8 flex flex-wrap justify-center gap-3 no-print">
         <button class="btn btn-accent" onclick="window.print()"><i data-icon="download" class="w-5 h-5"></i> {{ __('site.confirmation.download') }}</button>

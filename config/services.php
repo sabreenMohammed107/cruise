@@ -38,6 +38,22 @@ return [
         'retry_minutes' => 15,
     ],
 
+    // Online payment (App\Services\EasyKashPaymentService). Keys from the EasyKash merchant dashboard → Integration.
+    // Without an API key and HMAC secret the "Pay online" button is hidden and the webhook rejects everything.
+    'easykash' => [
+        'api_key' => env('EASYKASH_API_KEY'),
+        'hmac_secret' => env('EASYKASH_HMAC_SECRET'),
+        'base_url' => env('EASYKASH_BASE_URL', 'https://back.easykash.net'),
+        // Payment methods offered on the checkout page (EasyKash option ids, comma separated)
+        'payment_options' => array_values(array_filter(array_map('intval', explode(',', (string) env('EASYKASH_PAYMENT_OPTIONS', '2'))))),
+        // How long a cash voucher (Fawry/Aman…) stays payable, in hours
+        'cash_expiry_hours' => (int) env('EASYKASH_CASH_EXPIRY_HOURS', 24),
+        'currency' => 'EGP',
+        'timeout' => (int) env('EASYKASH_TIMEOUT', 15),
+        // A pending checkout for the same amount is reused for this long instead of opening a new one
+        'reuse_minutes' => 30,
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

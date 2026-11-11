@@ -306,6 +306,28 @@ return [
         'home' => 'Back to home',
     ],
 
+    'payment' => [
+        'title' => 'Pay online',
+        'intro' => 'Pay securely by card through EasyKash. You will be charged in Egyptian pounds at today\'s rate.',
+        'due' => 'Amount due',
+        'charged_egp' => 'About :amount (1 USD = :rate EGP today)',
+        'pay_now' => 'Pay now',
+        'paid' => 'Paid in full. Thank you!',
+        'status' => [
+            'paid' => 'Payment received. Thank you! Your booking is now paid.',
+            'pending' => 'We are confirming your payment with EasyKash. This page will show it as paid once it is confirmed.',
+            'failed' => 'The payment did not go through. You have not been charged; you can try again.',
+            'expired' => 'The payment expired before it was completed. You can try again.',
+            'amount_mismatch' => 'We received your payment and our team is checking it. We will contact you shortly.',
+        ],
+        'errors' => [
+            'unavailable' => 'Online payment is not available at the moment. Our team will contact you to arrange payment.',
+            'cancelled' => 'This booking is cancelled.',
+            'nothing_due' => 'Nothing is due on this booking.',
+            'gateway' => 'We could not open the payment page. Please try again in a few minutes.',
+        ],
+    ],
+
     // My account (account/dashboard.blade.php, pages/dashboard.js, AccountController)
     'account' => [
         'title' => 'My account | Safer Cruise',

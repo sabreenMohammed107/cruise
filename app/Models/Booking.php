@@ -6,11 +6,11 @@ use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
 use App\Services\CurrencyService;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
 
 class Booking extends Model
@@ -124,6 +124,12 @@ class Booking extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class)->orderBy('received_at');
+    }
+
+    /** Online checkout attempts (EasyKash); the paid ones also appear in payments(). */
+    public function onlinePayments(): HasMany
+    {
+        return $this->hasMany(OnlinePayment::class)->latest('id');
     }
 
     /** Dashboard "Upcoming" tab: confirmed, departing today or later. */

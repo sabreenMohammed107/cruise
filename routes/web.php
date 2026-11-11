@@ -11,6 +11,7 @@ use App\Http\Controllers\CruiseController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PreBoardingGuideController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,7 +32,7 @@ Route::get('/pre-boarding-guide', PreBoardingGuideController::class)->name('guid
 // Header USD / EGP switch (display only; App\Services\CurrencyService)
 Route::post('/currency', CurrencyController::class)->middleware('throttle:30,1')->name('currency.update');
 
-Route::post('/newsletter',[NewsletterController::class, 'store'])->middleware('throttle:10,1')->name('newsletter.store');
+Route::post('/newsletter', [NewsletterController::class, 'store'])->middleware('throttle:10,1')->name('newsletter.store');
 
 // Contact us: messages land in Admin → Contact messages
 Route::get('/contact', [ContactController::class, 'show'])->name('contact');
@@ -41,7 +42,13 @@ Route::post('/contact', [ContactController::class, 'store'])->middleware('thrott
 Route::get('/agents', [AgentController::class, 'show'])->name('agents');
 Route::post('/agents', [AgentController::class, 'store'])->middleware('throttle:5,1')->name('agents.store');
 
-// Booking: guests → review → confirm (no online payment)
+// Online payment (EasyKash): pay what a booking still owes. The webhook is exempt from CSRF (bootstrap/app.php)
+// and only accepts requests signed by EasyKash.
+Route::post('/booking/{booking:reference}/pay', [PaymentController::class, 'initiate'])->middleware('throttle:10,1')->name('payment.initiate');
+Route::get('/payment/easykash/callback/{onlinePayment:customer_reference}', [PaymentController::class, 'callback'])->name('payment.easykash.callback');
+Route::post('/payment/easykash/webhook', [PaymentController::class, 'webhook'])->middleware('throttle:60,1')->name('payment.easykash.webhook');
+
+// Booking: guests → review → confirm (payment afterwards: online, or arranged offline by the team)
 Route::get('/booking', [BookingController::class, 'show'])->name('booking.show');
 Route::post('/booking/promo', [BookingController::class, 'promo'])->middleware('throttle:20,1')->name('booking.promo');
 Route::post('/booking/confirm', [BookingController::class, 'confirm'])->middleware('throttle:10,1')->name('booking.confirm');

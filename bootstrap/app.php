@@ -6,6 +6,7 @@ use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: [SetLocale::COOKIE]);
         $middleware->web(append: [SetLocale::class]);
 
+        // EasyKash posts here server to server (no CSRF token); the request is verified by its HMAC signature instead
+        $middleware->validateCsrfTokens(except: ['payment/easykash/webhook']);
+
         // Not signed in: admin pages → admin sign-in, site pages → site sign-in
         $middleware->redirectGuestsTo(fn (Request $request) => $isAdmin($request) ? route('admin.login') : route('login'));
         // Already signed in on that side: skip the sign-in page
@@ -42,7 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         // Receipts together bigger than PHP's post_max_size: PHP drops the whole form. Back to the booking with a
         // message instead of a bare "413" page (the page's script normally stops this before sending).
-        $exceptions->render(function (\Illuminate\Http\Exceptions\PostTooLargeException $e, \Illuminate\Http\Request $request) {
+        $exceptions->render(function (PostTooLargeException $e, Request $request) {
             // Thrown by global middleware, before routing and before the session starts: match the path, and pass the
             // message in the address (a flashed error would be lost). The booking page shows it (admin/bookings/show).
             if ($request->isMethod('post') && $request->is('admin/bookings/*/payments')) {
