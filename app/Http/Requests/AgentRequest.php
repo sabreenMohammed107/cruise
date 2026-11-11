@@ -20,7 +20,11 @@ class AgentRequest extends PublicFormRequest
             'company_name' => ['required', 'string', 'max:255'],
             'contact_name' => ['required', 'string', 'max:255'],
             // "bail": a gmail.com address gets the "company email" message alone, without the database checks
-            'email' => ['bail', 'required', 'string', 'email:rfc,strict', 'max:255', new BusinessEmail, function ($attribute, $value, $fail) {
+            'email' => ['bail', 'required', 'string', 'email:rfc,strict', 'max:255',
+                // TODO: Re-enable after launch/testing — free-email block is off while config agents.business_email_only
+                //       is false (see config/agents.php). The rule itself is unchanged.
+                ...(config('agents.business_email_only', true) ? [new BusinessEmail] : []),
+                function ($attribute, $value, $fail) {
                 // Agent accounts are new accounts: an email that already has one (a customer, staff…) can't apply,
                 // nor one with an application still open
                 $email = strtolower(trim((string) $value));
@@ -29,6 +33,7 @@ class AgentRequest extends PublicFormRequest
                 } elseif (AgentApplication::open()->whereRaw('lower(email) = ?', [$email])->exists()) {
                     $fail(__('pages.agents.email_already_applied'));
                 } elseif (self::domainIsFull(BusinessEmail::domainOf($email))) {
+                    // TODO: Re-enable after launch/testing — never hit while config agents.max_per_domain is 0
                     $fail(__('pages.agents.domain_taken'));
                 }
             }],
@@ -37,7 +42,7 @@ class AgentRequest extends PublicFormRequest
     }
 
     /**
-     * The company domain already has its agents (config agents.max_per_domain, 1 by default): agent accounts and
+     * The company domain already has its agents (config agents.max_per_domain; 0 = off, temporarily): agent accounts and
      * applications still open both count, so ali@company.com can't apply while ahmed@company.com is an agent or waiting.
      * A rejected application frees the domain again.
      */

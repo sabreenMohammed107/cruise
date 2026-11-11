@@ -8,7 +8,15 @@ return [
     // How many agents (agent accounts + open applications together) one company email domain may have.
     // 1 = one agency per domain: once ahmed@company.com applied or is an agent, ali@company.com can't apply.
     // 0 = no limit (each email is still checked on its own).
-    'max_per_domain' => (int) env('AGENTS_MAX_PER_DOMAIN', 1),
+    // TODO: Re-enable after launch/testing — temporarily 0 (several agents per company allowed).
+    //       Restore the default to 1, or set AGENTS_MAX_PER_DOMAIN=1 in .env.
+    'max_per_domain' => (int) env('AGENTS_MAX_PER_DOMAIN', 0),
+
+    // Refuse free / public and throwaway email providers (App\Rules\BusinessEmail, lists below) on the
+    // "Become an agent" form.
+    // TODO: Re-enable after launch/testing — temporarily false (any valid email may apply).
+    //       Restore the default to true, or set AGENTS_BUSINESS_EMAIL_ONLY=true in .env.
+    'business_email_only' => (bool) env('AGENTS_BUSINESS_EMAIL_ONLY', false),
 
     // Free / public and throwaway email providers: agents must apply with their company's own domain
     // (App\Rules\BusinessEmail). Subdomains are caught too (mail.yahoo.com).

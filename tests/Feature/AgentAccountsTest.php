@@ -162,6 +162,7 @@ class AgentAccountsTest extends TestCase
     public function test_the_application_form_needs_a_company_email(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class); // more than the route's 5 posts a minute
+        config(['agents.business_email_only' => true]); // TODO: drop once the restriction is back on by default
         $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
 
         foreach (['omar@gmail.com', 'Omar@YAHOO.com', 'omar@hotmail.com', 'omar@outlook.com', 'omar@icloud.com', 'omar@aol.com',
@@ -181,9 +182,29 @@ class AgentAccountsTest extends TestCase
         $this->assertNotSame(trans('pages.agents.email_not_business', [], 'en'), __('pages.agents.email_not_business'));
     }
 
+    public function test_restrictions_are_temporarily_off_by_default(): void
+    {
+        // TODO: Remove when agents.business_email_only / agents.max_per_domain are re-enabled after launch/testing
+        $this->withoutMiddleware(ThrottleRequests::class);
+        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
+
+        // Free email providers are accepted
+        $this->post('/agents', $form + ['email' => 'omar@gmail.com'])->assertSessionHasNoErrors();
+        $this->post('/agents', $form + ['email' => 'sara@yahoo.co.uk'])->assertSessionHasNoErrors();
+        // Several people of one company
+        $this->post('/agents', $form + ['email' => 'ahmed@redsea.example'])->assertSessionHasNoErrors();
+        $this->post('/agents', $form + ['email' => 'ali@redsea.example'])->assertSessionHasNoErrors();
+        $this->post('/agents', $form + ['email' => 'mona@gmail.com'])->assertSessionHasNoErrors();
+        $this->assertSame(5, AgentApplication::count());
+
+        // Each email still on its own: one open application per address
+        $this->post('/agents', $form + ['email' => 'Omar@Gmail.com'])->assertSessionHasErrors(['email' => __('pages.agents.email_already_applied')]);
+    }
+
     public function test_one_agent_per_company_domain(): void
     {
         $this->withoutMiddleware(ThrottleRequests::class);
+        config(['agents.max_per_domain' => 1]); // TODO: drop once the restriction is back on by default
         $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Ahmed', 'dial' => '+966', 'phone' => '501 234 567'];
 
         $this->post('/agents', $form + ['email' => 'ahmed@redsea.example'])->assertSessionHasNoErrors();
