@@ -164,6 +164,7 @@ return [
         'cabin' => 'Cabin',
         'not_chosen' => 'Not chosen yet',
         'tax_included' => 'Tax included',
+        'port_tax' => 'Port & departure taxes',
         'total' => 'Total',
         'choose_to_see_total' => 'Choose a cabin to see your total price.',
         // Signed-in agents (App\Services\AgentPricing): public price, commission, price after commission

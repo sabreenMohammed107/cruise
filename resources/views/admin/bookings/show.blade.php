@@ -98,13 +98,13 @@
             @foreach ($quote['lines'] ?? [] as $line)
               @if (count($quote['cabins'] ?? []) > 1 && ($loop->first || ($quote['lines'][$loop->index - 1]['cabin'] ?? null) !== ($line['cabin'] ?? null)))
                 @php($part = collect($quote['cabins'])->firstWhere('position', $line['cabin'] ?? 1))
-                <tr class="border-b border-line bg-page"><td class="py-2 font-bold" colspan="3">Cabin {{ $part['position'] ?? '' }} · {{ $part['name'] ?? '' }} <span class="font-normal text-muted">({{ Format::guests($part['guests']['adult'] ?? 0, $part['guests']['child'] ?? 0, $part['guests']['infant'] ?? 0) }}@if ((float) ($part['fees'] ?? 0) > 0), fees {{ Format::money($part['fees']) }}@endif)</span></td></tr>
+                <tr class="border-b border-line bg-page"><td class="py-2 font-bold" colspan="3">Cabin {{ $part['position'] ?? '' }} · {{ $part['name'] ?? '' }} <span class="font-normal text-muted">({{ Format::guests($part['guests']['adult'] ?? 0, $part['guests']['child'] ?? 0, $part['guests']['infant'] ?? 0) }}@if ((float) ($part['fees'] ?? 0) > 0), port taxes {{ Format::money($part['fees']) }}@endif)</span></td></tr>
               @endif
               <tr class="border-b border-line"><td class="py-2">{{ $line['label'] ?? ucfirst($line['band']) }}</td><td class="text-end">{{ Format::money($line['unit']) }} × {{ $line['qty'] }}</td><td class="text-end font-bold">{{ Format::money($line['total']) }}</td></tr>
             @endforeach
-            {{-- Prices include tax since step 21; only older bookings have separate taxes and port fees --}}
+            {{-- Port & departure taxes (Admin → Port taxes); 0 for bookings made while there were none --}}
             @if ((float) $booking->fees_total > 0)
-              <tr class="border-b border-line"><td class="py-2">Taxes, port charges & fees</td><td></td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>
+              <tr class="border-b border-line"><td class="py-2">Port &amp; departure taxes</td><td class="text-end">@if ((float) ($quote['portTax'] ?? 0) > 0){{ Format::money($quote['portTax']) }} × {{ (int) round($booking->fees_total / $quote['portTax']) }}@endif</td><td class="text-end font-bold">{{ Format::money($booking->fees_total) }}</td></tr>
             @endif
             {{-- Agent booking: the lines above are already at the agent rate --}}
             @if ((float) $booking->agent_discount_total)

@@ -76,6 +76,7 @@ final class Menu
                 self::resource(Resources\PromoCodeResource::class),
                 self::resource(Resources\AgeBandResource::class),
                 self::link('Currency', null, 'admin.currency.edit', ['admin.currency.*']),
+                self::link('Port taxes', null, 'admin.port-tax.edit', ['admin.port-tax.*']),
             ]),
 
             self::group('Customers', 'user', [

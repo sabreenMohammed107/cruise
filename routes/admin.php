@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HomeSectionController;
 use App\Http\Controllers\Admin\MediaLibraryController;
+use App\Http\Controllers\Admin\PortTaxSettingController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SailingController;
 use App\Http\Controllers\Admin\SiteSettingController;
@@ -74,6 +75,10 @@ Route::middleware('can:manage-content')->group(function () {
     Route::get('currency', [CurrencySettingController::class, 'edit'])->name('currency.edit');
     Route::put('currency', [CurrencySettingController::class, 'update'])->name('currency.update');
     Route::post('currency/refresh', [CurrencySettingController::class, 'refresh'])->middleware('throttle:10,1')->name('currency.refresh');
+
+    // Port & departure taxes: USD per adult / child added to every booking (PricingService::portTaxPerGuest())
+    Route::get('port-tax', [PortTaxSettingController::class, 'edit'])->name('port-tax.edit');
+    Route::put('port-tax', [PortTaxSettingController::class, 'update'])->name('port-tax.update');
 
     // Messages from the website's "Contact us" page (opening one marks it as read)
     Route::get('contact-messages', [ContactController::class, 'index'])->name('contact-messages.index');

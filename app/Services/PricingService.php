@@ -10,6 +10,7 @@ use App\Models\Offer;
 use App\Models\PromoCode;
 use App\Models\Sailing;
 use App\Models\SailingCabinPrice;
+use App\Models\SiteSetting;
 use App\Models\User;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -72,8 +73,11 @@ class PricingService
      *   discount = promo applied to the fare only
      *   total    = fare − discount
      *
-     * Cabin prices include tax: there are no separate taxes or port fees since step 21. "fees" stays in the quote
-     * (always 0) so stored snapshots and older screens keep their shape.
+     *   fees     = port & departure taxes × paying guests (adults + children; infants pay none), see portTaxPerGuest()
+     *   total    = fare + fees − discount
+     *
+     * Cabin prices include VAT; the port & departure taxes are the one separate charge. They are never discounted:
+     * the agent rate, offers and promo codes only touch the fare. "portTax" is the per-guest amount used.
      *
      * Agents (App\Services\AgentPricing): $agentPercent comes off every cabin price first, so the fare lines, the fare
      * and the promo are all at the agent rate. "agent" holds the public fare and what the agent rate saved.
@@ -87,11 +91,12 @@ class PricingService
         $lines = $this->fareLines($tiers, $guests);
         $fare = (float) array_sum(array_column($lines, 'total'));
         $publicFare = $agentPercent > 0 ? (float) array_sum(array_column($this->fareLines($public, $guests), 'total')) : $fare;
-        $feesTotal = 0.0;
         $count = 0;
         foreach (TravellerBand::cases() as $band) {
             $count += (int) ($guests[$band->value] ?? 0);
         }
+        $portTax = self::portTaxPerGuest();
+        $feesTotal = self::cents($portTax * ((int) ($guests['adult'] ?? 0) + (int) ($guests['child'] ?? 0)));
 
         $discount = $promo ? $this->discount($promo, $fare) : 0.0;
 
@@ -100,6 +105,7 @@ class PricingService
             'lines' => $lines,
             'fare' => $fare,
             'fees' => $feesTotal,
+            'portTax' => $portTax,
             'discount' => $discount,
             'promo' => $promo ? ['code' => $promo->code, 'type' => $promo->type->value, 'value' => (float) $promo->value, 'label' => $promo->label] : null,
             'agent' => $agentPercent > 0 ? $this->agentSaving($agentPercent, $publicFare, $fare) : null,
@@ -119,9 +125,10 @@ class PricingService
      * (tiered: single / double / double + extra, infants free, tax included); the promo applies once, to the
      * total fare. Same shape as quote() plus "cabins", so a one-cabin booking gives the same numbers.
      *
-     *   fare     = Σ cabin fares          (fees = 0, see quote())
+     *   fare     = Σ cabin fares
+     *   fees     = Σ cabin port & departure taxes (see quote())
      *   discount = promo on the total fare
-     *   total    = fare − discount
+     *   total    = fare + fees − discount
      *
      * For an agent each cabin carries its agentPercent (AgentPricing::percentFor()): fares are then agent fares and
      * "agent" sums the public fare and the saving over the cabins.
@@ -141,7 +148,7 @@ class PricingService
      *   per offer    summed over the booking, rounded to the cent, then capped at max_discount
      *   promo        on fare − offers, and only when every offer used is combinable (otherwise left out:
      *                ConfirmBookingRequest refuses that code first)
-     *   total        fare − offers − promo
+     *   total        fare + fees − offers − promo (fees: port & departure taxes, never discounted)
      *
      * An offer marked "instead of the commission" drops the agent rate: the booking is priced at the public prices.
      * Same as SC.quoteRooms() in core.js.
@@ -203,6 +210,7 @@ class PricingService
             'cabins' => $parts,
             'fare' => $fare,
             'fees' => $fees,
+            'portTax' => self::portTaxPerGuest(),
             // Offers used, each with what it took off (step 26); offerDiscount is their sum
             'offers' => $offerLines,
             'offerDiscount' => $offerDiscount,
@@ -423,6 +431,18 @@ class PricingService
         }
 
         return $lines;
+    }
+
+    /**
+     * Port & departure taxes in USD per paying guest (adults and children): the admin's amount (Admin → Pricing &
+     * offers → Port taxes, site_settings "port_tax_per_guest"), or config cruise.port_tax_per_guest until one is
+     * saved. 0 means no port taxes. Sent to the browser as SC_DATA.portTax (ScDataPresenter).
+     */
+    public static function portTaxPerGuest(): float
+    {
+        $saved = SiteSetting::value('port_tax_per_guest');
+
+        return max(0.0, (float) ($saved !== '' ? $saved : config('cruise.port_tax_per_guest')));
     }
 
     /** Whole years on a date (the departure date), as SC.ageAt() in core.js and the age band checks. */

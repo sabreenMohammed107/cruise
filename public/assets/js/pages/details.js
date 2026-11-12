@@ -319,6 +319,7 @@ document.addEventListener('sc:ready', () => {
             ${/* Agents: the lines at the public price, then the commission (agentRows) */ (q.agent ? SC.fareLines(q.prices.public, g) : q.lines).map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular">${SC.money(l.total)}</dd></div>`).join('')}
             ${agentRows(q)}
             ${offerRows(q)}
+            ${portTaxRow(q)}
           </dl>
           ${totalRow(q.total, q.agent)}${ageOfferNote()}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
@@ -347,7 +348,14 @@ document.addEventListener('sc:ready', () => {
     return list.length ? `<p class="mt-3 rounded-xl bg-sun-50 p-3 text-xs font-semibold text-sun-600" data-age-offers>${SC.icon('tag', 'w-3.5 h-3.5 inline -mt-0.5 me-1')}${SC.esc(SC.t('ui.details.age_offer_note', { offers: list.map((o) => o.name).join(SC.lang() === 'ar' ? '، ' : ', ') }))}</p>` : '';
   }
 
-  /* Total of the summary. Prices include tax: no separate taxes or port fees (step 21). */
+  /* Port & departure taxes (SC_DATA.portTax per adult / child, Admin → Port taxes): "$50 × 3" and their sum */
+  function portTaxRow(q) {
+    if (!(q.fees > 0)) return '';
+    const n = Math.round(q.fees / q.portTax);
+    return `<div class="flex justify-between gap-3" data-port-tax><dt class="text-muted">${SC.t('ui.details.port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${n}</span></dt><dd class="tabular">${SC.money(q.fees)}</dd></div>`;
+  }
+
+  /* Total of the summary: cabin prices include VAT; the port & departure taxes are in the row above it. */
   function totalRow(total, agent) {
     return `<div class="flex items-end justify-between gap-3 mt-4 pt-4 border-t border-line">
             <span><span class="block font-bold">${SC.t(agent ? 'ui.details.agent_total' : 'ui.details.total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></span>
@@ -389,6 +397,7 @@ document.addEventListener('sc:ready', () => {
             <div class="flex justify-between"><dt class="text-muted">${SC.t('ui.details.guests')}</dt><dd class="font-bold text-end">${SC.guestText(allGuests())}</dd></div>
             ${agentRows(q)}
             ${offerRows(q)}
+            ${portTaxRow(q)}
           </dl>
           ${totalRow(q.total, q.agent)}${ageOfferNote()}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
         <button class="btn btn-accent w-full mt-5" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>

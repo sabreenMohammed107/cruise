@@ -56,7 +56,7 @@ return [
     'contact' => 'Contact',
     'price_title' => 'Price',
     'fare' => 'Cruise fare',
-    'fees' => 'Taxes and port fees', // bookings made before step 21 only
+    'fees' => 'Port & departure taxes',
     'tax_included' => 'Tax included',
     'discount' => 'Discount',
     'discount_code' => 'Discount (:code)',

@@ -71,7 +71,7 @@ final class BookingEmailData
             'cabins' => static::cabins($booking, $money),
             'prices' => array_filter([
                 __('emails.fare') => $money($booking->fare_total),
-                // Prices include tax since step 21; only older bookings have separate taxes and port fees
+                // Port & departure taxes (Admin → Port taxes); none on bookings made while they were 0
                 __('emails.fees') => (float) $booking->fees_total > 0 ? $money($booking->fees_total) : null,
                 // Agent bookings: the fare is already the agent fare, so this is shown, not taken off again
                 __('emails.agent_discount') => (float) $booking->agent_discount_total > 0

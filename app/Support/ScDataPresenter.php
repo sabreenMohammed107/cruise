@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\AgentPricing;
 use App\Services\CurrencyService;
 use App\Services\OfferService;
+use App\Services\PricingService;
 use Illuminate\Support\Collection;
 
 /**
@@ -45,6 +46,8 @@ class ScDataPresenter
             'displayCurrency' => $currency->active(),
             'displaySymbol' => $currency->symbol(),
             'exchangeRate' => $currency->rate(),
+            // Port & departure taxes, USD per adult / child (Admin → Port taxes); left out when 0
+            'portTax' => PricingService::portTaxPerGuest(),
             'whatsappNumber' => SiteSetting::whatsapp(), // Admin → Footer & contact
             'routes' => $this->routes(),
             'user' => $user ? ['name' => $user->name, 'isAdmin' => $user->isStaff(), 'isAgent' => $user->isAgent()] : null,

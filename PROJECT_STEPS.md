@@ -1846,6 +1846,31 @@ Replaces "only sellers can be chosen" from steps 8 and 27. Who assigns is unchan
   **Deploy:** upload `public/assets/js/pages/catalog.js` and `resources/views/pages/catalog.blade.php`,
   `php artisan view:clear`.
 
+### Step 33: Port & departure taxes, managed in the admin panel (2026-11-12)
+
+Brings back one separate charge after step 21: **port & departure taxes, USD per paying guest** (adults and children;
+infants free), default **$50**.
+
+- **Where the amount lives:** `site_settings` key `port_tax_per_guest`, edited in **Admin → Pricing & offers → Port
+  taxes** (`/admin/port-tax`, `Admin\PortTaxSettingController`, admins and supervisors). Until saved:
+  `config/cruise.php` `port_tax_per_guest` (50). 0 turns it off. Read through `PricingService::portTaxPerGuest()`.
+- **Pricing:** `PricingService::quote()` / `quoteBooking()` and `SC.quote()` / `SC.quoteRooms()` in `core.js`:
+  `fees = portTax × (adults + children)` per cabin, `total = fare + fees − offers − promo`. Never discounted: agent
+  rates, offers and promo codes only touch the fare. The quote also carries `portTax` (the per-guest amount).
+  "From, per person" on cards stays fare-only. Stored as before in `bookings.fees_total` /
+  `booking_cabins.fees_total` and the snapshot; no migration.
+- **Currency:** amounts stay USD; `SC_DATA.portTax` goes through `SC.money()` like every price, and a booking keeps
+  its booking-day rate (voucher, email, My bookings).
+- **Screens:** "Port & departure taxes ($50 × N)" line on the cruise page summary, the booking page breakdown and
+  summary (`ui.details.port_tax`, `site.booking.port_tax`), and — through the existing `fees_total > 0` paths — the
+  emails, My bookings and Admin → Bookings (labels renamed from "Taxes and port fees"). The sailing price grid links
+  to the setting. Changing the amount applies to new bookings only.
+- **Copy:** default "Included in your fare" item in `config/pages.php` no longer says port charges are included. The
+  live text is in the database: update it in Admin → Cruise pages → Cruise details → Included in your fare.
+- **Tests:** `tests/TestCase.php` sets the tax to 0 so older totals stay fare-only; new `PortTaxTest` (default, bands,
+  booking totals with promo, EGP, email / admin line, admin save and validation).
+  **Deploy:** upload the changed files, `php artisan route:clear`, `view:clear`, `config:clear` (no migration).
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.

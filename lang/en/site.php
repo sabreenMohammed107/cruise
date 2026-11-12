@@ -219,7 +219,8 @@ return [
         'included' => 'Included in fares',
         'net_total' => 'Net total',
         'tax_included' => 'Tax included',
-        'fees_short' => 'Taxes & port fees',
+        'fees_short' => 'Port & departure taxes',
+        'port_tax' => 'Port & departure taxes',
         'discount' => 'Discount (:code)',
         // Signed-in agents (App\Services\AgentPricing): the prices are already agent prices
         'agent_discount' => 'Your agent commission: :percent%',
@@ -238,6 +239,7 @@ return [
         'promo_applied' => ':code applied: :label',
         'promo_removed' => 'Discount code removed',
         'total_note' => 'All prices in US dollars, for :guests. Payment is arranged with our team after you confirm.',
+        'total_note_egp' => 'All prices in Egyptian pounds, for :guests. Payment is arranged with our team after you confirm.',
 
         // Checks in the browser (booking.js, SC.checkBand) and on the server (ConfirmBookingRequest, AgeBandValidator)
         'errors' => [

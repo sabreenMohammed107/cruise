@@ -150,7 +150,7 @@ return [
                     ['icon' => 'check', 'tone' => 'lagoon', 'title' => 'Your cabin for every night of the cruise', 'title_ar' => 'كابينتك طوال ليالي الرحلة'],
                     ['icon' => 'check', 'tone' => 'lagoon', 'title' => 'Breakfast, lunch and dinner in main restaurants', 'title_ar' => 'الإفطار والغداء والعشاء في المطاعم الرئيسية'],
                     ['icon' => 'check', 'tone' => 'lagoon', 'title' => 'Pools, water park, kids club and theatre shows', 'title_ar' => 'المسابح والحديقة المائية ونادي الأطفال وعروض المسرح'],
-                    ['icon' => 'check', 'tone' => 'lagoon', 'title' => 'Taxes and port charges (included in the price)', 'title_ar' => 'الضرائب ورسوم الموانئ (مشمولة في السعر)'],
+                    ['icon' => 'check', 'tone' => 'lagoon', 'title' => 'Taxes (port & departure taxes are added per guest at booking)', 'title_ar' => 'الضرائب (تُضاف رسوم الميناء والمغادرة لكل ضيف عند الحجز)'],
                 ],
             ],
             'not_included' => [

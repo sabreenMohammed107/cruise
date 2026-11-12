@@ -252,8 +252,9 @@
      Each Sailing × Cabin has three cabin prices for the whole cruise, set in Admin → Sailings:
        single = 1 paying guest · double = 2 paying guests · extra = the 3rd guest (adult or child)
      Infants are free, but they count towards the cabin limit (see SC.guestLimits below).
-     Total = fare lines − discount: prices include tax, there are no separate taxes or port fees (step 21; `fees` stays
-     0 in the quote for older screens). The server recalculates it when the booking is confirmed.
+     Total = fare lines + fees − discount. Cabin prices include VAT; fees = port & departure taxes, SC_DATA.portTax
+     (USD, Admin → Port taxes) × paying guests (adults + children, infants pay none), never discounted.
+     The server recalculates it when the booking is confirmed.
      ------------------------------------------------------------------ */
   const r5 = (n) => Math.round(n / 5) * 5;
   SC.prices = (cruise, sailing, cabinId) => {
@@ -278,7 +279,7 @@
     // Offers that change two adults sharing a cabin
     const fareOffer = withOffers && (sailing.offers || []).some((o) => ['fare', 'free_nights', 'upgrade', 'second_guest'].includes(o.target));
     const value = (x) => (fareOffer && x.raw > 0
-      ? SC.quoteRooms({ cruise, sailing, rooms: [{ cabinId: x.id, guests: { adult: 2, child: 0, infant: 0 } }] }).total / 2
+      ? ((q) => (q.total - q.fees) / 2)(SC.quoteRooms({ cruise, sailing, rooms: [{ cabinId: x.id, guests: { adult: 2, child: 0, infant: 0 } }] })) // fare only, no port taxes
       : x.raw);
     return Math.min(...pick.map(value));
   };
@@ -300,11 +301,12 @@
     const bands = ['adult', 'child', 'infant'];
     const lines = SC.fareLines(prices, guests);
     const fare = lines.reduce((s, l) => s + l.total, 0);
-    const fees = 0; // tax included in the cabin prices (step 21)
+    const portTax = D.portTax || 0;
+    const fees = cents(portTax * ((guests.adult || 0) + (guests.child || 0))); // port & departure taxes
     const promo = promoCode && D.promos[promoCode.toUpperCase()];
     const discount = SC.promoDiscount(promo, fare);
     const agent = prices.agentPercent ? SC.agentSaving(prices.agentPercent, SC.fareLines(prices.public, guests).reduce((s, l) => s + l.total, 0), fare) : null;
-    return { prices, lines, fare, fees, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, agent, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
+    return { prices, lines, fare, fees, portTax, discount, promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, agent, total: fare + fees - discount, count: bands.reduce((s, b) => s + (guests[b] || 0), 0) };
   };
   // Laravel: percent codes are rounded to $5; fixed codes take at most the fare (PricingService::discount)
   SC.promoDiscount = (promo, fare) => (!promo ? 0 : promo.type === 'fixed' ? Math.min(promo.value, fare) : r5(fare * promo.value / 100));
@@ -433,7 +435,7 @@
       ? SC.agentSaving(percents.length === 1 ? percents[0] : null, parts.reduce((s, p) => s + (p.agent ? p.agent.publicFare : p.fare), 0), fare)
       : null;
     return {
-      rooms: parts, lines: parts.flatMap((p) => p.lines.map((l) => ({ ...l, cabin: p.position }))), fare, fees, offers, offerDiscount, discount,
+      rooms: parts, lines: parts.flatMap((p) => p.lines.map((l) => ({ ...l, cabin: p.position }))), fare, fees, portTax: D.portTax || 0, offers, offerDiscount, discount,
       promo: promo ? { code: promoCode.toUpperCase(), ...promo } : null, promoBlocked, agent,
       total: fare + fees - offerDiscount - discount, count: parts.reduce((s, p) => s + p.count, 0)
     };

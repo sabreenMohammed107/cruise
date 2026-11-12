@@ -29,6 +29,11 @@ return [
     // EGP per 1 USD until an admin saves one; also the fallback when the live rate can't be fetched
     'default_exchange_rate' => 50.00,
 
+    // Port & departure taxes in USD per paying guest (adults and children; infants pay none), added to the cabin fare
+    // of every booking. Until an admin saves one in Admin → Pricing & offers → Port taxes (site_settings
+    // "port_tax_per_guest"; 0 turns them off). App\Services\PricingService::portTaxPerGuest().
+    'port_tax_per_guest' => 50.00,
+
     // Cabin capacity (PROJECT_STEPS.md step 11): the most guests any cabin can take, counting adults, children AND
     // infants. Each cabin's own "Maximum guests" (Admin → Cabin categories) applies up to this number.
     // Every infant needs at least one adult in the booking. Infants are free (tiered pricing, step 9).
