@@ -180,4 +180,19 @@ return [
         'choose_to_continue' => 'Choose a cabin to continue',
     ],
 
+    // The line under an offer in the price: how its amount was worked out (SC.offerHint in core.js)
+    'offer_hint' => [
+        'child' => "Child's",
+        'adult' => "Adult's",
+        'guest' => "Guest's",
+        'price_third' => ':who price as 3rd guest',
+        'price_double' => ':who price (half the double)',
+        'price_single' => ':who price alone',
+        'price_many' => 'Price of :count guests',
+        'cabin' => 'Cabin price',
+        'fixed' => 'Fixed discount',
+        'free' => 'all of it free',
+        'capped' => 'capped at :value',
+    ],
+
 ];

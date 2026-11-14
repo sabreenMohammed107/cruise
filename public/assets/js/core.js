@@ -379,22 +379,28 @@
   // context[i]: { nights: the cruise's nights, upgradeFare: the same guests' fare in the upgrade offer's cabin }
   const offerLines = (parts, chosen, context) => {
     const totals = new Map();
-    const add = (o, amount) => { const e = totals.get(o.id) || { offer: o, amount: 0 }; e.amount += amount; totals.set(o.id, e); };
+    // info: what the offer was worked out on, for the line under it in the price (SC.offerHint): base = the price
+    // it came off; guests = for age offers, each guest's own price and place (who / role)
+    const add = (o, amount, info = {}) => {
+      const e = totals.get(o.id) || { offer: o, amount: 0, base: 0, guests: [], units: 0 };
+      e.amount += amount; e.base += info.base || 0; e.units += info.units || 0; if (info.guest) e.guests.push(info.guest);
+      totals.set(o.id, e);
+    };
     parts.forEach((p, i) => {
       const c = chosen.cabins[i];
       const paying = (p.guests.adult || 0) + (p.guests.child || 0);
       let taken = 0;
-      const take = (o, amount) => { add(o, amount); taken += amount; };
+      const take = (o, amount, base) => { add(o, amount, { base, units: 1 }); taken += amount; };
       // Whole-cabin offers, one after the other on what is left
       if (c.upgrade) take(c.upgrade, SC.offerAmount(c.upgrade, Math.max(0, p.fare - context[i].upgradeFare)));
-      if (c.fare) take(c.fare, SC.offerAmount(c.fare, p.fare - taken));
+      if (c.fare) take(c.fare, SC.offerAmount(c.fare, p.fare - taken), p.fare - taken);
       if (c.nights && context[i].nights > 0) take(c.nights, (p.fare - taken) * Math.min(c.nights.freeNights, context[i].nights) / context[i].nights);
       const left = p.fare > 0 ? (p.fare - taken) / p.fare : 0;
       // Parts of the cabin price, at what is left of it
       const thirdOff = c.third ? SC.offerAmount(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2)) : 0;
       const singleOff = c.single ? SC.offerAmount(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left) : 0;
       const secondOff = c.second ? SC.offerAmount(c.second, Math.max(0, p.prices.double - p.prices.single) * left) : 0;
-      if (c.third) add(c.third, thirdOff);
+      if (c.third) add(c.third, thirdOff, { base: p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, units: Math.max(0, paying - 2) });
       if (c.single) add(c.single, singleOff);
       if (c.second) add(c.second, secondOff);
       // Age offers: on the guest's own price, less what the offers above took from that guest
@@ -404,14 +410,49 @@
           - (pos > 2 ? thirdOff / Math.max(1, paying - 2) : 0)
           - (paying === 1 ? singleOff : 0)
           - (paying >= 2 && pos <= 2 ? secondOff / 2 : 0);
-        add(o, SC.offerAmount(o, Math.max(0, price)));
+        const guest = { price: Math.max(0, price), who: pos > (p.guests.adult || 0) ? 'child' : 'adult', role: paying === 1 ? 'single' : pos <= 2 ? 'double' : 'third' };
+        add(o, SC.offerAmount(o, guest.price), { base: guest.price, guest, units: 1 });
       });
     });
-    return [...totals.values()].map(({ offer, amount }) => {
+    return [...totals.values()].map(({ offer, amount, base, guests, units }) => {
       let a = cents(amount);
-      if (offer.maxDiscount != null) a = Math.min(a, offer.maxDiscount);
-      return { id: offer.id, name: offer.name, target: offer.target, discount: a, offer };
+      const capped = offer.maxDiscount != null && offer.maxDiscount < a;
+      if (capped) a = offer.maxDiscount;
+      return { id: offer.id, name: offer.name, target: offer.target, discount: a, offer,
+        hint: { type: offer.type, value: offer.value, base: cents(base), guests, units, raw: cents(amount), capped } };
     }).filter((l) => l.discount > 0);
+  };
+  /* The line under an offer in the price: the calculation with its numbers (display only), e.g.
+       age, final price      "سعر الطفل كضيف ثالث: $603 − $110 = $493"
+       age, percent          "سعر البالغ (نصف المزدوج): $755 × 20% = $151"
+       fixed amount          "سعر الطفل كضيف ثالث $603: خصم ثابت $380"
+       cabin, percent        "سعر الكابينة: $2,113 × 10% = $211"
+       capped                "… = $840 · بحد أقصى $800"
+     Empty for upgrade, free nights, single and 2nd guest offers. */
+  SC.offerHint = (line) => {
+    const h = line && line.hint;
+    if (!h) return '';
+    const T = (k, r) => SC.t(`ui.offer_hint.${k}`, r);
+    // Amounts never break across lines ("EGP 93,134" / "جنيه مصري 93,134")
+    const money = (v) => SC.money(v).replace(/ /g, '\u00a0');
+    const n = h.units || 1;
+    const times = (v) => (n > 1 ? `${n} × ${money(v)}` : money(v));
+    let what = '';
+    if (line.target === 'age' && h.guests.length) {
+      const g = h.guests[0];
+      what = h.guests.length > 1 ? T('price_many', { count: h.guests.length }) : T(`price_${g.role}`, { who: T(g.who) });
+    } else if (line.target === 'fare') what = T('cabin');
+    else if (line.target === 'third_guest') what = T('price_third', { who: T('guest') });
+    else return '';
+    // An equation reads left to right on Arabic pages too: isolated LTR (U+2066 … U+2069), "$1,680 − $110 = $1,570"
+    const ltr = (x) => `⁦${x}⁩`;
+    const math = h.type === 'fixed_price' ? ltr(`${money(h.base)} − ${times(h.value)} = ${money(h.raw)}`)
+      : h.type === 'free' ? `${ltr(money(h.base))} (${T('free')})`
+      : h.type === 'fixed' ? `${T('fixed')} ${ltr(`${times(h.value)}${n > 1 ? ` = ${money(h.raw)}` : ''}`)}`
+      : ltr(`${money(h.base)} × ${h.value}% = ${money(h.raw)}`);
+    // Fixed amount: nothing to work out, so the guest's / cabin's price comes first for context
+    const text = h.type === 'fixed' ? `${what} ${ltr(money(h.base))}: ${math}` : `${what}: ${math}`;
+    return h.capped ? `${text} · ${T('capped', { value: ltr(money(line.discount)) })}` : text;
   };
   // Offers of a sailing that wait for the travellers (age or nationality): shown as a note until they are entered
   SC.ageOffers = (sailing) => (sailing.offers || []).filter((o) => o.target === 'age' || o.nationalities);

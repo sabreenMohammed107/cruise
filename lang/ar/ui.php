@@ -176,4 +176,19 @@ return [
         'choose_to_continue' => 'اختر كابينة للمتابعة',
     ],
 
+    // The line under an offer in the price: how its amount was worked out (SC.offerHint in core.js)
+    'offer_hint' => [
+        'child' => 'الطفل',
+        'adult' => 'البالغ',
+        'guest' => 'الضيف',
+        'price_third' => 'سعر :who كضيف ثالث',
+        'price_double' => 'سعر :who (نصف المزدوج)',
+        'price_single' => 'سعر :who منفردًا',
+        'price_many' => 'سعر :count ضيوف',
+        'cabin' => 'سعر الكابينة',
+        'fixed' => 'خصم ثابت',
+        'free' => 'مجانًا بالكامل',
+        'capped' => 'بحد أقصى :value',
+    ],
+
 ];

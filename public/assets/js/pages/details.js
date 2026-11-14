@@ -341,7 +341,7 @@ document.addEventListener('sc:ready', () => {
   /* Laravel (step 26): what each offer of the sailing takes off (Admin → Offers), and a note for offers by age, which
      apply once the travellers' dates of birth are entered on the next step. */
   function offerRows(q) {
-    return (q.offers || []).map((o) => `<div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-offer-row="${o.id}"><dt>${SC.esc(SC.t('ui.details.offer', { name: o.name }))}</dt><dd class="tabular">− ${SC.money(o.discount)}</dd></div>`).join('');
+    return (q.offers || []).map((o) => `<div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-offer-row="${o.id}"><dt>${SC.esc(SC.t('ui.details.offer', { name: o.name }))}${SC.offerHint(o) ? `<span class="block text-xs font-normal text-muted mt-0.5" data-offer-hint>${SC.esc(SC.offerHint(o))}</span>` : ''}</dt><dd class="tabular">− ${SC.money(o.discount)}</dd></div>`).join('');
   }
   function ageOfferNote() {
     const list = SC.ageOffers(sailing);
