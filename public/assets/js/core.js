@@ -320,8 +320,9 @@
                   of birth one age offer (their age on the departure date, their nationality)
        amounts    upgrade: F − the same guests' fare in the cheaper cabin; fare: of what is left; free nights: what is
                   left × free nights ÷ nights → fraction left k; 3rd guest: the extra line × k; single:
-                  (single − double ÷ 2) × k; 2nd guest: (double − single) × k; age: each guest's share of what is
-                  left. Fixed: per cabin or per guest; free: all of it; fixed price: what is above the value.
+                  (single − double ÷ 2) × k; 2nd guest: (double − single) × k; age: the guest's own price
+                  (SC.guestPrice) × k, less what the offers before took from that guest. Fixed: per cabin or per
+                  guest; free: all of it; fixed price: what is above the value.
        per offer  summed, rounded to the cent, capped at maxDiscount
        promo      on fare − offers, only if every offer used is combinable
      An offer with replaceAgent prices an agent's booking at the public prices (no commission). */
@@ -347,13 +348,16 @@
       const whole = here.filter((o) => fitsNationalities(o, Object.values(travellers).map((t) => t.nationality)));
       const paying = (r.guests.adult || 0) + (r.guests.child || 0);
       const ageOffers = here.filter((o) => o.target === 'age');
-      const age = [];
+      // Each age offer with the guest's place among the paying guests (adults first, then children), see guestPrice
+      const age = [], agePositions = [];
+      let position = 0;
       if (ageOffers.length) for (const band of ['adult', 'child']) for (let n = 1; n <= (r.guests[band] || 0); n++) {
+        position++;
         const t = travellers[`${band}-${n}`] || {};
         if (!t.dob || !/^\d{4}-\d{2}-\d{2}$/.test(t.dob)) continue;
         const years = SC.ageAt(t.dob, sailing.departure).years;
         const o = bestOffer(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge) && fitsNationalities(x, [t.nationality])));
-        if (o) age.push(o);
+        if (o) { age.push(o); agePositions.push(position); }
       }
       return {
         fare: bestOffer(whole.filter((o) => o.target === 'fare')),
@@ -362,7 +366,7 @@
         third: paying > 2 ? bestOffer(whole.filter((o) => o.target === 'third_guest')) : null,
         single: paying === 1 ? bestOffer(whole.filter((o) => o.target === 'single')) : null,
         second: paying >= 2 ? bestOffer(whole.filter((o) => o.target === 'second_guest')) : null,
-        age
+        age, agePositions
       };
     });
     // Whether the commission is dropped and a promo code allowed is decided in SC.quoteRooms, on the offers that
@@ -370,6 +374,8 @@
     const applied = cabins.flatMap((c) => [c.upgrade, c.fare, c.nights, c.third, c.single, c.second, ...c.age]).filter(Boolean);
     return { cabins, applied };
   };
+  // One paying guest's own price (PricingService::guestPrice): alone → single; 1st / 2nd → double ÷ 2; 3rd+ → extra
+  SC.guestPrice = (prices, paying, position) => (paying === 1 ? prices.single : position <= 2 ? prices.double / 2 : prices.extra);
   // context[i]: { nights: the cruise's nights, upgradeFare: the same guests' fare in the upgrade offer's cabin }
   const offerLines = (parts, chosen, context) => {
     const totals = new Map();
@@ -385,11 +391,21 @@
       if (c.nights && context[i].nights > 0) take(c.nights, (p.fare - taken) * Math.min(c.nights.freeNights, context[i].nights) / context[i].nights);
       const left = p.fare > 0 ? (p.fare - taken) / p.fare : 0;
       // Parts of the cabin price, at what is left of it
-      if (c.third) take(c.third, SC.offerAmount(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2)));
-      if (c.single) take(c.single, SC.offerAmount(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left));
-      if (c.second) take(c.second, SC.offerAmount(c.second, Math.max(0, p.prices.double - p.prices.single) * left));
-      const share = paying > 0 ? Math.max(0, p.fare - taken) / paying : 0;
-      c.age.forEach((o) => add(o, SC.offerAmount(o, share)));
+      const thirdOff = c.third ? SC.offerAmount(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2)) : 0;
+      const singleOff = c.single ? SC.offerAmount(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left) : 0;
+      const secondOff = c.second ? SC.offerAmount(c.second, Math.max(0, p.prices.double - p.prices.single) * left) : 0;
+      if (c.third) add(c.third, thirdOff);
+      if (c.single) add(c.single, singleOff);
+      if (c.second) add(c.second, secondOff);
+      // Age offers: on the guest's own price, less what the offers above took from that guest
+      c.age.forEach((o, k) => {
+        const pos = (c.agePositions || [])[k] || 1;
+        const price = SC.guestPrice(p.prices, paying, pos) * left
+          - (pos > 2 ? thirdOff / Math.max(1, paying - 2) : 0)
+          - (paying === 1 ? singleOff : 0)
+          - (paying >= 2 && pos <= 2 ? secondOff / 2 : 0);
+        add(o, SC.offerAmount(o, Math.max(0, price)));
+      });
     });
     return [...totals.values()].map(({ offer, amount }) => {
       let a = cents(amount);

@@ -161,21 +161,34 @@ class OffersTest extends TestCase
 
     public function test_an_age_offer_takes_its_share_and_stops_at_its_maximum(): void
     {
-        // Children up to 11: half their share, at most 1000 per booking; adults 60+: nobody qualifies
-        $kids = $this->offer(['name' => 'Kids half price', 'target' => 'age', 'min_age' => 0, 'max_age' => 11, 'value' => 50, 'max_discount' => 1000]);
+        // Children up to 11: half their own price, at most 1000 per booking; adults 60+: nobody qualifies
+        $kids = $this->offer(['name' => 'Kids half price', 'target' => 'age', 'min_age' => 0, 'max_age' => 11, 'value' => 50, 'max_discount' => 800]);
         $this->offer(['name' => 'Seniors', 'target' => 'age', 'min_age' => 60, 'value' => 30]);
 
-        // Share 8960 ÷ 3 = 2986.67, half = 1493.33, capped at 1000
+        // The child is the 3rd guest: their own price is the 3rd-guest price 1680, half = 840, capped at 800
         $booking = $this->book();
-        $this->assertSame(['1000.00', '7960.00'], [$booking->offer_discount_total, $booking->grand_total]);
+        $this->assertSame(['800.00', '8160.00'], [$booking->offer_discount_total, $booking->grand_total]);
         $this->assertSame([$kids->id], array_column($booking->price_snapshot['offers'], 'id'));
 
-        // With a cruise offer too: share (8960 − 896) ÷ 3 = 2688, half = 1344, capped at 1000 → 8960 − 896 − 1000
+        // With a cruise offer too (10%): the child's price 1680 × 90% = 1512, half = 756 → 8960 − 896 − 756
         $this->offer();
-        $this->assertSame(['1896.00', '7064.00'], [($b = $this->book(['contact' => ['email' => 'b@example.com']]))->offer_discount_total, $b->grand_total]);
+        $this->assertSame(['1652.00', '7308.00'], [($b = $this->book(['contact' => ['email' => 'b@example.com']]))->offer_discount_total, $b->grand_total]);
 
         // A 12-year-old is outside the range
         $this->assertSame('8064.00', $this->book(['contact' => ['email' => 'c@example.com'], 'travellers' => ['child-1' => ['dob' => '2014-01-01']]])->grand_total);
+    }
+
+    public function test_an_age_offer_uses_each_guests_own_price_from_the_grid(): void
+    {
+        // Seniors 60+, 30%: an adult (1st or 2nd guest) pays half the double, 7280 ÷ 2 = 3640 → 1092
+        $this->offer(['name' => 'Seniors', 'target' => 'age', 'min_age' => 60, 'value' => 30]);
+        $senior = $this->book(['travellers' => ['adult-1' => ['dob' => '1950-01-01']]]);
+        $this->assertSame('1092.00', $senior->offer_discount_total);
+
+        // Alone in the cabin: the single price 5460 → 1638
+        $alone = $this->book(['contact' => ['email' => 'alone@example.com'], 'guests' => ['adult' => 1, 'child' => 0],
+            'travellers' => ['adult-1' => ['dob' => '1950-01-01'], 'adult-2' => null, 'child-1' => null]]);
+        $this->assertSame('1638.00', $alone->offer_discount_total);
     }
 
     public function test_offers_for_customers_and_for_agents(): void
@@ -302,11 +315,11 @@ class OffersTest extends TestCase
         // Booking the interior cabin itself: nothing to upgrade
         $this->assertSame([], $this->book($email('same') + ['cabin' => 'interior', 'guests' => ['child' => 0], 'travellers' => ['child-1' => null]])->price_snapshot['offers']);
 
-        // Fixed final price: the cabin at 5000, and with an age offer each child pays 100 of their share
+        // Fixed final price: the cabin at 5000, and with an age offer the child (3rd guest, 1680) pays 100
         $only(['name' => 'Cabin 5000', 'type' => 'fixed_price', 'value' => 5000]);
         $this->assertSame('5000.00', $this->book($email('fixed'))->grand_total);
         $only(['name' => 'Kids 100', 'target' => 'age', 'max_age' => 11, 'type' => 'fixed_price', 'value' => 100]);
-        $this->assertEquals($cents(8960 / 3 - 100), (float) $this->book($email('kids'))->offer_discount_total);
+        $this->assertEquals($cents(1680 - 100), (float) $this->book($email('kids'))->offer_discount_total);
     }
 
     public function test_an_offer_that_takes_nothing_off_never_blocks_a_promo_or_drops_the_commission(): void

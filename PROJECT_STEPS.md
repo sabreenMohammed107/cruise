@@ -1871,6 +1871,16 @@ infants free), default **$50**.
   booking totals with promo, EGP, email / admin line, admin save and validation).
   **Deploy:** upload the changed files, `php artisan route:clear`, `view:clear`, `config:clear` (no migration).
 
+### Step 34: Age offers use each guest's own price (2026-11-14)
+
+Before, an age offer worked on an equal share of the cabin (cabin price ÷ paying guests), so a child who is the 3rd
+guest was priced at the average instead of the 3rd-guest price. Now each guest has their own price from the grid
+(`PricingService::guestPrice()` / `SC.guestPrice()`): alone → single; 1st and 2nd paying guest → double ÷ 2; 3rd and
+later → 3rd-guest price (adults first, then children). Whole-cabin offers before it still scale it (× what is left),
+and a 3rd guest / single / 2nd guest offer is taken off the guest it belongs to. `selectOffers()` returns
+`agePositions` with `age`. Example, balcony 2 adults + 1 child, "child pays $110": before 2113 ÷ 3 − 110 = $594 off,
+now 603 − 110 = $493 off. **Deploy:** upload `app/Services/PricingService.php` and `public/assets/js/core.js`.
+
 **Open items (next):**
 
 1. Password reset (and optionally email verification) for customer accounts.

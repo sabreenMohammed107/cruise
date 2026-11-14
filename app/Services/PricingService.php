@@ -143,8 +143,9 @@ class PricingService
      *   3rd guest    the 3rd-guest line × k (fixed: per 3rd guest)
      *   single       the single supplement (single − double ÷ 2) × k, for a guest alone in the cabin
      *   2nd guest    what the 2nd guest adds (double − single) × k, with two paying guests or more
-     *   age          each paying guest of the range: their share = (F − everything above) ÷ paying guests
-     *                (fixed: per guest)
+     *   age          each paying guest of the range, on their own price from the grid (guestPrice(): alone → single,
+     *                1st / 2nd → double ÷ 2, 3rd and later → 3rd-guest price; adults first, then children) × k,
+     *                less what the 3rd guest / single / 2nd guest offers took from that guest (fixed: per guest)
      *   per offer    summed over the booking, rounded to the cent, then capped at max_discount
      *   promo        on fare − offers, and only when every offer used is combinable (otherwise left out:
      *                ConfirmBookingRequest refuses that code first)
@@ -285,7 +286,7 @@ class PricingService
      * Whether the commission is dropped and a promo code allowed is decided in quoteBooking(), on the offers that
      * actually take something off.
      *
-     * @return array{cabins: list<array{fare: ?Offer, nights: ?Offer, upgrade: ?Offer, third: ?Offer, single: ?Offer, second: ?Offer, age: list<Offer>}>, upgradePrices: array<string, SailingCabinPrice>, applied: list<Offer>}
+     * @return array{cabins: list<array{fare: ?Offer, nights: ?Offer, upgrade: ?Offer, third: ?Offer, single: ?Offer, second: ?Offer, age: list<Offer>, agePositions: list<int>}>, upgradePrices: array<string, SailingCabinPrice>, applied: list<Offer>}
      */
     public function selectOffers(array $cabins, iterable $offers, ?CarbonInterface $departure = null): array
     {
@@ -311,12 +312,17 @@ class PricingService
             $whole = $here->filter(fn (Offer $o) => $o->fitsNationalities($nationalities));
             $paying = (int) ($cabin['guests']['adult'] ?? 0) + (int) ($cabin['guests']['child'] ?? 0);
 
+            // Age offers, with each guest's place among the paying guests (adults first, then children): 1st and 2nd
+            // share the double price, the 3rd and later pay the 3rd-guest price (see guestPrice())
             $age = [];
+            $agePositions = [];
             $ageOffers = $here->where('target', OfferTarget::Age);
             if ($ageOffers->isNotEmpty()) {
                 $departure ??= $cabin['price']->sailing->departure_date;
+                $position = 0;
                 foreach (['adult', 'child'] as $band) {
                     for ($n = 1; $n <= (int) ($cabin['guests'][$band] ?? 0); $n++) {
+                        $position++;
                         $t = $travellers["$band-$n"] ?? [];
                         if (empty($t['dob'])) {
                             continue;
@@ -325,6 +331,7 @@ class PricingService
                         $fits = $ageOffers->filter(fn (Offer $o) => $o->fitsAge($years) && $o->fitsNationalities([$t['nationality'] ?? null]));
                         if ($offer = $best($fits)) {
                             $age[] = $offer;
+                            $agePositions[] = $position;
                         }
                     }
                 }
@@ -339,6 +346,7 @@ class PricingService
                 'single' => $paying === 1 ? $best($whole->where('target', OfferTarget::Single)) : null,
                 'second' => $paying >= 2 ? $best($whole->where('target', OfferTarget::SecondGuest)) : null,
                 'age' => $age,
+                'agePositions' => $agePositions,
             ];
         }
 
@@ -394,28 +402,31 @@ class PricingService
             $left = $fare > 0 ? ($fare - $taken) / $fare : 0.0;
 
             // Parts of the cabin price, at what is left of it
+            $thirdOff = $singleOff = $secondOff = 0.0;
             if ($c['third']) {
                 $extra = (float) array_sum(array_column(array_filter($part['lines'], fn ($l) => $l['band'] === 'extra'), 'total'));
-                $off = $c['third']->amountOff($extra * $left, max(0, $paying - 2));
-                $add($c['third'], $off);
-                $taken += $off;
+                $thirdOff = $c['third']->amountOff($extra * $left, max(0, $paying - 2));
+                $add($c['third'], $thirdOff);
             }
             if ($c['single']) {
                 $supplement = max(0.0, (float) $part['prices']['single'] - (float) $part['prices']['double'] / 2);
-                $off = $c['single']->amountOff($supplement * $left);
-                $add($c['single'], $off);
-                $taken += $off;
+                $singleOff = $c['single']->amountOff($supplement * $left);
+                $add($c['single'], $singleOff);
             }
             if ($c['second']) {
                 $second = max(0.0, (float) $part['prices']['double'] - (float) $part['prices']['single']);
-                $off = $c['second']->amountOff($second * $left);
-                $add($c['second'], $off);
-                $taken += $off;
+                $secondOff = $c['second']->amountOff($second * $left);
+                $add($c['second'], $secondOff);
             }
 
-            $share = $paying > 0 ? max(0.0, $fare - $taken) / $paying : 0.0;
-            foreach ($c['age'] as $offer) {
-                $add($offer, $offer->amountOff($share));
+            // Age offers: on the guest's own price (guestPrice()), less what the offers above took from that guest
+            foreach ($c['age'] as $k => $offer) {
+                $pos = $c['agePositions'][$k] ?? 1;
+                $price = self::guestPrice($part['prices'], $paying, $pos) * $left
+                    - ($pos > 2 ? $thirdOff / max(1, $paying - 2) : 0.0)
+                    - ($paying === 1 ? $singleOff : 0.0)
+                    - ($paying >= 2 && $pos <= 2 ? $secondOff / 2 : 0.0);
+                $add($offer, $offer->amountOff(max(0.0, $price)));
             }
         }
 
@@ -431,6 +442,22 @@ class PricingService
         }
 
         return $lines;
+    }
+
+    /**
+     * One paying guest's own price in a cabin, from the price grid: alone → single; 1st and 2nd guest → half the
+     * double each; 3rd guest and later → the 3rd-guest price. Adds up to the cabin fare. Same as guestPrice() in core.js.
+     *
+     * @param  array{single: float, double: float, extra: float}  $prices
+     * @param  int  $position  1-based, adults first then children
+     */
+    public static function guestPrice(array $prices, int $paying, int $position): float
+    {
+        return match (true) {
+            $paying === 1 => (float) $prices['single'],
+            $position <= 2 => (float) $prices['double'] / 2,
+            default => (float) $prices['extra'],
+        };
     }
 
     /**
