@@ -126,6 +126,19 @@
 {{-- Date-of-birth picker that shows dd/mm/yyyy in every browser (booking.js) --}}
 @push('head')
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+  <style>
+    /* Year dropdown that replaces flatpickr's number box (booking.js yearSelect): same look as the month dropdown,
+       big enough to tap on phones */
+    .flatpickr-months .flatpickr-month { height: 48px; }
+    .flatpickr-months .flatpickr-prev-month, .flatpickr-months .flatpickr-next-month { top: 7px; }
+    .flatpickr-current-month { display: flex; align-items: center; justify-content: center; gap: .25rem; height: 100%; padding: 0; }
+    .flatpickr-current-month .flatpickr-monthDropdown-months,
+    .flatpickr-current-month .flatpickr-yearSelect {
+      appearance: auto; font: inherit; font-weight: 600; font-size: 1rem; color: inherit; background: transparent;
+      border: 1px solid #D9E2EC; border-radius: .5rem; padding: .25rem .4rem; min-height: 36px; cursor: pointer; margin: 0;
+    }
+    .flatpickr-current-month .flatpickr-yearSelect { direction: ltr; }
+  </style>
 @endpush
 
 @push('scripts')

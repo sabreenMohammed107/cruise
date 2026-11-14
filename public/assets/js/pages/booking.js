@@ -185,6 +185,26 @@ document.addEventListener('sc:ready', () => {
     const box = $(`#${el.id}-err`);
     if (box) { if (msg) box.textContent = msg; box.classList.toggle('show', !!msg); shownField(el).setAttribute('aria-describedby', box.id); }
   };
+  /* The calendar's year: a dropdown of the years this traveller can be born in (newest first) instead of flatpickr's
+     small number box, whose arrows phones don't show and which only takes a typed year. Phones open their own list. */
+  const yearSelect = (fp) => {
+    const box = fp.yearElements[0]?.closest('.numInputWrapper');
+    if (!box) return;
+    const now = new Date().getFullYear();
+    const max = fp.config.maxDate ? fp.config.maxDate.getFullYear() : now;
+    const min = fp.config.minDate ? fp.config.minDate.getFullYear() : now - 120;
+    const sel = document.createElement('select');
+    sel.className = 'flatpickr-yearSelect';
+    sel.setAttribute('aria-label', SC.lang() === 'ar' ? 'السنة' : 'Year');
+    for (let y = max; y >= min; y--) sel.add(new Option(String(y), String(y)));
+    sel.value = String(fp.currentYear);
+    sel.addEventListener('change', () => { fp.changeYear(Number(sel.value)); sel.value = String(fp.currentYear); });
+    box.style.display = 'none';
+    box.after(sel);
+    fp._yearSelect = sel;
+  };
+  const syncYear = (_, __, fp) => { if (fp._yearSelect) fp._yearSelect.value = String(fp.currentYear); };
+
   // Date of birth as dd/mm/yyyy in every browser and on phones (a native date field shows the browser's own
   // order, e.g. mm/dd/yyyy). The field itself still holds yyyy-mm-dd, which the rules and the server read.
   $$('#traveller-forms [data-rule=dob]').forEach((el) => flatpickr(el, {
@@ -194,7 +214,9 @@ document.addEventListener('sc:ready', () => {
     onReady: (_, __, fp) => {
       fp.altInput.id = `${el.id}-shown`; fp.altInput.dir = 'ltr'; fp.altInput.autocomplete = 'off';
       $(`label[for="${el.id}"]`).htmlFor = fp.altInput.id;
+      yearSelect(fp);
     },
+    onYearChange: syncYear, onMonthChange: syncYear, onOpen: syncYear,
     // Saved like any typed field; checked once the calendar closes
     onChange: () => el.dispatchEvent(new Event('input', { bubbles: true })),
     onClose: () => { if (el.value) { showError(el, errorFor(el)); paintTabs(); } }
