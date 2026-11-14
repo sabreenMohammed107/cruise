@@ -1884,9 +1884,10 @@ now 603 − 110 = $493 off. **Deploy:** upload `app/Services/PricingService.php`
 **How each offer was worked out, under its line in the price** (display only, `SC.offerHint()` in `core.js`; words in
 `lang/{en,ar}/ui.php` → `offer_hint`). The browser's offer lines now carry `hint` (base price, guests with their role,
 units, amount before the cap). Shown on the booking page (summary and breakdown) and the cruise page summary:
-"سعر الطفل كضيف ثالث: $603 − $110 = $493", "سعر الكابينة: $2,113 × 10% = $211", "سعر الطفل كضيف ثالث $603: خصم
-ثابت $380", "… · بحد أقصى $800". Equations are isolated left-to-right (U+2066/2069) so they read correctly on Arabic
-pages. None for upgrade, free nights, single and 2nd guest offers. **Deploy:** `core.js`, `pages/booking.js`,
+what the offer gives, then the discount's calculation: "الطفل يدفع $110 بدل $603 · الخصم $603 − $110 = $493",
+"خصم 20% من سعر البالغ: $755 × 20% = $151", "خصم ثابت $380 من سعر الطفل $603", "الكابينة بـ $1,500 بدل $2,113 ·
+الخصم …", "… · بحد أقصى $800". Equations are isolated left-to-right (U+2066/2069) with non-breaking spaces, so they
+read correctly on Arabic pages and never split across lines. None for upgrade, free nights, single and 2nd guest offers. **Deploy:** `core.js`, `pages/booking.js`,
 `pages/details.js`, `lang/ar/ui.php`, `lang/en/ui.php`.
 
 **Open items (next):**

@@ -422,12 +422,14 @@
         hint: { type: offer.type, value: offer.value, base: cents(base), guests, units, raw: cents(amount), capped } };
     }).filter((l) => l.discount > 0);
   };
-  /* The line under an offer in the price: the calculation with its numbers (display only), e.g.
-       age, final price      "سعر الطفل كضيف ثالث: $603 − $110 = $493"
-       age, percent          "سعر البالغ (نصف المزدوج): $755 × 20% = $151"
-       fixed amount          "سعر الطفل كضيف ثالث $603: خصم ثابت $380"
-       cabin, percent        "سعر الكابينة: $2,113 × 10% = $211"
-       capped                "… = $840 · بحد أقصى $800"
+  /* The line under an offer in the price: what the offer gives, then how the discount was worked out (display
+     only; words in lang/{en,ar}/ui.php → offer_hint), e.g.
+       final price   "الطفل يدفع $110 بدل $603 · الخصم $603 − $110 = $493"
+       percent       "خصم 20% من سعر البالغ: $755 × 20% = $151"
+       fixed         "خصم ثابت $380 من سعر الطفل $603"  /  "خصم ثابت $380 لكلٍّ من 2 ضيوف: 2 × $380 = $760"
+       free          "الطفل مجانًا بدل $603"
+       cabin         "الكابينة بـ $1,500 بدل $2,113 · الخصم $2,113 − $1,500 = $613"
+       capped        "… · بحد أقصى $800"
      Empty for upgrade, free nights, single and 2nd guest offers. */
   SC.offerHint = (line) => {
     const h = line && line.hint;
@@ -435,23 +437,29 @@
     const T = (k, r) => SC.t(`ui.offer_hint.${k}`, r);
     // Amounts never break across lines ("EGP 93,134" / "جنيه مصري 93,134")
     const money = (v) => SC.money(v).replace(/ /g, '\u00a0');
+    // An equation reads left to right on Arabic pages too: isolated LTR (U+2066 … U+2069)
+    const ltr = (x) => `⁦${x.replace(/ /g, ' ')}⁩`; // never breaks in the middle (non-breaking spaces)
     const n = h.units || 1;
-    const times = (v) => (n > 1 ? `${n} × ${money(v)}` : money(v));
-    let what = '';
-    if (line.target === 'age' && h.guests.length) {
-      const g = h.guests[0];
-      what = h.guests.length > 1 ? T('price_many', { count: h.guests.length }) : T(`price_${g.role}`, { who: T(g.who) });
-    } else if (line.target === 'fare') what = T('cabin');
-    else if (line.target === 'third_guest') what = T('price_third', { who: T('guest') });
+    const cabin = line.target === 'fare';
+    let who;
+    if (line.target === 'age' && h.guests.length) who = h.guests.length > 1 ? T('who_many', { count: h.guests.length }) : T(`who_${h.guests[0].who}`);
+    else if (line.target === 'third_guest') who = n > 1 ? T('who_many', { count: n }) : T('who_third');
+    else if (cabin) who = T('who_cabin');
     else return '';
-    // An equation reads left to right on Arabic pages too: isolated LTR (U+2066 … U+2069), "$1,680 − $110 = $1,570"
-    const ltr = (x) => `⁦${x}⁩`;
-    const math = h.type === 'fixed_price' ? ltr(`${money(h.base)} − ${times(h.value)} = ${money(h.raw)}`)
-      : h.type === 'free' ? `${ltr(money(h.base))} (${T('free')})`
-      : h.type === 'fixed' ? `${T('fixed')} ${ltr(`${times(h.value)}${n > 1 ? ` = ${money(h.raw)}` : ''}`)}`
-      : ltr(`${money(h.base)} × ${h.value}% = ${money(h.raw)}`);
-    // Fixed amount: nothing to work out, so the guest's / cabin's price comes first for context
-    const text = h.type === 'fixed' ? `${what} ${ltr(money(h.base))}: ${math}` : `${what}: ${math}`;
+    const price = ltr(money(h.base));
+    const value = ltr(money(h.value));
+    const times = (v) => (n > 1 ? `${n} × ${money(v)}` : money(v));
+    let text;
+    if (h.type === 'fixed_price') {
+      const deal = cabin ? T('cabin_pays', { value, price }) : n > 1 ? T('pays_many', { who, value }) : T('pays', { who, value, price });
+      text = `${deal} · ${T('discount')} ${ltr(`${money(h.base)} − ${times(h.value)} = ${money(h.raw)}`)}`;
+    } else if (h.type === 'free') {
+      text = cabin ? T('cabin_free', { price }) : T('free', { who, price });
+    } else if (h.type === 'fixed') {
+      text = n > 1 ? `${T('fixed_many', { value, who })}: ${ltr(`${times(h.value)} = ${money(h.raw)}`)}` : T('fixed', { value, who, price });
+    } else {
+      text = `${T('percent', { value: h.value, who })}: ${ltr(`${money(h.base)} × ${h.value}% = ${money(h.raw)}`)}`;
+    }
     return h.capped ? `${text} · ${T('capped', { value: ltr(money(line.discount)) })}` : text;
   };
   // Offers of a sailing that wait for the travellers (age or nationality): shown as a note until they are entered
