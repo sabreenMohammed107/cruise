@@ -3,6 +3,7 @@
 namespace App\Admin;
 
 use App\Models\AgentApplication;
+use App\Models\AssistantConversation;
 use App\Models\Booking;
 use App\Models\ContactMessage;
 
@@ -100,6 +101,10 @@ final class Menu
 
             self::link('Contact messages', 'chat', 'admin.contact-messages.index', ['admin.contact-messages.*'])
                 + ['badge' => ContactMessage::unread()->count() ?: null, 'badge_title' => 'Unread'],
+            ...(auth('admin')->user()?->can('manage-assistant') ? [
+                self::link('Assistant chats', 'chat', 'admin.assistant.index', ['admin.assistant.*'])
+                    + ['badge' => AssistantConversation::where('user_messages', '>', 0)->where('created_at', '>=', today())->count() ?: null, 'badge_title' => 'Chats today'],
+            ] : []),
             self::resource(Resources\NewsletterSubscriberResource::class, 'mail'),
         ];
     }

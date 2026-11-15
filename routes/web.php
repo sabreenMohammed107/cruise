@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AgentController;
+use App\Http\Controllers\AssistantController;
+use App\Http\Controllers\AssistantReportController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
@@ -40,6 +42,18 @@ Route::post('/contact', [ContactController::class, 'store'])->middleware('thrott
 // Become an agent: texts from Admin → Cruise pages, applications in Admin → Agents
 Route::get('/agents', [AgentController::class, 'show'])->name('agents');
 Route::post('/agents', [AgentController::class, 'store'])->middleware('throttle:5,1')->name('agents.store');
+
+// Chat assistant (Claude + read-only tools, App\Services\Assistant): 10 messages a minute, 60 an hour per visitor
+Route::post('/assistant/message', [AssistantController::class, 'message'])->middleware('throttle:assistant')->name('assistant.message');
+// The chat's "Confirm booking" button (a booking prepared by the prepare_booking tool)
+Route::post('/assistant/booking', [AssistantController::class, 'book'])->middleware('throttle:10,1')->name('assistant.booking');
+Route::post('/assistant/reset', [AssistantController::class, 'reset'])->middleware('throttle:10,1')->name('assistant.reset');
+// Reports the chat made for the signed-in user: Excel, print / PDF, save as template (owner only)
+Route::middleware(['auth:web', 'throttle:30,1'])->prefix('assistant/reports/{report}')->name('assistant.reports.')->where(['report' => '[0-9]+'])->group(function () {
+    Route::get('excel', [AssistantReportController::class, 'excel'])->name('excel');
+    Route::get('print', [AssistantReportController::class, 'print'])->name('print');
+    Route::post('template', [AssistantReportController::class, 'template'])->name('template');
+});
 
 // Booking: guests → review → confirm (no online payment)
 Route::get('/booking', [BookingController::class, 'show'])->name('booking.show');

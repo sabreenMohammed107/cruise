@@ -6,7 +6,11 @@ use App\Models\Booking;
 use App\Models\User;
 use App\Services\AgentPricing;
 use App\Support\ScDataPresenter;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use App\Services\Assistant\Assistant;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
@@ -23,6 +27,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(AgentPricing::class);
         // Live offers load once per request, like the agent rates
         $this->app->scoped(\App\Services\OfferService::class);
+
+        // php artisan serve on Windows: the variable is "SystemRoot", but Laravel only passes through "SYSTEMROOT"
+        // (case-sensitive), so the server process loses it, can't open a socket and fails with "Failed to listen (reason: ?)".
+        if (PHP_OS_FAMILY === 'Windows' && $this->app->runningInConsole()) {
+            \Illuminate\Foundation\Console\ServeCommand::$passthroughVariables[] = 'SystemRoot';
+        }
     }
 
     /**
@@ -30,6 +40,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Chat assistant: each message costs a Claude call, so a visitor (account, or IP) gets 60 an hour
+        // Website chat: messages a minute and an hour per visitor, set in Admin → Assistant chats
+        RateLimiter::for('assistant', function (Request $request) {
+            $who = $request->user('web')?->id ?: $request->ip();
+
+            return [
+                Limit::perMinute(Assistant::limit('per_minute'))->by('assistant-m:'.$who),
+                Limit::perHour(Assistant::limit('per_hour'))->by('assistant-h:'.$who),
+            ];
+        });
+
         // The super admin (developer, UserRole::SuperAdmin) passes every check in the panel
         Gate::before(fn (User $user) => $user->isSuperAdmin() ? true : null);
         // Signing in to /admin: admins, supervisors and sellers (routes use can:admin-panel).
@@ -38,6 +59,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-content', fn (User $user) => $user->isAdmin() || $user->isSupervisor());
         // Deleting anything: admins only (every DELETE in the panel, Middleware\AuthorizeDeletes).
         Gate::define('delete-records', fn (User $user) => $user->isAdmin());
+        // Admin → Assistant chats (the website chat's conversations, limits and cost): the super admin only, who
+        // passes every check through Gate::before above; nobody else
+        Gate::define('manage-assistant', fn (User $user) => false);
         // Adding and editing people (Customers, Admins & staff): admins only; supervisors can look at the lists.
         Gate::define('manage-users', fn (User $user) => $user->isAdmin());
         // Choosing who a booking is assigned to (any admin, supervisor or seller): admins and supervisors.
