@@ -110,7 +110,7 @@ class LocalizedPagesTest extends TestCase
         return array_replace_recursive([
             'sailing' => 'RSD-261213', 'cabin' => 'balcony',
             'guests' => ['adult' => 1, 'child' => 0, 'infant' => 0],
-            'travellers' => ['adult-1' => ['first' => 'نورة', 'last' => 'القحطاني', 'dob' => '1991-03-02', 'gender' => 'Female', 'nationality' => 'Saudi Arabia']],
+            'travellers' => ['adult-1' => ['first' => 'Noura', 'last' => 'Al-Qahtani', 'dob' => '1991-03-02', 'gender' => 'Female', 'nationality' => 'Saudi Arabia']],
             'contact' => ['email' => 'noura@example.com', 'dial' => '+966', 'phone' => '551234567'],
             'promoCode' => null, 'agreed' => true,
         ], $override);
