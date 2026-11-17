@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 155 tests
+C:\xampp\php\php.exe artisan test                     # 313 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1889,6 +1889,53 @@ what the offer gives, then the discount's calculation: "الطفل يدفع $110
 الخصم …", "… · بحد أقصى $800". Equations are isolated left-to-right (U+2066/2069) with non-breaking spaces, so they
 read correctly on Arabic pages and never split across lines. None for upgrade, free nights, single and 2nd guest offers. **Deploy:** `core.js`, `pages/booking.js`,
 `pages/details.js`, `lang/ar/ui.php`, `lang/en/ui.php`.
+
+### Step 35: Offers get a sailing window next to the booking window (2026-11-17)
+
+Suppliers (e.g. Cruise Saudi) run seasonal promotions such as "book 1 Nov – 31 Dec 2026, for winter sailings
+1 Nov 2026 – 1 Mar 2027": the dates a booking is made and the dates the cruise departs are two separate ranges. Before,
+an offer had only the first; "All cruises" or a whole cruise meant every departure, summer included.
+
+**Two windows on every offer** (`offers` table, `App\Models\Offer`):
+
+| Window | Columns | Meaning | Checked in |
+| --- | --- | --- | --- |
+| Booking window (sales period) | `starts_on` (nullable), `ends_on` (required) | Day the booking is **made** (today). Empty start = from today. Both days included. Unchanged. | `Offer::scopeLive()` |
+| Sailing window (eligible sailings) | `sailing_starts_on`, `sailing_ends_on` (both `DATE NULL`, new) | Sailing's `departure_date`. Either side may be empty = no limit on that side; both empty = every departure (the old behaviour, so existing offers are unchanged). Both days included. | `Offer::covers()` → `Offer::departsInWindow()` |
+
+The task brief called the booking columns `offer_starts_on` / `offer_ends_on`; they already exist as `starts_on` /
+`ends_on` and keep those names (no rename, nothing else changes).
+
+**Eligibility, in order** (an offer applies only when all are true):
+
+1. **Live** (`Offer::scopeLive()`, SQL): active, `starts_on ≤ today` (or empty), `ends_on ≥ today`, bookings left
+   (`used_count < max_uses` or no maximum).
+2. **Covers the sailing** (`Offer::covers()`): its sailing / its cruise / every cruise (level 2 / 1 / 0) **and**
+   `sailing_starts_on ≤ departure_date` (when set) **and** `departure_date ≤ sailing_ends_on` (when set).
+3. **For this visitor** (`Offer::isFor()`): customers / agents.
+4. **Conditions and pricing** (`PricingService::selectOffers()`, `SC.selectOffers` in `core.js`): cabin types,
+   nationalities, ages; the most specific level wins, then the newest offer.
+
+Steps 1–3 run on the server only (`OfferService::filter()`), for the website (`ScDataPresenter` → each sailing's
+`SC_DATA` `offers`), the confirm request (`ConfirmBookingRequest`) and the booking itself (`BookingService`, locked).
+So the browser never sees an offer outside its sailing window and `core.js` needed no change.
+
+**Admin → Pricing & offers → Offers, "Where and when"** (`App\Admin\Resources\OfferResource`):
+
+- *Offer starts on* / *Offer ends on (included)*: help text now says they are the booking window.
+- New *Sailing starts on* / *Sailing ends on (included)*: "Optional: restrict the offer to sailings departing within
+  this date range. Leave empty for all dates." Validation: `nullable|date`; *Sailing ends on* must be the same as or
+  after *Sailing starts on* when both are given.
+- **One sailing chosen in "Only this sailing":** its departure is the only date, so the two sailing fields are hidden
+  (`showWhen('sailing_id', '')`) and `fill()` saves them empty. No conflicting dates are possible.
+- The list's "Applies to" shows the window, e.g. "All cruises · sailing 1 Nov 2026 – 1 Mar 2027",
+  "Red Sea Discovery · sailing from 1 Nov 2026".
+
+**Files:** `database/migrations/2026_11_17_000001_add_sailing_window_to_offers_table.php`, `app/Models/Offer.php`,
+`app/Admin/Resources/OfferResource.php`, `tests/Feature/OffersTest.php` (new
+`test_the_sailing_window_limits_which_departures_get_the_offer`; `test_admin_manages_offers` covers the form,
+validation and clearing for one sailing).
+**Deploy:** upload those files (not the test), run `php artisan migrate --force`, then `php artisan view:clear`.
 
 **Open items (next):**
 

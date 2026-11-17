@@ -24,7 +24,9 @@ use Illuminate\Support\Carbon;
  *                 cabin_categories  only these cabin types (slugs)
  *                 nationalities     every traveller of the cabin for cabin offers, the guest's own for age offers
  *   limits      max_discount (cap per booking) and / or max_uses (bookings)
- *   window      starts_on (empty: now) to ends_on, both days included
+ *   booking     starts_on (empty: now) to ends_on, both days included: when the booking is made (scopeLive())
+ *   sailing     sailing_starts_on to sailing_ends_on, both optional and included: only sailings departing then
+ *               (covers()); empty = every departure. Not used with one sailing (the sailing is its own window).
  *   audience    all · b2c (everyone but agents) · b2b (agents); agent_mode: on top of the commission, or instead of it
  *   promo       combinable: can a promo code be used with it
  */
@@ -36,7 +38,7 @@ class Offer extends Model
 
     protected $fillable = [
         'name', 'cruise_id', 'sailing_id', 'target', 'min_age', 'max_age', 'free_nights', 'upgrade_from', 'type', 'value', 'max_discount', 'max_uses',
-        'cabin_categories', 'nationalities', 'starts_on', 'ends_on', 'audience', 'agent_mode', 'combinable', 'is_active',
+        'cabin_categories', 'nationalities', 'starts_on', 'ends_on', 'sailing_starts_on', 'sailing_ends_on', 'audience', 'agent_mode', 'combinable', 'is_active',
     ];
 
     protected function casts(): array
@@ -57,6 +59,8 @@ class Offer extends Model
             'nationalities' => 'array',
             'starts_on' => 'date',
             'ends_on' => 'date',
+            'sailing_starts_on' => 'date',
+            'sailing_ends_on' => 'date',
             'combinable' => 'boolean',
             'is_active' => 'boolean',
         ];
@@ -88,13 +92,29 @@ class Offer extends Model
         return $this->sailing_id ? 2 : ($this->cruise_id ? 1 : 0);
     }
 
+    /** The offer's cruise / sailing, departing inside its sailing window. */
     public function covers(Sailing $sailing): bool
     {
         return match ($this->level()) {
             2 => (int) $this->sailing_id === (int) $sailing->id,
             1 => (int) $this->cruise_id === (int) $sailing->cruise_id,
             default => true,
-        };
+        } && $this->departsInWindow($sailing->departure_date);
+    }
+
+    /** Sailing window: on or after sailing_starts_on, on or before sailing_ends_on (each skipped when empty). */
+    public function departsInWindow(?\DateTimeInterface $departure): bool
+    {
+        if (! $this->sailing_starts_on && ! $this->sailing_ends_on) {
+            return true;
+        }
+        if (! $departure) {
+            return false;
+        }
+        $day = Carbon::parse($departure)->toDateString();
+
+        return (! $this->sailing_starts_on || $day >= $this->sailing_starts_on->toDateString())
+            && (! $this->sailing_ends_on || $day <= $this->sailing_ends_on->toDateString());
     }
 
     public function isFor(bool $agent): bool
@@ -164,13 +184,25 @@ class Offer extends Model
         };
     }
 
-    /** Admin list: "Red Sea Discovery · RSD-261213", "Red Sea Discovery (all dates)" or "All cruises". */
+    /**
+     * Admin list: "Red Sea Discovery · RSD-261213", "Red Sea Discovery (all dates)", "All cruises", and with a sailing
+     * window e.g. "All cruises · sailing 1 Nov 2026 – 1 Mar 2027" / "… · sailing from 1 Nov 2026" / "… until …".
+     */
     public function getScopeLabelAttribute(): string
     {
+        $from = $this->sailing_starts_on?->format('j M Y');
+        $until = $this->sailing_ends_on?->format('j M Y');
+        $window = match (true) {
+            $from && $until => " · sailing $from – $until",
+            (bool) $from => " · sailing from $from",
+            (bool) $until => " · sailing until $until",
+            default => null,
+        };
+
         return match ($this->level()) {
             2 => ($this->cruise?->name ?? '').' · '.($this->sailing?->code ?? ''),
-            1 => ($this->cruise?->name ?? '').' (all dates)',
-            default => 'All cruises',
+            1 => ($this->cruise?->name ?? '').($window ?? ' (all dates)'),
+            default => 'All cruises'.$window,
         };
     }
 

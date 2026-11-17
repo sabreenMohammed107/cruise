@@ -149,6 +149,34 @@ class OffersTest extends TestCase
         $this->assertSame('Used up', $used->fresh()->status_label);
     }
 
+    public function test_the_sailing_window_limits_which_departures_get_the_offer(): void
+    {
+        $cruise = $this->sailing()->cruise_id;
+        $other = Sailing::where('code', 'RSD-261115')->sole(); // same cruise, departs 15 Nov 2026
+
+        // Booking window open today; sailing window: winter departures from 1 Dec 2026 (RSD-261213 in, RSD-261115 out)
+        $winter = $this->offer(['cruise_id' => null, 'sailing_starts_on' => '2026-12-01', 'sailing_ends_on' => '2027-03-01']);
+        $this->assertTrue($winter->covers($this->sailing()));
+        $this->assertFalse($winter->covers($other));
+        $this->assertSame([$winter->id], array_column($this->publishedOffers(), 'id'));
+        $this->assertSame('8064.00', $this->book()->grand_total);
+
+        // Both days included; each side alone
+        $this->assertTrue($this->offer(['cruise_id' => $cruise, 'sailing_starts_on' => '2026-12-13', 'sailing_ends_on' => '2026-12-13'])->covers($this->sailing()));
+        $this->assertFalse($this->offer(['sailing_ends_on' => '2026-12-12'])->covers($this->sailing()));
+        $this->assertTrue($this->offer(['sailing_ends_on' => '2026-12-12'])->covers($other));
+        $this->assertFalse($this->offer(['sailing_starts_on' => '2026-12-14'])->covers($this->sailing()));
+
+        // Inside the sailing window but outside the booking window: not applied
+        Offer::query()->delete();
+        $this->offer(['ends_on' => '2026-10-10', 'sailing_starts_on' => '2026-12-01']);
+        $this->assertSame([], $this->publishedOffers());
+        $this->assertSame('8960.00', $this->book(['contact' => ['email' => 'second@example.com']])->grand_total);
+
+        // Admin list shows the window
+        $this->assertSame('All cruises · sailing 1 Dec 2026 – 1 Mar 2027', $winter->scope_label);
+    }
+
     public function test_the_last_day_is_included_and_max_bookings_stops_the_offer(): void
     {
         $offer = $this->offer(['ends_on' => '2026-10-11', 'max_uses' => 1]);
@@ -434,5 +462,15 @@ class OffersTest extends TestCase
 
         // Editing shows the ticked switches
         $this->get(route('admin.offers.edit', $offer))->assertOk()->assertSee('name="if_cabins" value="1" class="check" checked', false);
+
+        // Sailing window: saved with "all sailings", must not end before it starts, cleared for a single sailing
+        $this->get(route('admin.offers.create'))->assertOk()->assertSee('Sailing starts on')
+            ->assertSee('data-show-when="sailing_id" data-show-values=""', false);
+        $this->post(route('admin.offers.store'), ['sailing_starts_on' => '2027-03-01', 'sailing_ends_on' => '2026-11-01'] + $fare)->assertSessionHasErrors('sailing_ends_on');
+        $this->post(route('admin.offers.store'), ['name' => 'Winter', 'cruise_id' => '', 'sailing_starts_on' => '2026-11-01', 'sailing_ends_on' => '2027-03-01'] + $fare)->assertSessionHasNoErrors();
+        $winter = Offer::where('name', 'Winter')->sole();
+        $this->assertSame(['2026-11-01', '2027-03-01'], [$winter->sailing_starts_on->toDateString(), $winter->sailing_ends_on->toDateString()]);
+        $this->post(route('admin.offers.store'), ['name' => 'One date', 'sailing_starts_on' => '2026-11-01', 'sailing_ends_on' => '2027-03-01'] + $form)->assertSessionHasNoErrors();
+        $this->assertSame([null, null], [Offer::where('name', 'One date')->sole()->sailing_starts_on, Offer::where('name', 'One date')->sole()->sailing_ends_on]);
     }
 }
