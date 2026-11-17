@@ -159,6 +159,43 @@ class AssistantBookingTest extends TestCase
         $this->assertSame(['user', 'assistant', 'user', 'assistant', 'user'], $roles);
     }
 
+    public function test_the_booking_summary_names_the_offers_and_the_saving(): void
+    {
+        $super = $this->user(UserRole::SuperAdmin);
+        $sailing = \App\Models\Sailing::where('code', 'RSD-261213')->sole();
+        \App\Models\Offer::create(['name' => 'Summer deal', 'name_ar' => 'عرض الصيف', 'cruise_id' => $sailing->cruise_id,
+            'target' => 'fare', 'type' => 'percent', 'value' => 10, 'ends_on' => '2026-10-31']);
+        Http::fake(['claude.test/*' => Http::sequence()->push(self::prepare(self::booking()))->push(self::text('ok'))]);
+
+        $res = $this->actingAs($super, 'web')->postJson('/assistant/message', ['message' => 'Book it'])->assertOk();
+        $card = collect($res->json('ui'))->firstWhere('type', 'booking');
+        $lines = implode("\n", $card['lines']);
+        $this->assertStringContainsString('Offer: Summer deal (−', $lines);
+        $this->assertStringContainsString('Price before offers:', $lines);
+
+        // What Claude sees on the next turn: the offer, its discount and the price before it
+        $result = collect(AssistantConversation::sole()->messages)->flatMap(fn ($m) => is_array($m['content']) ? $m['content'] : [])
+            ->firstWhere('type', 'tool_result');
+        $data = json_decode($result['content'], true);
+        $this->assertSame('Summer deal', $data['offers'][0]['name']);
+        $this->assertGreaterThan(0, $data['offers'][0]['discount']['usd']);
+        $this->assertEqualsWithDelta($data['total']['usd'] + $data['offers'][0]['discount']['usd'], $data['price_before_offers']['usd'], 0.01);
+
+        // The booking costs what the summary said
+        $this->actingAs($super, 'web')->postJson('/assistant/booking', ['id' => $card['id']])->assertCreated();
+        $this->assertEqualsWithDelta($data['total']['usd'], (float) Booking::latest('id')->first()->grand_total, 0.01);
+    }
+
+    public function test_a_booking_without_offers_has_no_offer_lines(): void
+    {
+        $super = $this->user(UserRole::SuperAdmin);
+        Http::fake(['claude.test/*' => Http::sequence()->push(self::prepare(self::booking()))->push(self::text('ok'))]);
+
+        $card = collect($this->actingAs($super, 'web')->postJson('/assistant/message', ['message' => 'Book it'])->json('ui'))->firstWhere('type', 'booking');
+        $this->assertStringNotContainsString('Offer:', implode("\n", $card['lines']));
+        $this->assertStringNotContainsString('Price before offers', implode("\n", $card['lines']));
+    }
+
     public function test_wrong_details_come_back_to_claude_and_nothing_is_kept(): void
     {
         $super = $this->user(UserRole::SuperAdmin);

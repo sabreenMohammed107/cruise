@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
 use App\Notifications\ResetPassword;
+use App\Support\TestAccounts;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -135,6 +136,15 @@ class User extends Authenticatable
     public function scopeStaff(Builder $query): void
     {
         $query->whereIn('role', UserRole::staff());
+    }
+
+    /** Admin panel: without the super admin's test accounts, unless the viewer is the super admin. */
+    public function scopeVisibleTo(Builder $query, ?User $viewer): void
+    {
+        $hidden = TestAccounts::hiddenFrom($viewer);
+        if ($hidden) {
+            $query->whereNotIn($this->qualifyColumn('id'), $hidden);
+        }
     }
 
     public function scopeSellers(Builder $query): void

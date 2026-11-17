@@ -31,7 +31,7 @@ class SailingController extends Controller
     {
         $sailings = $cruise->sailings()
             ->with('cabinPrices.cabinCategory')
-            ->withCount(['bookings as booked_count' => fn ($q) => $q->where('status', BookingStatus::Confirmed)])
+            ->withCount(['bookings as booked_count' => fn ($q) => $q->visibleTo(request()->user())->where('status', BookingStatus::Confirmed)])
             ->get();
 
         return view('admin.sailings.index', compact('cruise', 'sailings'));

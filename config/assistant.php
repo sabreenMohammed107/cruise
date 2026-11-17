@@ -18,6 +18,11 @@ return [
     // there) or "everyone"
     'audience' => env('ASSISTANT_AUDIENCE', 'testers'),
 
+    // The super admin's test accounts (the agents chosen in Admin → Assistant chats): their bookings are hidden from
+    // the rest of the panel, and the team's "new booking" email goes here instead of CRUISE_TEAM_EMAIL
+    // (App\Support\TestAccounts). The customer's own confirmation still goes to the booking's contact email.
+    'test_email' => env('ASSISTANT_TEST_EMAIL', 'sabreenm312@gmail.com'),
+
     'api_key' => env('ANTHROPIC_API_KEY'),
     'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
     'api_version' => '2023-06-01',
@@ -35,6 +40,11 @@ return [
 
     // Longest visitor message, in characters
     'max_message_length' => 1000,
+
+    // Photos in the chat (the super admin and the accounts chosen in Admin → Assistant chats only): largest image
+    // after the browser shrinks it, and images per conversation. Never saved (App\Services\Assistant\ImageInput).
+    'max_image_bytes' => 5 * 1024 * 1024,
+    'max_images_per_chat' => (int) env('ASSISTANT_MAX_IMAGES', 5),
 
     // Messages sent to Claude each time: the latest ones of the conversation (older ones are dropped)
     'history_messages' => 40,

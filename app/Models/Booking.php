@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\PaymentType;
 use App\Services\CurrencyService;
+use App\Support\TestAccounts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -93,6 +94,16 @@ class Booking extends Model
     public function scopeChannel(Builder $query, string $channel): void
     {
         $channel === 'agent' ? $query->whereNotNull('agent_id') : $query->whereNull('agent_id');
+    }
+
+    /** Admin panel: without the super admin's test accounts' bookings, unless the viewer is the super admin. */
+    public function scopeVisibleTo(Builder $query, ?User $viewer): void
+    {
+        $hidden = TestAccounts::hiddenFrom($viewer);
+        if ($hidden) {
+            $query->where(fn (Builder $q) => $q->whereNull('user_id')->orWhereNotIn('user_id', $hidden))
+                ->where(fn (Builder $q) => $q->whereNull('agent_id')->orWhereNotIn('agent_id', $hidden));
+        }
     }
 
     public function sailing(): BelongsTo

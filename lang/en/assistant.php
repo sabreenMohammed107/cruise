@@ -23,6 +23,15 @@ return [
     'limit' => 'This chat has reached its limit. Start a new chat, or message our team on WhatsApp.',
     'too_many' => 'You\'re sending messages quickly. Please wait a moment and try again.',
 
+    // Photos (chosen accounts only, ImageInput)
+    'attach_image' => 'Send a photo',
+    'remove_image' => 'Remove the photo',
+    'image_sent' => 'Photo',
+    'image_hint' => 'Send or paste (Ctrl+V) a photo of a city or a landmark, and I\'ll find the cruises that go there.',
+    'image_default' => 'Where is this place? Show me cruises that go there.',
+    'image_invalid' => 'I couldn\'t read that photo. Please send a JPG, PNG or WebP image.',
+    'image_limit' => 'This chat has reached its limit of photos. Start a new chat to send more.',
+
     // Signed-in visitors start with reports (Tools\RunReport)
     'welcome_user' => 'Hi :name 👋 Which report would you like?',
     'report_topics' => [
@@ -41,6 +50,8 @@ return [
         'infant' => 'infant',
         'contact' => 'Contact',
         'promo' => 'Promo code',
+        'offer' => 'Offer: :name (−:amount)',
+        'before_offers' => 'Price before offers: :amount',
         'total' => 'Total',
         'agent_rate' => 'agent rate',
         'terms' => 'By confirming you accept the terms & conditions and the cancellation policy. Nothing is paid now: our team contacts you within :hours hours to arrange payment.',

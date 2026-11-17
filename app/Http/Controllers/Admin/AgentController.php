@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\User;
+use App\Support\TestAccounts;
 use Illuminate\View\View;
 
 /**
@@ -21,6 +22,8 @@ class AgentController extends Controller
     {
         // Agents, and former agents who still have agent bookings
         abort_unless($agent->isAgent() || $agent->agentBookings()->exists(), 404);
+        // The super admin's test accounts: for the super admin only (App\Support\TestAccounts)
+        abort_if(in_array($agent->id, TestAccounts::hiddenFrom(request()->user()), true), 404);
 
         $bookings = $agent->agentBookings()->with(['sailing.cruise', 'cabinCategory', 'cabins.cabinCategory', 'agentTier'])->latest()->get();
         $live = $bookings->where('status', '!=', BookingStatus::Cancelled);
