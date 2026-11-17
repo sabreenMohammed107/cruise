@@ -37,8 +37,9 @@ Route::post('bookings/{booking:reference}/payments', [BookingController::class, 
 Route::get('bookings/{booking:reference}/payments/{payment}/receipts/{receipt}', [BookingController::class, 'receipt'])->name('bookings.payments.receipt');
 
 Route::middleware('can:manage-content')->group(function () {
-    // Admins and supervisors: cancel, assign bookings to sellers, and remove payment entries (a delete: admins only)
-    Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+    // Admins and supervisors: assign bookings to sellers, and remove payment entries (a delete: admins only).
+    // Cancelling a booking: admins only (gate cancel-bookings, step 37).
+    Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel')->middleware('can:cancel-bookings');
     Route::delete('bookings/{booking:reference}/payments/{payment}', [BookingController::class, 'destroyPayment'])->name('bookings.payments.destroy');
     Route::patch('bookings/{booking:reference}/seller', [BookingController::class, 'assignSeller'])->name('bookings.seller')->middleware('can:assign-bookings');
 

@@ -40,6 +40,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('delete-records', fn (User $user) => $user->isAdmin());
         // Adding and editing people (Customers, Admins & staff): admins only; supervisors can look at the lists.
         Gate::define('manage-users', fn (User $user) => $user->isAdmin());
+        // Cancelling a booking: admins and the super admin only; not supervisors, sellers or agents (step 37).
+        // Route admin.bookings.cancel (can:cancel-bookings), Admin\BookingController::cancel() and the button.
+        Gate::define('cancel-bookings', fn (User $user) => $user->isAdmin() || $user->isSuperAdmin());
         // Choosing who a booking is assigned to (any admin, supervisor or seller): admins and supervisors.
         Gate::define('assign-bookings', fn (User $user) => $user->isAdmin() || $user->isSupervisor());
         // A booking's admin page and voucher: admins, supervisors, and the seller it is assigned to.

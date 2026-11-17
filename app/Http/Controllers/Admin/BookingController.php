@@ -113,8 +113,10 @@ class BookingController extends Controller
         return back()->with('status', 'Notes saved.');
     }
 
+    /** Admins only (gate cancel-bookings, also on the route): supervisors and sellers get 403. */
     public function cancel(Booking $booking): RedirectResponse
     {
+        Gate::authorize('cancel-bookings');
         abort_if($booking->status === BookingStatus::Cancelled, 409);
 
         $booking->update(['status' => BookingStatus::Cancelled, 'cancelled_at' => now()]);
