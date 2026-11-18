@@ -383,7 +383,7 @@ document.addEventListener('sc:ready', () => {
           ${used.map((o) => item(o, o.discount, SC.offerHint(o), true)).join('')}
           ${pending.map((o) => item(o, 0, gives(o), false)).join('')}
         </ul>
-        ${used.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(q.offerDiscount)}</span></div>` : ''}
+        ${used.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(used.reduce((s, o) => s + o.discount, 0))}</span></div>` : ''}
       </div>`;
   }
 
