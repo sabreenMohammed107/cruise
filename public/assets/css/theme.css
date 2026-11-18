@@ -132,6 +132,18 @@ select.field {
 }
 .perf-x::before { left: -26px; }
 .perf-x::after { right: -26px; }
+/* Booking summary of a cruise page (sticky sidebar, details.js): never taller than the screen. The middle scrolls
+   on its own; the total and the "Continue" button stay pinned at the bottom of the card. */
+.summary-card { display: flex; flex-direction: column; max-height: calc(100vh - 200px); }
+.summary-card > * { flex-shrink: 0; }
+.summary-card > .sum-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #C9DCEC transparent;
+}
+.summary-card > .sum-foot {
+  padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--line); background: #fff;
+  box-shadow: 0 -12px 24px -20px rgba(12,45,78,.45);
+}
 .perf-y { position: relative; border-inline-start: 2px dashed var(--line); }
 .perf-y::before, .perf-y::after {
   content: ''; position: absolute; inset-inline-start: -12px; width: 22px; height: 22px; border-radius: 50%;

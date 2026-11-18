@@ -40,7 +40,7 @@ class PageTranslationTest extends TestCase
             '/ship' => [['Home', 'The ship'], ['الرئيسية', 'السفينة']],
             '/cruises' => [['Home', 'Cruises'], ['الرئيسية', 'الرحلات']],
             '/destinations' => [['Home', 'Destinations'], ['الرئيسية', 'الوجهات']],
-            '/cruises/red-sea-discovery' => [['Home', 'Cruises', 'Red Sea Discovery'], ['الرئيسية', 'الرحلات', 'اكتشاف البحر الأحمر']],
+            '/cruises/red-sea-discovery' => [['Home', 'Cruises', 'Red Sea Discovery'], ['الرئيسية', 'الرحلات', 'اكتشاف البحر المتوسط']],
         ];
 
         foreach ($pages as $url => [$en, $ar]) {
@@ -66,8 +66,8 @@ class PageTranslationTest extends TestCase
     {
         $checks = [
             '/' => [
-                'en' => ['<title>Safer Cruise | Red Sea cruises aboard AROYA</title>', 'aria-label="Previous photo"', '>Email address</label>', '2 adults'],
-                'ar' => ['<title>Safer Cruise | رحلات البحر الأحمر على متن أرويا</title>', 'aria-label="الصورة السابقة"', '>البريد الإلكتروني</label>', 'بالغان'],
+                'en' => ['<title>Safer Cruise | Mediterranean cruises aboard AROYA</title>', 'aria-label="Previous photo"', '>Email address</label>', '2 adults'],
+                'ar' => ['<title>Safer Cruise | رحلات البحر المتوسط على متن أرويا</title>', 'aria-label="الصورة السابقة"', '>البريد الإلكتروني</label>', 'بالغان'],
             ],
             '/ship' => [
                 'en' => ['<title>The ship: AROYA | Safer Cruise</title>', '>About the ship</a>', '>Questions</a>', 'mt-2">AROYA</h1>'],
@@ -79,7 +79,7 @@ class PageTranslationTest extends TestCase
             ],
             '/cruises/red-sea-discovery' => [
                 'en' => ['<title>Red Sea Discovery | Safer Cruise</title>', '>Cabins &amp; prices</a>', 'View all photos', '>Expand all</button>', '>Continue</button>'],
-                'ar' => ['<title>اكتشاف البحر الأحمر | Safer Cruise</title>', '>الكبائن والأسعار</a>', 'عرض كل الصور', '>توسيع الكل</button>', '>متابعة</button>'],
+                'ar' => ['<title>اكتشاف البحر المتوسط | Safer Cruise</title>', '>الكبائن والأسعار</a>', 'عرض كل الصور', '>توسيع الكل</button>', '>متابعة</button>'],
             ],
             '/destinations' => [
                 'en' => ['<title>Destinations | Safer Cruise</title>', 'aria-label="Filter by country"'],

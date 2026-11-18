@@ -15,7 +15,8 @@ use Illuminate\Support\Carbon;
 /**
  * A time-limited offer (Admin → Pricing & offers → Offers), priced by App\Services\PricingService::quoteBooking().
  *
- *   scope       every cruise · one cruise (all its sailings) · one sailing — the most specific one wins
+ *   scope       every cruise · one cruise (all its sailings) · one sailing. Offers of the same kind add up, the most
+ *               specific first (free nights and upgrade: only that first one)
  *   target      fare: the whole cabin price · age: each paying guest of an age range · third_guest / second_guest:
  *               what that guest adds · single: the single supplement of a guest alone in a cabin · free_nights:
  *               nights off the cabin price · upgrade: the cabin at the price of a cheaper cabin (upgrade_from)
@@ -86,7 +87,7 @@ class Offer extends Model
             ->where(fn (Builder $q) => $q->whereNull('max_uses')->orWhereColumn('used_count', '<', 'max_uses'));
     }
 
-    /** 2 = one sailing, 1 = one cruise, 0 = every cruise: the higher wins, then the newest offer. */
+    /** 2 = one sailing, 1 = one cruise, 0 = every cruise: the higher applies first, then the newest offer. */
     public function level(): int
     {
         return $this->sailing_id ? 2 : ($this->cruise_id ? 1 : 0);

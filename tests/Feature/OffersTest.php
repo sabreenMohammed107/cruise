@@ -123,16 +123,32 @@ class OffersTest extends TestCase
             ->get(route('admin.bookings.show', $booking))->assertOk()->assertSee('Offer: Summer deal');
     }
 
-    public function test_a_sailing_offer_wins_over_the_cruise_offer(): void
+    public function test_offers_of_the_same_kind_add_up_the_most_specific_first(): void
     {
-        $this->offer(['value' => 10]);
-        $this->offer(['name' => 'Last seats', 'sailing_id' => $this->sailing()->id, 'type' => 'fixed', 'value' => 500]);
+        $cruise = $this->offer(['value' => 10]);
+        $sailing = $this->offer(['name' => 'Last seats', 'sailing_id' => $this->sailing()->id, 'type' => 'fixed', 'value' => 500]);
 
         $booking = $this->book();
 
-        // 500 off the cabin, the cruise's 10% left out
-        $this->assertSame(['500.00', '8460.00'], [$booking->offer_discount_total, $booking->grand_total]);
-        $this->assertSame(['Last seats'], array_column($booking->price_snapshot['offers'], 'name'));
+        // The sailing's 500 first (8960 → 8460), then the cruise's 10% of what is left (846): 1346 off
+        $this->assertSame(['1346.00', '7614.00'], [$booking->offer_discount_total, $booking->grand_total]);
+        $this->assertSame([['Last seats', 500], ['Summer deal', 846]], array_map(fn ($o) => [$o['name'], $o['discount']], $booking->price_snapshot['offers']));
+        // Both counted
+        $this->assertSame([1, 1], [$sailing->fresh()->used_count, $cruise->fresh()->used_count]);
+
+        // Same level: the newest first. A 1% offer made after a fixed 50: 1% of 8960 = 89.60, then 50 off the rest
+        Offer::query()->update(['is_active' => false]);
+        $this->offer(['name' => 'Fifty off', 'cruise_id' => null, 'type' => 'fixed', 'value' => 50]);
+        $this->offer(['name' => 'One percent', 'cruise_id' => null, 'value' => 1]);
+        $both = $this->book(['contact' => ['email' => 'both@example.com']]);
+        $this->assertSame([['One percent', 89.6], ['Fifty off', 50]], array_map(fn ($o) => [$o['name'], $o['discount']], $both->price_snapshot['offers']));
+        $this->assertSame('8820.40', $both->grand_total);
+
+        // Two age offers on one guest: the child's 1680, 50% → 840, then 10% of the 840 left → 84
+        Offer::query()->update(['is_active' => false]);
+        $this->offer(['name' => 'Kids half', 'target' => 'age', 'max_age' => 11, 'value' => 50]);
+        $this->offer(['name' => 'Kids extra', 'target' => 'age', 'max_age' => 11, 'value' => 10]);
+        $this->assertSame('924.00', $this->book(['contact' => ['email' => 'kids@example.com']])->offer_discount_total);
     }
 
     public function test_offers_outside_their_dates_switched_off_or_used_up_are_not_applied(): void

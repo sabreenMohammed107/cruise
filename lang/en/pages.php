@@ -22,8 +22,8 @@ return [
     ],
 
     'home' => [
-        'title' => 'Safer Cruise | Red Sea cruises aboard AROYA',
-        'description' => 'Book AROYA cruises from Jeddah and Yanbu with Safer Cruise. Clear prices for adults, children and infants.',
+        'title' => 'Safer Cruise | Mediterranean cruises aboard AROYA',
+        'description' => 'Book AROYA cruises from Alexandria and Istanbul with Safer Cruise. Clear prices for adults, children and infants.',
         'search_button' => 'Search cruises',
         'cabin_categories' => 'Cabin categories',
         'previous_photo' => 'Previous photo',
@@ -51,7 +51,7 @@ return [
 
     'catalog' => [
         'title' => 'All cruises | Safer Cruise',
-        'description' => 'Every AROYA departure from Jeddah and Yanbu, with prices per person and filters by port, date, nights and cabin.',
+        'description' => 'Every AROYA departure from Alexandria and Istanbul, with prices per person and filters by port, date, nights and cabin.',
         'search_label' => 'Search by cruise name',
         'filters' => 'Filters',
         'clear_all' => 'Clear all',
@@ -142,7 +142,7 @@ return [
     // Headings and texts of the page itself: Admin → Cruise pages → Become an agent
     'agents' => [
         'title' => 'Become our agent | Safer Cruise',
-        'description' => 'Travel agencies: join the Safer agents program and sell AROYA Red Sea cruises at agent prices, with a dedicated support team.',
+        'description' => 'Travel agencies: join the Safer agents program and sell AROYA Mediterranean cruises at agent prices, with a dedicated support team.',
         'fields' => [
             'company_name' => 'Company name',
             'contact_name' => 'Contact person',

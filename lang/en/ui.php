@@ -175,6 +175,17 @@ return [
         // Time-limited offers (Admin → Offers)
         'offer' => 'Offer: :name',
         'age_offer_note' => 'Some offers (:offers) depend on the travellers and are taken off once you enter their details.',
+        // Offers box of the summary: each offer, its discount and its state
+        'offers_title' => 'Offers on your booking',
+        'offer_applied' => 'Applied',
+        'offer_pending' => 'Taken off once you enter the travellers',
+        'offer_until' => 'Until :date',
+        'offer_ages' => 'Ages :min–:max',
+        'offer_ages_from' => 'Ages :min and over',
+        'offer_percent' => ':value% off',
+        'offer_fixed' => ':value off',
+        'offer_price' => 'Price :value',
+        'offers_saving' => 'You save',
         'continue_guests' => 'Continue to guest details',
         'choose_cabin' => 'Choose a cabin',
         'choose_to_continue' => 'Choose a cabin to continue',

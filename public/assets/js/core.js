@@ -313,11 +313,12 @@
   /* Laravel (step 26): time-limited offers, Admin → Pricing & offers → Offers. sailing.offers holds the live offers of
      this sailing for this visitor (customer or agent, ScDataPresenter); the rest is PricingService::selectOffers() /
      quoteBooking():
-       choice     per cabin, among offers fitting its cabin type and the nationalities of its travellers: the most
-                  specific (sailing → cruise → every cruise), then the newest
-                  — one each of upgrade (its cabin priced on the sailing), fare, free nights, 3rd guest (3 paying
-                  guests), single (1 paying guest) and 2nd guest (2+ paying guests), and per paying guest with a date
-                  of birth one age offer (their age on the departure date, their nationality)
+       choice     per cabin, among offers fitting its cabin type and the nationalities of its travellers, in this
+                  order: the most specific (sailing → cruise → every cruise), then the newest
+                  — offers of one kind add up, one after the other on what is left: every fare, 3rd guest (3 paying
+                  guests), single (1 paying guest) and 2nd guest (2+ paying guests) offer, and per paying guest with a
+                  date of birth every age offer (their age on the departure date, their nationality); one upgrade
+                  (its cabin priced on the sailing) and one free-nights offer
        amounts    upgrade: F − the same guests' fare in the cheaper cabin; fare: of what is left; free nights: what is
                   left × free nights ÷ nights → fraction left k; 3rd guest: the extra line × k; single:
                   (single − double ÷ 2) × k; 2nd guest: (double − single) × k; age: the guest's own price
@@ -327,7 +328,9 @@
        promo      on fare − offers, only if every offer used is combinable
      An offer with replaceAgent prices an agent's booking at the public prices (no commission). */
   const cents = (n) => Math.floor(n * 100 + 0.5) / 100;
-  const bestOffer = (list) => list.reduce((best, o) => (!best || o.level > best.level || (o.level === best.level && o.id > best.id) ? o : best), null);
+  // Most specific first, then the newest (PricingService::selectOffers); bestOffer: the first of them
+  const orderOffers = (list) => [...list].sort((a, b) => b.level - a.level || b.id - a.id);
+  const bestOffer = (list) => orderOffers(list)[0] || null;
   SC.offerAmount = (o, base, units = 1) => (base <= 0 ? 0
     : o.type === 'free' ? base
     : o.type === 'fixed' ? Math.min(o.value * units, base)
@@ -356,22 +359,24 @@
         const t = travellers[`${band}-${n}`] || {};
         if (!t.dob || !/^\d{4}-\d{2}-\d{2}$/.test(t.dob)) continue;
         const years = SC.ageAt(t.dob, sailing.departure).years;
-        const o = bestOffer(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge) && fitsNationalities(x, [t.nationality])));
-        if (o) { age.push(o); agePositions.push(position); }
+        // Every age offer the guest fits (the same position repeated)
+        orderOffers(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge) && fitsNationalities(x, [t.nationality])))
+          .forEach((o) => { age.push(o); agePositions.push(position); });
       }
+      const of = (target) => orderOffers(whole.filter((o) => o.target === target));
       return {
-        fare: bestOffer(whole.filter((o) => o.target === 'fare')),
+        fare: of('fare'),
         nights: bestOffer(whole.filter((o) => o.target === 'free_nights')),
         upgrade: bestOffer(whole.filter((o) => o.target === 'upgrade' && o.upgradeFrom !== r.cabinId && (sailing.prices || {})[o.upgradeFrom])),
-        third: paying > 2 ? bestOffer(whole.filter((o) => o.target === 'third_guest')) : null,
-        single: paying === 1 ? bestOffer(whole.filter((o) => o.target === 'single')) : null,
-        second: paying >= 2 ? bestOffer(whole.filter((o) => o.target === 'second_guest')) : null,
+        third: paying > 2 ? of('third_guest') : [],
+        single: paying === 1 ? of('single') : [],
+        second: paying >= 2 ? of('second_guest') : [],
         age, agePositions
       };
     });
     // Whether the commission is dropped and a promo code allowed is decided in SC.quoteRooms, on the offers that
     // actually take something off
-    const applied = cabins.flatMap((c) => [c.upgrade, c.fare, c.nights, c.third, c.single, c.second, ...c.age]).filter(Boolean);
+    const applied = cabins.flatMap((c) => [c.upgrade, ...c.fare, c.nights, ...c.third, ...c.single, ...c.second, ...c.age]).filter(Boolean);
     return { cabins, applied };
   };
   // One paying guest's own price (PricingService::guestPrice): alone → single; 1st / 2nd → double ÷ 2; 3rd+ → extra
@@ -393,25 +398,32 @@
       const take = (o, amount, base) => { add(o, amount, { base, units: 1 }); taken += amount; };
       // Whole-cabin offers, one after the other on what is left
       if (c.upgrade) take(c.upgrade, SC.offerAmount(c.upgrade, Math.max(0, p.fare - context[i].upgradeFare)));
-      if (c.fare) take(c.fare, SC.offerAmount(c.fare, p.fare - taken), p.fare - taken);
+      c.fare.forEach((o) => take(o, SC.offerAmount(o, p.fare - taken), p.fare - taken));
       if (c.nights && context[i].nights > 0) take(c.nights, (p.fare - taken) * Math.min(c.nights.freeNights, context[i].nights) / context[i].nights);
       const left = p.fare > 0 ? (p.fare - taken) / p.fare : 0;
-      // Parts of the cabin price, at what is left of it
-      const thirdOff = c.third ? SC.offerAmount(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2)) : 0;
-      const singleOff = c.single ? SC.offerAmount(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left) : 0;
-      const secondOff = c.second ? SC.offerAmount(c.second, Math.max(0, p.prices.double - p.prices.single) * left) : 0;
-      if (c.third) add(c.third, thirdOff, { base: p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, units: Math.max(0, paying - 2) });
-      if (c.single) add(c.single, singleOff);
-      if (c.second) add(c.second, secondOff);
-      // Age offers: on the guest's own price, less what the offers above took from that guest
+      // Parts of the cabin price, at what is left of it; several offers on one part, one after the other
+      const stack = (list, base, units = 1) => list.reduce((off, o) => {
+        const amount = SC.offerAmount(o, base - off, units);
+        add(o, amount, { base: base - off, units });
+        return off + amount;
+      }, 0);
+      const thirdOff = stack(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2));
+      const singleOff = stack(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left);
+      const secondOff = stack(c.second, Math.max(0, p.prices.double - p.prices.single) * left);
+      // Age offers: on the guest's own price, less what the offers above (and the guest's age offers before this
+      // one) took from that guest
+      const ageTaken = {};
       c.age.forEach((o, k) => {
         const pos = (c.agePositions || [])[k] || 1;
         const price = SC.guestPrice(p.prices, paying, pos) * left
           - (pos > 2 ? thirdOff / Math.max(1, paying - 2) : 0)
           - (paying === 1 ? singleOff : 0)
-          - (paying >= 2 && pos <= 2 ? secondOff / 2 : 0);
+          - (paying >= 2 && pos <= 2 ? secondOff / 2 : 0)
+          - (ageTaken[pos] || 0);
         const guest = { price: Math.max(0, price), who: pos > (p.guests.adult || 0) ? 'child' : 'adult', role: paying === 1 ? 'single' : pos <= 2 ? 'double' : 'third' };
-        add(o, SC.offerAmount(o, guest.price), { base: guest.price, guest, units: 1 });
+        const amount = SC.offerAmount(o, guest.price);
+        add(o, amount, { base: guest.price, guest, units: 1 });
+        ageTaken[pos] = (ageTaken[pos] || 0) + amount;
       });
     });
     return [...totals.values()].map(({ offer, amount, base, guests, units }) => {
