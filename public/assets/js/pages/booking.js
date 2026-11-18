@@ -485,12 +485,26 @@ document.addEventListener('sc:ready', () => {
   });
 
   /* ---------- Summary (sidebar + mobile collapsible) ---------- */
+  /* The summary in three parts: what is paid (cabins at the public price, port taxes) and its subtotal; then every
+     discount in the green box (agent commission, offers, promo code, SC.ui.offersBox); then the net total, pinned at
+     the bottom of the card while the middle scrolls (.summary-card in theme.css). */
   const renderSummary = () => {
     const q = quote();
     // A row: the label takes the room left and wraps; the amount keeps its width and never breaks
     const row = 'flex items-start justify-between gap-3';
     const label = 'min-w-0 flex-1 break-words';
     const amount = 'shrink-0 text-end whitespace-nowrap';
+    // Agents: each cabin at the public price; the commission is one of the discounts below
+    const charges = several
+      ? q.rooms.map((p) => `<div class="${row}"><dt class="${label} text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd class="${amount}">${SC.money(p.agent ? p.agent.publicFare : p.fare)}</dd></div>`).join('')
+      : (q.agent && q.rooms[0].prices.public ? SC.fareLines(q.rooms[0].prices.public, q.rooms[0].guests) : q.lines)
+        .map((l) => `<div class="${row}"><dt class="${label} text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="${amount}">${SC.money(l.total)}</dd></div>`).join('');
+    const subtotal = (q.agent ? q.agent.publicFare : q.fare) + q.fees;
+    const lead = q.agent ? [{ name: agentLabel(q.agent), amount: q.agent.saving, detail: t('agent_public_fare', { amount: SC.money(q.agent.publicFare) }) }] : [];
+    const extras = q.discount ? [{ name: t('discount', { code: q.promo.code }), amount: q.discount }] : [];
+    // Offers by age / nationality are listed as waiting only while a paying traveller still misses those details
+    const waiting = slots.some((s) => s.band !== 'infant' && !((b.travellers[s.key] || {}).dob && (b.travellers[s.key] || {}).nationality));
+    const discounts = SC.ui.offersBox(q, sailing, { rooms, lead, extras, pending: waiting, title: 'discounts_title' });
     const html = `
       <div class="p-4 sm:p-5 flex gap-4">
         <img src="${cabin.images[0]}" alt="" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0">
@@ -500,18 +514,21 @@ document.addEventListener('sc:ready', () => {
           <p class="text-sm text-muted">${several ? SC.tc('ui.details.cabins_count', rooms.length) : cabin.nameEn}</p>
         </div>
       </div>
-      <div class="px-4 sm:px-5 pb-4 text-sm flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(guestsTotal)}</span></div>
-      <div class="perf-x"></div>
-      <dl class="p-4 sm:p-5 grid grid-cols-[minmax(0,1fr)] gap-3 text-sm tabular" data-summary-lines>
-        ${several
-          ? q.rooms.map((p) => `<div class="${row}"><dt class="${label} text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd class="${amount}">${SC.money(p.fare)}</dd></div>`).join('')
-          : q.lines.map((l) => `<div class="${row}"><dt class="${label} text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="${amount}">${SC.money(l.total)}</dd></div>`).join('')}
-        ${q.agent ? `<div class="${row} text-[#12805C]"><dt class="${label}">${agentLabel(q.agent)}<span class="block text-xs">${t('agent_public_fare', { amount: SC.money(q.agent.publicFare) })}</span></dt><dd class="${amount}">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</dd></div>` : ''}
-        ${q.offers.map((o) => `<div class="${row} text-[#12805C]" data-offer-row="${o.id}"><dt class="${label}">${SC.esc(offerLabel(o))}${offerHint(o, true)}</dt><dd class="${amount}">− ${SC.money(o.discount)}</dd></div>`).join('')}
-        ${q.discount ? `<div class="${row} text-[#12805C]"><dt class="${label}">${t('discount', { code: q.promo.code })}</dt><dd class="${amount}">− ${SC.money(q.discount)}</dd></div>` : ''}
-        ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${t('port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.money(q.fees)}</dd></div>` : ''}
-        <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1 pt-3 mt-1 border-t border-line"><dt class="min-w-0"><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></dt><dd class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap">${SC.money(q.total)}</dd></div>
-      </dl>`;
+      <div class="sum-body">
+        <div class="px-4 sm:px-5 pb-4 text-sm flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(guestsTotal)}</span></div>
+        <div class="perf-x"></div>
+        <div class="p-4 sm:p-5">
+          <dl class="grid grid-cols-[minmax(0,1fr)] gap-3 text-sm tabular" data-summary-lines>
+            ${charges}
+            ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${t('port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.money(q.fees)}</dd></div>` : ''}
+            ${discounts ? `<div class="${row} pt-3 border-t border-line font-bold" data-subtotal><dt class="${label}">${SC.t('ui.details.charges_subtotal')}</dt><dd class="${amount}">${SC.money(subtotal)}</dd></div>` : ''}
+          </dl>
+          ${discounts}
+        </div>
+      </div>
+      <div class="sum-foot">
+        <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1"><p class="min-w-0"><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></p><p class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap tabular">${SC.money(q.total)}</p></div>
+      </div>`;
     $('#summary').innerHTML = html;
     $('#summary-mobile').innerHTML = html;
     $('#m-total').textContent = SC.money(q.total);

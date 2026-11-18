@@ -117,7 +117,7 @@
           </summary>
           <div id="summary-mobile" class="border-t border-line"></div>
         </details>
-        <div class="hidden lg:block card pass overflow-hidden" style="--perf-bg:#F5F8FB" id="summary"></div>
+        <div class="hidden lg:flex flex-col card pass overflow-hidden summary-card" style="--perf-bg:#F5F8FB" id="summary"></div>
       </aside>
     </div>
   </main>

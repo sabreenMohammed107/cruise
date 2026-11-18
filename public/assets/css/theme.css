@@ -132,18 +132,18 @@ select.field {
 }
 .perf-x::before { left: -26px; }
 .perf-x::after { right: -26px; }
-/* Booking summary of a cruise page (sticky sidebar, details.js): never taller than the screen. The middle scrolls
-   on its own; the total and the "Continue" button stay pinned at the bottom of the card. */
-.summary-card { display: flex; flex-direction: column; max-height: calc(100vh - 200px); }
+/* Price summary in a sticky sidebar (cruise page: details.js, booking page: booking.js): never taller than the
+   screen. The middle (.sum-body) scrolls on its own; the total (.sum-foot) stays pinned at the bottom of the card.
+   The card shows as flex through its Tailwind classes (flex / lg:flex), so "hidden" still works on phones.
+   --sum-offset: the room kept above and below the card (sticky top + what follows it). */
+.summary-card { flex-direction: column; max-height: calc(100vh - var(--sum-offset, 200px)); }
 .summary-card > * { flex-shrink: 0; }
 .summary-card > .sum-body {
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
   overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #C9DCEC transparent;
 }
-.summary-card > .sum-foot {
-  padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--line); background: #fff;
-  box-shadow: 0 -12px 24px -20px rgba(12,45,78,.45);
-}
+.sum-foot { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--line); background: #fff; }
+.summary-card > .sum-foot { box-shadow: 0 -12px 24px -20px rgba(12,45,78,.45); }
 .perf-y { position: relative; border-inline-start: 2px dashed var(--line); }
 .perf-y::before, .perf-y::after {
   content: ''; position: absolute; inset-inline-start: -12px; width: 22px; height: 22px; border-radius: 50%;

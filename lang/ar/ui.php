@@ -182,6 +182,9 @@ return [
         'offer_fixed' => 'خصم :value',
         'offer_price' => 'بسعر :value',
         'offers_saving' => 'إجمالي التوفير',
+        // صفحة الحجز: المبالغ قبل الخصومات، ثم صندوق كل الخصومات (العمولة والعروض وكود الخصم)
+        'charges_subtotal' => 'المجموع قبل الخصومات',
+        'discounts_title' => 'الخصومات على حجزك',
         'continue_guests' => 'متابعة إلى بيانات الضيوف',
         'choose_cabin' => 'اختر كابينة',
         'choose_to_continue' => 'اختر كابينة للمتابعة',

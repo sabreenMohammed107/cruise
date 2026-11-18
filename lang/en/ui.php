@@ -186,6 +186,9 @@ return [
         'offer_fixed' => ':value off',
         'offer_price' => 'Price :value',
         'offers_saving' => 'You save',
+        // Booking page: the amounts before any discount, then the box of every discount (commission, offers, promo)
+        'charges_subtotal' => 'Subtotal before discounts',
+        'discounts_title' => 'Discounts on your booking',
         'continue_guests' => 'Continue to guest details',
         'choose_cabin' => 'Choose a cabin',
         'choose_to_continue' => 'Choose a cabin to continue',

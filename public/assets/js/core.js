@@ -790,6 +790,61 @@
     const o = bestOffer(list.filter((x) => ['fare', 'free_nights', 'upgrade'].includes(x.target))) || bestOffer(list);
     return o ? `<span class="tag tag-sun ${cls}" data-offer="${o.id}">${SC.icon('tag', 'w-3.5 h-3.5')}${SC.esc(o.name)} · ${SC.esc(SC.t('ui.card.offer_until', { date: SC.fmtDate(o.endsOn, { day: 'numeric', month: 'short' }) }))}</span>` : '';
   };
+  /* Laravel (step 26): the green discounts box of a price summary (cruise page and booking page). Every offer used,
+     each on its own: name, what it takes off, how (SC.offerHint), "Applied" and its last day; extra discounts
+     (agent commission, promo code) after them; then what they save together. Offers by age or nationality that
+     wait for the travellers are listed too, marked as such, with what they give (pending: false hides them).
+       q        a SC.quoteRooms() result (q.offers)
+       rooms    [{ cabinId }]: only waiting offers for these cabin types
+       lead     [{ name, amount, detail? }] before the offers (agent commission); extras after them (promo code)
+       title    the box heading key (ui.details.*) */
+  SC.ui.offersBox = (q, sailing, { rooms = [], lead = [], extras = [], pending = true, title = 'offers_title' } = {}) => {
+    const T = (k, r) => SC.t(`ui.details.${k}`, r);
+    const used = q.offers || [];
+    const usedIds = new Set(used.map((o) => o.id));
+    const byId = new Map((sailing.offers || []).map((o) => [o.id, o]));
+    const waiting = pending ? SC.ageOffers(sailing).filter((o) => !usedIds.has(o.id) && (!o.cabins || rooms.some((r) => o.cabins.includes(r.cabinId)))) : [];
+    if (!used.length && !lead.length && !extras.length && !waiting.length) return '';
+
+    // What a waiting offer gives, e.g. "خصم 50% · للأعمار 0–11"
+    const gives = (o) => [
+      o.type === 'free' ? T('free') : o.type === 'fixed' ? T('offer_fixed', { value: SC.money(o.value) })
+        : o.type === 'fixed_price' ? T('offer_price', { value: SC.money(o.value) }) : T('offer_percent', { value: o.value }),
+      o.target === 'age' && (o.maxAge == null ? T('offer_ages_from', { min: o.minAge || 0 }) : T('offer_ages', { min: o.minAge || 0, max: o.maxAge }))
+    ].filter(Boolean).join(' · ');
+    const badge = (applied) => (applied
+      ? `<span class="inline-flex items-center gap-1 rounded-full bg-[#DDF3E7] px-2 py-0.5 text-[#12805C]">${SC.icon('check', 'w-3 h-3')}${T('offer_applied')}</span>`
+      : `<span class="inline-flex items-center gap-1 rounded-full bg-sun-50 px-2 py-0.5 text-sun-600">${SC.icon('clock', 'w-3 h-3')}${T('offer_pending')}</span>`);
+    // The equation of a hint may break before "−", "×", "=" in a narrow card (amounts themselves never break)
+    const hint = (h) => (h || '').replace(/ ([−×=·]) /g, ' $1 ');
+    const item = ({ id, name, amount, detail, applied = true, ends }) => `<li class="py-3 first:pt-0 last:pb-0"${id ? ` data-offer-row="${id}"` : ''}${applied ? '' : ' data-offer-pending'}>
+        <div class="flex items-start justify-between gap-3">
+          <p class="min-w-0 break-words font-bold text-ink leading-snug">${SC.esc(name)}</p>
+          ${applied ? `<span class="shrink-0 whitespace-nowrap font-bold text-[#12805C] tabular">−&nbsp;${SC.money(amount)}</span>` : ''}
+        </div>
+        ${detail ? `<p class="mt-1 text-xs text-muted leading-relaxed break-words"${applied ? ' data-offer-hint' : ''}>${SC.esc(detail)}</p>` : ''}
+        <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold">
+          ${badge(applied)}
+          ${ends ? `<span class="text-muted">${SC.esc(T('offer_until', { date: SC.fmtDate(ends, { day: 'numeric', month: 'short' }) }))}</span>` : ''}
+        </div>
+      </li>`;
+    const ends = (o) => (byId.get(o.id) || o).endsOn;
+    const applied = [
+      ...lead,
+      ...used.map((o) => ({ id: o.id, name: o.name, amount: o.discount, detail: hint(SC.offerHint(o)), ends: ends(o) })),
+      ...extras
+    ];
+    const saving = applied.reduce((s, x) => s + (x.amount || 0), 0);
+
+    return `<div class="mt-4 rounded-2xl border border-[#CDEBDC] bg-[#F3FBF7] p-4 text-sm" data-offers>
+        <p class="flex items-center gap-1.5 text-xs font-bold text-[#12805C] mb-3">${SC.icon('tag', 'w-4 h-4')}${T(title)}</p>
+        <ul class="divide-y divide-[#DCEFE5]">
+          ${applied.map(item).join('')}
+          ${waiting.map((o) => item({ id: o.id, name: o.name, detail: gives(o), applied: false, ends: ends(o) })).join('')}
+        </ul>
+        ${applied.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(saving)}</span></div>` : ''}
+      </div>`;
+  };
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 
   /* Sailing card — one departure, shaped like a boarding pass.

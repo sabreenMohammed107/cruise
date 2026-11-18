@@ -143,7 +143,7 @@
            BOOKING SUMMARY (sticky sidebar)
            ========================================================= -->
       <aside class="hidden lg:block sticky top-[140px]" aria-label="{{ __('pages.cruise.booking_summary') }}">
-        <div class="card pass overflow-hidden summary-card" style="--perf-bg:#F5F8FB" id="summary"></div>
+        <div class="card pass overflow-hidden summary-card flex flex-col" style="--perf-bg:#F5F8FB" id="summary"></div>
         <p class="text-xs text-muted mt-3 flex items-center gap-1.5" {{ $hide('note') }}><i data-icon="check" class="w-3.5 h-3.5"></i> {{ $s['note']->bi('title') }}</p>
       </aside>
     </div>

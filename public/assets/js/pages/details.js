@@ -342,50 +342,9 @@ document.addEventListener('sc:ready', () => {
             <div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-agent-commission><dt>${label}</dt><dd class="tabular whitespace-nowrap">− ${SC.money(q.agent.saving)}</dd></div>`;
   }
 
-  /* Laravel (step 26): the offers box (Admin → Offers). Every offer used, each on its own: its name, what it takes
-     off, how (SC.offerHint), its state and its last day; then what they save together. Offers by age or nationality
-     wait for the travellers (next step): listed too, marked as such, with what they give. rooms: [{ cabinId }]. */
-  function offersBox(q, rooms) {
-    const T = (k, r) => SC.t(`ui.details.${k}`, r);
-    const used = q.offers || [];
-    const usedIds = new Set(used.map((o) => o.id));
-    const byId = new Map((sailing.offers || []).map((o) => [o.id, o]));
-    const pending = SC.ageOffers(sailing).filter((o) => !usedIds.has(o.id) && (!o.cabins || rooms.some((r) => o.cabins.includes(r.cabinId))));
-    if (!used.length && !pending.length) return '';
-
-    // What a waiting offer gives, e.g. "خصم 50% · للأعمار 0–11"
-    const gives = (o) => [
-      o.type === 'free' ? T('free') : o.type === 'fixed' ? T('offer_fixed', { value: SC.money(o.value) })
-        : o.type === 'fixed_price' ? T('offer_price', { value: SC.money(o.value) }) : T('offer_percent', { value: o.value }),
-      o.target === 'age' && (o.maxAge == null ? T('offer_ages_from', { min: o.minAge || 0 }) : T('offer_ages', { min: o.minAge || 0, max: o.maxAge }))
-    ].filter(Boolean).join(' · ');
-    const badge = (applied) => (applied
-      ? `<span class="inline-flex items-center gap-1 rounded-full bg-[#DDF3E7] px-2 py-0.5 text-[#12805C]">${SC.icon('check', 'w-3 h-3')}${T('offer_applied')}</span>`
-      : `<span class="inline-flex items-center gap-1 rounded-full bg-sun-50 px-2 py-0.5 text-sun-600">${SC.icon('clock', 'w-3 h-3')}${T('offer_pending')}</span>`);
-    const item = (o, amount, detail, applied) => {
-      const ends = (byId.get(o.id) || o).endsOn;
-      return `<li class="py-3 first:pt-0 last:pb-0" data-offer-row="${o.id}"${applied ? '' : ' data-offer-pending'}>
-          <div class="flex items-start justify-between gap-3">
-            <p class="min-w-0 font-bold text-ink leading-snug">${SC.esc(o.name)}</p>
-            ${applied ? `<span class="shrink-0 whitespace-nowrap font-bold text-[#12805C] tabular">−&nbsp;${SC.money(amount)}</span>` : ''}
-          </div>
-          ${detail ? `<p class="mt-1 text-xs text-muted leading-relaxed"${applied ? ' data-offer-hint' : ''}>${SC.esc(detail)}</p>` : ''}
-          <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold">
-            ${badge(applied)}
-            ${ends ? `<span class="text-muted">${SC.esc(T('offer_until', { date: SC.fmtDate(ends, { day: 'numeric', month: 'short' }) }))}</span>` : ''}
-          </div>
-        </li>`;
-    };
-
-    return `<div class="mt-4 rounded-2xl border border-[#CDEBDC] bg-[#F3FBF7] p-4 text-sm" data-offers>
-        <p class="flex items-center gap-1.5 text-xs font-bold text-[#12805C] mb-3">${SC.icon('tag', 'w-4 h-4')}${T('offers_title')}</p>
-        <ul class="divide-y divide-[#DCEFE5]">
-          ${used.map((o) => item(o, o.discount, SC.offerHint(o), true)).join('')}
-          ${pending.map((o) => item(o, 0, gives(o), false)).join('')}
-        </ul>
-        ${used.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(used.reduce((s, o) => s + o.discount, 0))}</span></div>` : ''}
-      </div>`;
-  }
+  /* Laravel (step 26): the green offers box (SC.ui.offersBox in core.js): every offer used with its discount and
+     state, and the ones waiting for the travellers (next step). rooms: [{ cabinId }]. */
+  function offersBox(q, rooms) { return SC.ui.offersBox(q, sailing, { rooms }); }
 
   /* Port & departure taxes (SC_DATA.portTax per adult / child, Admin → Port taxes): "$50 × 3" and their sum */
   function portTaxRow(q) {
