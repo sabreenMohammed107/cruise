@@ -2039,3 +2039,29 @@ shown, booking cancelled). `AdminPanelTest::test_cancelling_a_booking` (admin) u
 3. Phase 7: Tailwind via Vite instead of the CDN; production `.env` (`APP_DEBUG=false`, real mailer,
    `CRUISE_TEAM_EMAIL`); back up `public/uploads` with the database.
 4. Optional: move page sections from JS rendering to server-rendered Blade for SEO (cruise details first).
+
+### Step 38: Age offers only from the 3rd guest (2026-11-21)
+
+Client rule: a child offer (e.g. "the child pays $100") applies when the child is the **3rd guest** of the cabin
+(2 adults + 1 child), not when they are the 2nd (1 adult + 1 child). Made a setting of each age offer:
+
+- **`offers.min_guest_position`** (`TINYINT NULL`, migration `2026_11_21_000001_add_min_guest_position_to_offers_table`):
+  the guest's place among the cabin's paying guests (adults first, then children; infants are free and not counted),
+  the same position as step 34. Empty = any guest (existing offers unchanged), 2 = 2nd guest and later, 3 = 3rd guest
+  and later only.
+- **Admin → Pricing & offers → Offers**: "Guest in the cabin" (Any guest / 2nd guest and later / 3rd guest and later
+  only), shown for "Age range" offers only, cleared for the other kinds (`OfferResource::fill()`).
+- **Pricing**: `Offer::fitsPosition()` in `PricingService::selectOffers()`, and `minPosition` (`Offer::toScript()`) in
+  `SC.selectOffers` (`core.js`). The amount is unchanged: the guest's own price (3rd-guest price at place 3).
+  With 3: 2A + 1C → the child gets it; 1A + 1C → no offer; 1A + 2C → only the second child; 1A + 1 infant + 1C → no
+  offer (the child is the 2nd paying guest).
+- **Screens**: a waiting offer shows "From guest 3 in the cabin" / "من الضيف رقم 3 في الكابينة"
+  (`ui.offer_from_position`), and is only listed as waiting when a cabin has that many paying guests. The admin list
+  label reads "(0–11, guest 3+)".
+- **Tests**: `OffersTest::test_an_age_offer_from_the_3rd_guest_skips_a_child_who_is_the_2nd_guest`; the admin form test
+  saves and validates the field.
+
+**Deploy:** upload the migration, `app/Models/Offer.php`, `app/Services/PricingService.php`,
+`app/Admin/Resources/OfferResource.php`, `public/assets/js/core.js`, `lang/en/ui.php`, `lang/ar/ui.php`, then
+`php artisan migrate`, `config:clear`, `view:clear`. Then edit the child offer in the admin panel and choose
+"3rd guest and later only".

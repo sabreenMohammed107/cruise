@@ -93,6 +93,13 @@ class OfferResource extends Resource
                     }
                 }])
                 ->help('E.g. 0 to 11 = under 12; 60 and empty = 60 and over.'),
+            Field::select('min_guest_position', 'Guest in the cabin', [
+                '' => 'Any guest',
+                '2' => '2nd guest and later',
+                '3' => '3rd guest and later only',
+            ])->showWhen('target', OfferTarget::Age->value)
+                ->rules(['nullable', 'integer', 'in:2,3'])
+                ->help('Paying guests are counted adults first, then children (infants are free and not counted). "3rd guest and later only": a child gets it with 2 adults, not with 1 adult; with 1 adult and 2 children only the second child gets it.'),
             // Free nights are always free: no type or value
             Field::select('type', 'Discount type', [
                 OfferType::Percent->value => 'Percent off',
@@ -206,6 +213,7 @@ class OfferResource extends Resource
         if ($record->target !== OfferTarget::Age) {
             $record->min_age = null;
             $record->max_age = null;
+            $record->min_guest_position = null;
         }
         if ($record->target !== OfferTarget::FreeNights) {
             $record->free_nights = null;

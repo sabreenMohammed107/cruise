@@ -178,6 +178,7 @@ return [
         'offer_until' => 'ساري حتى :date',
         'offer_ages' => 'للأعمار :min–:max',
         'offer_ages_from' => 'للأعمار :min فأكثر',
+        'offer_from_position' => 'من الضيف رقم :n في الكابينة',
         'offer_percent' => 'خصم :value%',
         'offer_fixed' => 'خصم :value',
         'offer_price' => 'بسعر :value',

@@ -182,6 +182,7 @@ return [
         'offer_until' => 'Until :date',
         'offer_ages' => 'Ages :min–:max',
         'offer_ages_from' => 'Ages :min and over',
+        'offer_from_position' => 'From guest :n in the cabin',
         'offer_percent' => ':value% off',
         'offer_fixed' => ':value off',
         'offer_price' => 'Price :value',

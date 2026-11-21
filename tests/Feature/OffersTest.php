@@ -222,6 +222,30 @@ class OffersTest extends TestCase
         $this->assertSame('8064.00', $this->book(['contact' => ['email' => 'c@example.com'], 'travellers' => ['child-1' => ['dob' => '2014-01-01']]])->grand_total);
     }
 
+    public function test_an_age_offer_from_the_3rd_guest_skips_a_child_who_is_the_2nd_guest(): void
+    {
+        // Children up to 11 pay $100, only as the 3rd paying guest (adults first, then children)
+        $offer = $this->offer(['name' => 'Kids pay $100', 'target' => 'age', 'min_age' => 0, 'max_age' => 11, 'min_guest_position' => 3,
+            'type' => 'fixed_price', 'value' => 100]);
+        $this->assertSame(3, collect($this->publishedOffers())->firstWhere('id', $offer->id)['minPosition']);
+
+        // 2 adults + 1 child: the child is the 3rd guest, 3rd-guest price 1680 → 100 (1580 off): 8960 − 1580
+        $this->assertSame(['1580.00', '7380.00'], [($b = $this->book())->offer_discount_total, $b->grand_total]);
+
+        // 1 adult + 1 child: the child is the 2nd guest (half the double), no offer
+        $pair = $this->book(['contact' => ['email' => 'pair@example.com'], 'guests' => ['adult' => 1, 'child' => 1], 'travellers' => ['adult-2' => null]]);
+        $this->assertEquals([0, 7280], [(float) $pair->offer_discount_total, (float) $pair->grand_total]);
+
+        // 1 adult + 2 children: only the second child (3rd guest) gets it
+        $two = $this->book(['contact' => ['email' => 'two@example.com'], 'guests' => ['adult' => 1, 'child' => 2], 'travellers' => ['adult-2' => null,
+            'child-2' => ['first' => 'Lama', 'last' => 'Alqahtani', 'dob' => '2019-02-01', 'gender' => 'Female', 'nationality' => 'Saudi Arabia']]]);
+        $this->assertSame(['1580.00', '7380.00'], [$two->offer_discount_total, $two->grand_total]);
+
+        // Without the position the same offer takes the 2nd-guest child too: 7280 ÷ 2 = 3640 → 100
+        $offer->update(['min_guest_position' => null]);
+        $this->assertSame('3540.00', $this->book(['contact' => ['email' => 'any@example.com'], 'guests' => ['adult' => 1, 'child' => 1], 'travellers' => ['adult-2' => null]])->offer_discount_total);
+    }
+
     public function test_an_age_offer_uses_each_guests_own_price_from_the_grid(): void
     {
         // Seniors 60+, 30%: an adult (1st or 2nd guest) pays half the double, 7280 ÷ 2 = 3640 → 1092
@@ -289,7 +313,7 @@ class OffersTest extends TestCase
         $offer = $this->offer(['target' => 'age', 'min_age' => 0, 'max_age' => 11, 'type' => 'fixed', 'value' => 200, 'max_discount' => 400, 'combinable' => true]);
 
         $this->assertSame([[
-            'id' => $offer->id, 'name' => 'Summer deal', 'level' => 1, 'target' => 'age', 'minAge' => 0, 'maxAge' => 11,
+            'id' => $offer->id, 'name' => 'Summer deal', 'level' => 1, 'target' => 'age', 'minAge' => 0, 'maxAge' => 11, 'minPosition' => null,
             'freeNights' => null, 'upgradeFrom' => null,
             'type' => 'fixed', 'value' => 200.0, 'maxDiscount' => 400.0, 'cabins' => null,
             'nationalities' => null, 'combinable' => true, 'replaceAgent' => false, 'endsOn' => '2026-10-31',
@@ -428,7 +452,7 @@ class OffersTest extends TestCase
         $this->actingAs(User::where('email', 'admin@safercruise.test')->sole(), 'admin');
         $sailing = $this->sailing();
         $otherCruise = \App\Models\Cruise::whereKeyNot($sailing->cruise_id)->value('id');
-        $form = ['name' => 'Kids sail free', 'cruise_id' => '', 'sailing_id' => $sailing->id, 'target' => 'age', 'min_age' => '', 'max_age' => 11,
+        $form = ['name' => 'Kids sail free', 'cruise_id' => '', 'sailing_id' => $sailing->id, 'target' => 'age', 'min_age' => '', 'max_age' => 11, 'min_guest_position' => 3,
             'type' => 'percent', 'value' => 100, 'max_discount' => '', 'max_uses' => 50, 'starts_on' => '', 'ends_on' => '2026-11-30',
             'audience' => 'b2c', 'agent_mode' => 'stack', 'is_active' => 1];
 
@@ -437,7 +461,8 @@ class OffersTest extends TestCase
 
         // The sailing brings its cruise
         $offer = Offer::sole();
-        $this->assertSame([$sailing->cruise_id, $sailing->id, 'age', null, 11, false], [$offer->cruise_id, $offer->sailing_id, $offer->target->value, $offer->min_age, $offer->max_age, $offer->combinable]);
+        $this->assertSame([$sailing->cruise_id, $sailing->id, 'age', null, 11, 3, false], [$offer->cruise_id, $offer->sailing_id, $offer->target->value, $offer->min_age, $offer->max_age, $offer->min_guest_position, $offer->combinable]);
+        $this->post(route('admin.offers.store'), ['min_guest_position' => 4] + $form)->assertSessionHasErrors('min_guest_position');
         $this->get(route('admin.offers.index'))->assertOk()->assertSee('Kids sail free')->assertSee('Live');
 
         // A sailing of another cruise, an age offer without ages, over 100%, ends before it starts
@@ -466,7 +491,7 @@ class OffersTest extends TestCase
             'if_cabins' => 1, 'cabin_categories' => ['suite'],
             'if_nationality' => 0, 'nationalities' => ['Egypt']] + $fare)->assertSessionHasNoErrors();
         $offer = Offer::where('name', 'Suites')->sole();
-        $this->assertSame([['suite'], null, null, 'free', '100.00'], [$offer->cabin_categories, $offer->nationalities, $offer->min_age, $offer->type->value, $offer->value]);
+        $this->assertSame([['suite'], null, null, null, 'free', '100.00'], [$offer->cabin_categories, $offer->nationalities, $offer->min_age, $offer->min_guest_position, $offer->type->value, $offer->value]);
 
         // Free nights need their number and save as free; an upgrade needs its cabin
         $this->post(route('admin.offers.store'), ['target' => 'free_nights'] + $fare)->assertSessionHasErrors('free_nights');

@@ -359,8 +359,9 @@
         const t = travellers[`${band}-${n}`] || {};
         if (!t.dob || !/^\d{4}-\d{2}-\d{2}$/.test(t.dob)) continue;
         const years = SC.ageAt(t.dob, sailing.departure).years;
-        // Every age offer the guest fits (the same position repeated)
-        orderOffers(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge) && fitsNationalities(x, [t.nationality])))
+        // Every age offer the guest fits (the same position repeated); minPosition 3 = only the 3rd guest and later
+        orderOffers(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge)
+          && (x.minPosition == null || position >= x.minPosition) && fitsNationalities(x, [t.nationality])))
           .forEach((o) => { age.push(o); agePositions.push(position); });
       }
       const of = (target) => orderOffers(whole.filter((o) => o.target === target));
@@ -803,14 +804,17 @@
     const used = q.offers || [];
     const usedIds = new Set(used.map((o) => o.id));
     const byId = new Map((sailing.offers || []).map((o) => [o.id, o]));
-    const waiting = pending ? SC.ageOffers(sailing).filter((o) => !usedIds.has(o.id) && (!o.cabins || rooms.some((r) => o.cabins.includes(r.cabinId)))) : [];
+    // An offer from the 3rd guest on only waits for a cabin with that many paying guests
+    const waiting = pending ? SC.ageOffers(sailing).filter((o) => !usedIds.has(o.id) && ((!o.cabins && o.minPosition == null) || rooms.some((r) => (!o.cabins || o.cabins.includes(r.cabinId))
+      && (o.minPosition == null || (r.guests.adult || 0) + (r.guests.child || 0) >= o.minPosition)))) : [];
     if (!used.length && !lead.length && !extras.length && !waiting.length) return '';
 
     // What a waiting offer gives, e.g. "خصم 50% · للأعمار 0–11"
     const gives = (o) => [
       o.type === 'free' ? T('free') : o.type === 'fixed' ? T('offer_fixed', { value: SC.money(o.value) })
         : o.type === 'fixed_price' ? T('offer_price', { value: SC.money(o.value) }) : T('offer_percent', { value: o.value }),
-      o.target === 'age' && (o.maxAge == null ? T('offer_ages_from', { min: o.minAge || 0 }) : T('offer_ages', { min: o.minAge || 0, max: o.maxAge }))
+      o.target === 'age' && (o.maxAge == null ? T('offer_ages_from', { min: o.minAge || 0 }) : T('offer_ages', { min: o.minAge || 0, max: o.maxAge })),
+      o.target === 'age' && o.minPosition && T('offer_from_position', { n: o.minPosition })
     ].filter(Boolean).join(' · ');
     const badge = (applied) => (applied
       ? `<span class="inline-flex items-center gap-1 rounded-full bg-[#DDF3E7] px-2 py-0.5 text-[#12805C]">${SC.icon('check', 'w-3 h-3')}${T('offer_applied')}</span>`

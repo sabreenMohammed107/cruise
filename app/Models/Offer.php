@@ -38,7 +38,7 @@ class Offer extends Model
     public const TRANSLATABLE = ['name'];
 
     protected $fillable = [
-        'name', 'cruise_id', 'sailing_id', 'target', 'min_age', 'max_age', 'free_nights', 'upgrade_from', 'type', 'value', 'max_discount', 'max_uses',
+        'name', 'cruise_id', 'sailing_id', 'target', 'min_age', 'max_age', 'min_guest_position', 'free_nights', 'upgrade_from', 'type', 'value', 'max_discount', 'max_uses',
         'cabin_categories', 'nationalities', 'starts_on', 'ends_on', 'sailing_starts_on', 'sailing_ends_on', 'audience', 'agent_mode', 'combinable', 'is_active',
     ];
 
@@ -53,6 +53,7 @@ class Offer extends Model
             'max_discount' => 'decimal:2',
             'min_age' => 'integer',
             'max_age' => 'integer',
+            'min_guest_position' => 'integer',
             'free_nights' => 'integer',
             'max_uses' => 'integer',
             'used_count' => 'integer',
@@ -130,6 +131,12 @@ class Offer extends Model
     public function fitsAge(int $years): bool
     {
         return ($this->min_age === null || $years >= $this->min_age) && ($this->max_age === null || $years <= $this->max_age);
+    }
+
+    /** Age offers: the guest's place among the paying guests of the cabin (1-based, adults first, then children). */
+    public function fitsPosition(int $position): bool
+    {
+        return $this->min_guest_position === null || $position >= $this->min_guest_position;
     }
 
     public function fitsCabin(string $slug): bool
@@ -221,7 +228,8 @@ class Offer extends Model
             default => $number.'%',
         };
         $detail = match ($this->target) {
-            OfferTarget::Age => ' ('.($this->min_age ?? 0).'–'.($this->max_age ?? '∞').')',
+            OfferTarget::Age => ' ('.($this->min_age ?? 0).'–'.($this->max_age ?? '∞')
+                .($this->min_guest_position ? ', guest '.$this->min_guest_position.'+' : '').')',
             OfferTarget::Upgrade => ' (pays the '.$this->upgrade_from.' price)',
             default => '',
         };
@@ -239,6 +247,7 @@ class Offer extends Model
             'target' => $this->target->value,
             'minAge' => $this->min_age,
             'maxAge' => $this->max_age,
+            'minPosition' => $this->min_guest_position,
             'freeNights' => $this->free_nights,
             'upgradeFrom' => $this->upgrade_from,
             'type' => $this->type->value,

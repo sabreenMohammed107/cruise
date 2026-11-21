@@ -280,7 +280,8 @@ class PricingService
      *   single   every fitting offer, per cabin with a single paying guest
      *   second   every fitting offer, per cabin with two paying guests or more
      *   age      every fitting offer, per paying guest (adults, then children) with a date of birth, whose age on the
-     *            departure date is in range and whose own nationality fits; infants are free, so they get none
+     *            departure date is in range, whose own nationality fits and whose place is at least the offer's
+     *            min_guest_position (e.g. 3: a child with 2 adults, not with 1); infants are free, so they get none
      *
      * Nationalities and ages come from the travellers: without them (before the travellers step) those offers wait.
      *
@@ -333,7 +334,7 @@ class PricingService
                             continue;
                         }
                         $years = self::yearsOn($t['dob'], $departure);
-                        $fits = $ageOffers->filter(fn (Offer $o) => $o->fitsAge($years) && $o->fitsNationalities([$t['nationality'] ?? null]));
+                        $fits = $ageOffers->filter(fn (Offer $o) => $o->fitsAge($years) && $o->fitsPosition($position) && $o->fitsNationalities([$t['nationality'] ?? null]));
                         foreach ($ordered($fits) as $offer) {
                             $age[] = $offer;
                             $agePositions[] = $position;
