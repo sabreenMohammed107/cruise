@@ -246,6 +246,21 @@ class OffersTest extends TestCase
         $this->assertSame('3540.00', $this->book(['contact' => ['email' => 'any@example.com'], 'guests' => ['adult' => 1, 'child' => 1], 'travellers' => ['adult-2' => null]])->offer_discount_total);
     }
 
+    public function test_the_2nd_guest_offer_applies_even_when_the_single_costs_more_than_the_double(): void
+    {
+        // Single 7500 above the double 7280: the 2nd guest still gets $50 off their share (7280 ÷ 2)
+        $this->cabinPrice('balcony')->update(['price_single' => 7500]);
+        $this->offer(['name' => 'Your first $50 off', 'target' => 'second_guest', 'type' => 'fixed', 'value' => 50]);
+        $pair = $this->book(['guests' => ['child' => 0], 'travellers' => ['child-1' => null]]);
+        $this->assertSame(['50.00', '7230.00'], [$pair->offer_discount_total, $pair->grand_total]);
+
+        // With a child offer from the 3rd guest: both apply (50 + 1680 − 100)
+        $this->offer(['name' => 'Kids pay $100', 'target' => 'age', 'min_age' => 0, 'max_age' => 11, 'min_guest_position' => 3, 'type' => 'fixed_price', 'value' => 100]);
+        $family = $this->book(['contact' => ['email' => 'family@example.com']]);
+        $this->assertSame(['1630.00', '7330.00'], [$family->offer_discount_total, $family->grand_total]);
+        $this->assertCount(2, $family->price_snapshot['offers']);
+    }
+
     public function test_an_age_offer_uses_each_guests_own_price_from_the_grid(): void
     {
         // Seniors 60+, 30%: an adult (1st or 2nd guest) pays half the double, 7280 ÷ 2 = 3640 → 1092
@@ -366,9 +381,9 @@ class OffersTest extends TestCase
             return $this->offer($attributes);
         };
 
-        // 2nd guest at half: half of what they add (double − single)
+        // 2nd guest at half: half of their share of the double (double ÷ 2)
         $only(['name' => '2nd guest half', 'target' => 'second_guest', 'value' => 50]);
-        $second = ((float) $balcony->price_double - (float) $balcony->price_single) / 2;
+        $second = (float) $balcony->price_double / 2 / 2;
         $this->assertEquals($cents($second), (float) $this->book($email('second'))->offer_discount_total);
 
         // 1 free night: 8960 × 1 ÷ nights

@@ -2065,3 +2065,20 @@ Client rule: a child offer (e.g. "the child pays $100") applies when the child i
 `app/Admin/Resources/OfferResource.php`, `public/assets/js/core.js`, `lang/en/ui.php`, `lang/ar/ui.php`, then
 `php artisan migrate`, `config:clear`, `view:clear`. Then edit the child offer in the admin panel and choose
 "3rd guest and later only".
+
+### Step 38b: The 2nd guest offer is on the 2nd guest's own share (2026-11-21)
+
+Before, a "2nd guest" offer was worked out on what the 2nd guest adds to the cabin (double − single). On cabins whose
+single price is the same as or above the double (e.g. a balcony at single 59,473 / double 58,541 EGP), that is 0, so
+"$50 off the 2nd guest" took nothing off and disappeared from the price. Now it is on the 2nd guest's own share of
+the double, **double ÷ 2** (as the age offers, `guestPrice()`), whatever the single price is:
+
+- `PricingService::offerLines()` and `SC.quoteRooms` (`core.js`): `secondOff` on `double ÷ 2 × k`; an age offer on the
+  2nd guest's place takes off what is left after it (before: half of it on the 1st and 2nd guest each).
+- **Percent offers change meaning:** "2nd guest 50%" is now half of the 2nd guest's share (7280 ÷ 2 × 50% = 1820),
+  before half of what they added. Fixed amounts ($50) and fixed prices are per 2nd guest as before.
+- Admin help text and `OfferTarget::SecondGuest` doc updated. Tests: `OffersTest` (2nd guest at half, and
+  `test_the_2nd_guest_offer_applies_even_when_the_single_costs_more_than_the_double`, with the child offer too).
+
+**Deploy:** `app/Services/PricingService.php`, `public/assets/js/core.js`, `app/Enums/OfferTarget.php`,
+`app/Admin/Resources/OfferResource.php` (no migration).

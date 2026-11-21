@@ -75,7 +75,7 @@ class OfferResource extends Resource
                         $fail('Set the age range of this offer ("From age", "Up to age" or both).');
                     }
                 }])
-                ->help('Cabin price: the whole cabin. Age range: each guest of that age, on their share. 3rd / 2nd guest: what that guest adds to the price. Single traveller: the extra a guest alone pays (single price − half the double). Free nights: e.g. 7 nights for the price of 6. Upgrade: the cabin at a cheaper cabin\'s price.'),
+                ->help('Cabin price: the whole cabin. Age range: each guest of that age, on their share. 3rd guest: the 3rd-guest price. 2nd guest: their share of the double (half the double). Single traveller: the extra a guest alone pays (single price − half the double). Free nights: e.g. 7 nights for the price of 6. Upgrade: the cabin at a cheaper cabin\'s price.'),
             Field::number('free_nights', 'Free nights')->showWhen('target', OfferTarget::FreeNights->value)
                 ->rules(['nullable', 'required_if:target,free_nights', 'integer', 'min:1', 'max:30'])
                 ->help('Nights off the cabin price: 1 on a 7-night cruise = 7 nights for the price of 6. Never more than the cruise\'s nights.'),

@@ -17,7 +17,7 @@ enum OfferTarget: string
     /** A guest alone in a cabin: the single supplement (single price − half the double price). */
     case Single = 'single';
 
-    /** The 2nd guest of a cabin: what they add to the price (double − single). */
+    /** The 2nd guest of a cabin: their own share of the double price (double ÷ 2). */
     case SecondGuest = 'second_guest';
 
     /** Some nights of the cruise free: the cabin price × free nights ÷ nights. */

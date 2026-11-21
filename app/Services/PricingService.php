@@ -142,7 +142,7 @@ class PricingService
      *                                                           → left fraction k = (F − the three above) ÷ F
      *   3rd guest    the 3rd-guest line × k (fixed: per 3rd guest)
      *   single       the single supplement (single − double ÷ 2) × k, for a guest alone in the cabin
-     *   2nd guest    what the 2nd guest adds (double − single) × k, with two paying guests or more
+     *   2nd guest    the 2nd guest's own share (double ÷ 2) × k, with two paying guests or more
      *   age          each paying guest of the range, on their own price from the grid (guestPrice(): alone → single,
      *                1st / 2nd → double ÷ 2, 3rd and later → 3rd-guest price; adults first, then children) × k,
      *                less what the 3rd guest / single / 2nd guest offers took from that guest (fixed: per guest)
@@ -421,7 +421,8 @@ class PricingService
             $extra = (float) array_sum(array_column(array_filter($part['lines'], fn ($l) => $l['band'] === 'extra'), 'total'));
             $thirdOff = $stack($c['third'], $extra * $left, max(0, $paying - 2));
             $singleOff = $stack($c['single'], max(0.0, (float) $part['prices']['single'] - (float) $part['prices']['double'] / 2) * $left);
-            $secondOff = $stack($c['second'], max(0.0, (float) $part['prices']['double'] - (float) $part['prices']['single']) * $left);
+            // 2nd guest: their own share of the double (double ÷ 2), whatever the single price is
+            $secondOff = $stack($c['second'], (float) $part['prices']['double'] / 2 * $left);
 
             // Age offers: on the guest's own price (guestPrice()), less what the offers above (and the guest's age
             // offers before this one) took from that guest
@@ -431,7 +432,7 @@ class PricingService
                 $price = self::guestPrice($part['prices'], $paying, $pos) * $left
                     - ($pos > 2 ? $thirdOff / max(1, $paying - 2) : 0.0)
                     - ($paying === 1 ? $singleOff : 0.0)
-                    - ($paying >= 2 && $pos <= 2 ? $secondOff / 2 : 0.0)
+                    - ($paying >= 2 && $pos === 2 ? $secondOff : 0.0)
                     - ($ageTaken[$pos] ?? 0.0);
                 $off = $offer->amountOff(max(0.0, $price));
                 $add($offer, $off);

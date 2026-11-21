@@ -321,7 +321,7 @@
                   (its cabin priced on the sailing) and one free-nights offer
        amounts    upgrade: F − the same guests' fare in the cheaper cabin; fare: of what is left; free nights: what is
                   left × free nights ÷ nights → fraction left k; 3rd guest: the extra line × k; single:
-                  (single − double ÷ 2) × k; 2nd guest: (double − single) × k; age: the guest's own price
+                  (single − double ÷ 2) × k; 2nd guest: double ÷ 2 × k; age: the guest's own price
                   (SC.guestPrice) × k, less what the offers before took from that guest. Fixed: per cabin or per
                   guest; free: all of it; fixed price: what is above the value.
        per offer  summed, rounded to the cent, capped at maxDiscount
@@ -410,7 +410,8 @@
       }, 0);
       const thirdOff = stack(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2));
       const singleOff = stack(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left);
-      const secondOff = stack(c.second, Math.max(0, p.prices.double - p.prices.single) * left);
+      // 2nd guest: their own share of the double (double ÷ 2), whatever the single price is
+      const secondOff = stack(c.second, p.prices.double / 2 * left);
       // Age offers: on the guest's own price, less what the offers above (and the guest's age offers before this
       // one) took from that guest
       const ageTaken = {};
@@ -419,7 +420,7 @@
         const price = SC.guestPrice(p.prices, paying, pos) * left
           - (pos > 2 ? thirdOff / Math.max(1, paying - 2) : 0)
           - (paying === 1 ? singleOff : 0)
-          - (paying >= 2 && pos <= 2 ? secondOff / 2 : 0)
+          - (paying >= 2 && pos === 2 ? secondOff : 0)
           - (ageTaken[pos] || 0);
         const guest = { price: Math.max(0, price), who: pos > (p.guests.adult || 0) ? 'child' : 'adult', role: paying === 1 ? 'single' : pos <= 2 ? 'double' : 'third' };
         const amount = SC.offerAmount(o, guest.price);
