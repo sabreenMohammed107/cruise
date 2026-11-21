@@ -321,7 +321,7 @@ document.addEventListener('sc:ready', () => {
               ${agentRows(q)}
               ${portTaxRow(q)}
             </dl>
-            ${offersBox(q, [{ cabinId: cab.id }])}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
+            ${offersBox(q, [{ cabinId: cab.id, guests: g }])}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         </div>
       </div>
       <div class="sum-foot">
@@ -343,7 +343,7 @@ document.addEventListener('sc:ready', () => {
   }
 
   /* Laravel (step 26): the green offers box (SC.ui.offersBox in core.js): every offer used with its discount and
-     state, and the ones waiting for the travellers (next step). rooms: [{ cabinId }]. */
+     state, and the ones waiting for the travellers (next step). rooms: [{ cabinId, guests }]. */
   function offersBox(q, rooms) { return SC.ui.offersBox(q, sailing, { rooms }); }
 
   /* Port & departure taxes (SC_DATA.portTax per adult / child, Admin → Port taxes): "$50 × 3" and their sum */

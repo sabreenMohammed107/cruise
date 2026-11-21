@@ -2082,3 +2082,15 @@ the double, **double ÷ 2** (as the age offers, `guestPrice()`), whatever the si
 
 **Deploy:** `app/Services/PricingService.php`, `public/assets/js/core.js`, `app/Enums/OfferTarget.php`,
 `app/Admin/Resources/OfferResource.php` (no migration).
+
+### Step 38c: Cruise page summary stopped refreshing with a "guest 3+" offer (2026-11-21)
+
+Bug from step 38: the cruise page gave the offers box its cabin without the guests (`[{ cabinId }]`), and the
+"waiting" check of a `minPosition` offer read `r.guests.adult` → TypeError. The counter had already changed, so the
+guest numbers moved while the summary (lines, port taxes, offers, total) kept the old guests.
+Fix: `pages/details.js` passes `guests` to the box; `SC.ui.offersBox` (`core.js`) treats a room without guests as big
+enough instead of failing. Checked in the browser (sailing 24-NOV-2026-4N, balcony, 2nd guest $50 + child "guest 3+"):
+2A, 2A+1C, 1A+1C, 1A+2C, 1A, 1A+infant, 3A, interior 2A+1C — counters, cabin chip, 3rd-guest line, taxes × n,
+offers and total follow every click, no console errors; on the booking page the child offer applies after the dates
+of birth for 2A+1C and 1A+2C (one child) and not for 1A+1C; the browser totals equal `PricingService::quoteBooking()`.
+**Deploy:** `public/assets/js/core.js`, `public/assets/js/pages/details.js`.

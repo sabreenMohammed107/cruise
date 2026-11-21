@@ -797,7 +797,7 @@
      (agent commission, promo code) after them; then what they save together. Offers by age or nationality that
      wait for the travellers are listed too, marked as such, with what they give (pending: false hides them).
        q        a SC.quoteRooms() result (q.offers)
-       rooms    [{ cabinId }]: only waiting offers for these cabin types
+       rooms    [{ cabinId, guests }]: only waiting offers for these cabin types (and guest counts)
        lead     [{ name, amount, detail? }] before the offers (agent commission); extras after them (promo code)
        title    the box heading key (ui.details.*) */
   SC.ui.offersBox = (q, sailing, { rooms = [], lead = [], extras = [], pending = true, title = 'offers_title' } = {}) => {
@@ -805,9 +805,11 @@
     const used = q.offers || [];
     const usedIds = new Set(used.map((o) => o.id));
     const byId = new Map((sailing.offers || []).map((o) => [o.id, o]));
-    // An offer from the 3rd guest on only waits for a cabin with that many paying guests
+    // An offer from the 3rd guest on only waits for a cabin with that many paying guests (a room without its guests
+    // counts as big enough)
+    const paying = (r) => (r.guests ? (r.guests.adult || 0) + (r.guests.child || 0) : Infinity);
     const waiting = pending ? SC.ageOffers(sailing).filter((o) => !usedIds.has(o.id) && ((!o.cabins && o.minPosition == null) || rooms.some((r) => (!o.cabins || o.cabins.includes(r.cabinId))
-      && (o.minPosition == null || (r.guests.adult || 0) + (r.guests.child || 0) >= o.minPosition)))) : [];
+      && (o.minPosition == null || paying(r) >= o.minPosition)))) : [];
     if (!used.length && !lead.length && !extras.length && !waiting.length) return '';
 
     // What a waiting offer gives, e.g. "خصم 50% · للأعمار 0–11"
