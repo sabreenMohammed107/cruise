@@ -50,16 +50,28 @@ class ContactMessagesTest extends TestCase
         $this->get('/contact')->assertSee('your message has been sent');
     }
 
-    public function test_the_phone_is_optional_and_checked_for_its_country(): void
+    // The form allows 5 posts a minute, so the required checks and the country checks are separate tests
+    public function test_the_phone_is_required_in_both_languages(): void
+    {
+        $this->get('/contact')->assertSee('>Phone<', false)->assertDontSee('Phone (optional)');
+        $this->post('/contact', ['dial' => '+966', 'phone' => ''] + $this->valid)->assertSessionHasErrors(['phone' => 'The Phone field is required.']);
+        $this->post('/contact', ['dial' => '+966', 'phone' => '000'] + $this->valid)->assertSessionHasErrors(['phone' => 'The Phone field is required.']);
+        $this->withCredentials()->withUnencryptedCookie('sc_lang', 'ar')->post('/contact', ['phone' => ''] + $this->valid)
+            ->assertSessionHasErrors(['phone' => 'حقل رقم الموبايل مطلوب.']);
+        $this->withCredentials()->withUnencryptedCookie('sc_lang', 'ar')->post('/contact', ['phone' => '401234567'] + $this->valid)
+            ->assertSessionHasErrors(['phone' => 'أرقام الموبايل السعودية من 9 أرقام وتبدأ بـ 5.']);
+
+        $this->assertSame(0, ContactMessage::count());
+        $this->withCredentials()->withUnencryptedCookie('sc_lang', 'ar')->get('/contact')->assertSee('رقم الموبايل')->assertDontSee('(اختياري)');
+    }
+
+    public function test_the_phone_is_checked_for_its_country(): void
     {
         Mail::fake();
 
-        $this->post('/contact', ['dial' => '+966', 'phone' => ''] + $this->valid)->assertSessionHasNoErrors();
-        $this->assertSame([null, null], [ContactMessage::sole()->phone_dial, ContactMessage::sole()->phone]);
-
         // Saudi numbers: 9 digits starting with 5; Egyptian: 10 digits starting with 1 (same as the booking form)
-        $this->post('/contact', ['phone' => '401234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('site.booking.errors.phone_sa')]);
-        $this->post('/contact', ['dial' => '+20', 'phone' => '501234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('site.booking.errors.phone_eg')]);
+        $this->post('/contact', ['phone' => '401234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('pages.contact.errors.phone_sa')]);
+        $this->post('/contact', ['dial' => '+20', 'phone' => '501234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('pages.contact.errors.phone_eg')]);
         $this->post('/contact', ['dial' => '+999'] + $this->valid)->assertSessionHasErrors('dial');
         $this->post('/contact', ['dial' => '+20', 'phone' => '1012345678'] + $this->valid)->assertSessionHasNoErrors();
         $this->assertSame('+20 1012345678', ContactMessage::latest('id')->first()->full_phone);

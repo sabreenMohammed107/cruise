@@ -11,11 +11,11 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    /** Admins and supervisors see every booking; a seller sees the figures and lists for the bookings assigned to them. */
+    /** Admins and supervisors see every booking (but the super admin's test accounts' ones, App\Support\TestAccounts); a seller sees the figures and lists for the bookings assigned to them. */
     public function __invoke(Request $request): View
     {
         $user = $request->user();
-        $bookings = fn () => Booking::query()->when($user->isSeller(), fn ($q) => $q->where('seller_id', $user->id));
+        $bookings = fn () => Booking::query()->visibleTo($user)->when($user->isSeller(), fn ($q) => $q->where('seller_id', $user->id));
 
         $confirmed = $bookings()->where('status', BookingStatus::Confirmed);
         $awaiting = $bookings()->awaitingPayment();
@@ -32,10 +32,10 @@ class DashboardController extends Controller
             // Sailings (and their price screens) are for admins and supervisors
             'sailings' => $user->can('manage-content') ? Sailing::upcoming()->with('cruise')
                 ->whereHas('cruise', fn ($q) => $q->withoutTrashed())
-                ->withCount(['bookings as booked_count' => fn ($q) => $q->where('status', BookingStatus::Confirmed)])
-                ->withSum(['bookings as adults_sum' => fn ($q) => $q->where('status', BookingStatus::Confirmed)], 'adults')
-                ->withSum(['bookings as children_sum' => fn ($q) => $q->where('status', BookingStatus::Confirmed)], 'children')
-                ->withSum(['bookings as infants_sum' => fn ($q) => $q->where('status', BookingStatus::Confirmed)], 'infants')
+                ->withCount(['bookings as booked_count' => fn ($q) => $q->visibleTo($user)->where('status', BookingStatus::Confirmed)])
+                ->withSum(['bookings as adults_sum' => fn ($q) => $q->visibleTo($user)->where('status', BookingStatus::Confirmed)], 'adults')
+                ->withSum(['bookings as children_sum' => fn ($q) => $q->visibleTo($user)->where('status', BookingStatus::Confirmed)], 'children')
+                ->withSum(['bookings as infants_sum' => fn ($q) => $q->visibleTo($user)->where('status', BookingStatus::Confirmed)], 'infants')
                 ->orderBy('departure_date')->limit(6)->get() : null,
         ]);
     }

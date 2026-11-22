@@ -313,21 +313,24 @@
   /* Laravel (step 26): time-limited offers, Admin → Pricing & offers → Offers. sailing.offers holds the live offers of
      this sailing for this visitor (customer or agent, ScDataPresenter); the rest is PricingService::selectOffers() /
      quoteBooking():
-       choice     per cabin, among offers fitting its cabin type and the nationalities of its travellers: the most
-                  specific (sailing → cruise → every cruise), then the newest
-                  — one each of upgrade (its cabin priced on the sailing), fare, free nights, 3rd guest (3 paying
-                  guests), single (1 paying guest) and 2nd guest (2+ paying guests), and per paying guest with a date
-                  of birth one age offer (their age on the departure date, their nationality)
+       choice     per cabin, among offers fitting its cabin type and the nationalities of its travellers, in this
+                  order: the most specific (sailing → cruise → every cruise), then the newest
+                  — offers of one kind add up, one after the other on what is left: every fare, 3rd guest (3 paying
+                  guests), single (1 paying guest) and 2nd guest (2+ paying guests) offer, and per paying guest with a
+                  date of birth every age offer (their age on the departure date, their nationality); one upgrade
+                  (its cabin priced on the sailing) and one free-nights offer
        amounts    upgrade: F − the same guests' fare in the cheaper cabin; fare: of what is left; free nights: what is
                   left × free nights ÷ nights → fraction left k; 3rd guest: the extra line × k; single:
-                  (single − double ÷ 2) × k; 2nd guest: (double − single) × k; age: the guest's own price
+                  (single − double ÷ 2) × k; 2nd guest: double ÷ 2 × k; age: the guest's own price
                   (SC.guestPrice) × k, less what the offers before took from that guest. Fixed: per cabin or per
                   guest; free: all of it; fixed price: what is above the value.
        per offer  summed, rounded to the cent, capped at maxDiscount
        promo      on fare − offers, only if every offer used is combinable
      An offer with replaceAgent prices an agent's booking at the public prices (no commission). */
   const cents = (n) => Math.floor(n * 100 + 0.5) / 100;
-  const bestOffer = (list) => list.reduce((best, o) => (!best || o.level > best.level || (o.level === best.level && o.id > best.id) ? o : best), null);
+  // Most specific first, then the newest (PricingService::selectOffers); bestOffer: the first of them
+  const orderOffers = (list) => [...list].sort((a, b) => b.level - a.level || b.id - a.id);
+  const bestOffer = (list) => orderOffers(list)[0] || null;
   SC.offerAmount = (o, base, units = 1) => (base <= 0 ? 0
     : o.type === 'free' ? base
     : o.type === 'fixed' ? Math.min(o.value * units, base)
@@ -356,22 +359,25 @@
         const t = travellers[`${band}-${n}`] || {};
         if (!t.dob || !/^\d{4}-\d{2}-\d{2}$/.test(t.dob)) continue;
         const years = SC.ageAt(t.dob, sailing.departure).years;
-        const o = bestOffer(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge) && fitsNationalities(x, [t.nationality])));
-        if (o) { age.push(o); agePositions.push(position); }
+        // Every age offer the guest fits (the same position repeated); minPosition 3 = only the 3rd guest and later
+        orderOffers(ageOffers.filter((x) => (x.minAge == null || years >= x.minAge) && (x.maxAge == null || years <= x.maxAge)
+          && (x.minPosition == null || position >= x.minPosition) && fitsNationalities(x, [t.nationality])))
+          .forEach((o) => { age.push(o); agePositions.push(position); });
       }
+      const of = (target) => orderOffers(whole.filter((o) => o.target === target));
       return {
-        fare: bestOffer(whole.filter((o) => o.target === 'fare')),
+        fare: of('fare'),
         nights: bestOffer(whole.filter((o) => o.target === 'free_nights')),
         upgrade: bestOffer(whole.filter((o) => o.target === 'upgrade' && o.upgradeFrom !== r.cabinId && (sailing.prices || {})[o.upgradeFrom])),
-        third: paying > 2 ? bestOffer(whole.filter((o) => o.target === 'third_guest')) : null,
-        single: paying === 1 ? bestOffer(whole.filter((o) => o.target === 'single')) : null,
-        second: paying >= 2 ? bestOffer(whole.filter((o) => o.target === 'second_guest')) : null,
+        third: paying > 2 ? of('third_guest') : [],
+        single: paying === 1 ? of('single') : [],
+        second: paying >= 2 ? of('second_guest') : [],
         age, agePositions
       };
     });
     // Whether the commission is dropped and a promo code allowed is decided in SC.quoteRooms, on the offers that
     // actually take something off
-    const applied = cabins.flatMap((c) => [c.upgrade, c.fare, c.nights, c.third, c.single, c.second, ...c.age]).filter(Boolean);
+    const applied = cabins.flatMap((c) => [c.upgrade, ...c.fare, c.nights, ...c.third, ...c.single, ...c.second, ...c.age]).filter(Boolean);
     return { cabins, applied };
   };
   // One paying guest's own price (PricingService::guestPrice): alone → single; 1st / 2nd → double ÷ 2; 3rd+ → extra
@@ -393,25 +399,33 @@
       const take = (o, amount, base) => { add(o, amount, { base, units: 1 }); taken += amount; };
       // Whole-cabin offers, one after the other on what is left
       if (c.upgrade) take(c.upgrade, SC.offerAmount(c.upgrade, Math.max(0, p.fare - context[i].upgradeFare)));
-      if (c.fare) take(c.fare, SC.offerAmount(c.fare, p.fare - taken), p.fare - taken);
+      c.fare.forEach((o) => take(o, SC.offerAmount(o, p.fare - taken), p.fare - taken));
       if (c.nights && context[i].nights > 0) take(c.nights, (p.fare - taken) * Math.min(c.nights.freeNights, context[i].nights) / context[i].nights);
       const left = p.fare > 0 ? (p.fare - taken) / p.fare : 0;
-      // Parts of the cabin price, at what is left of it
-      const thirdOff = c.third ? SC.offerAmount(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2)) : 0;
-      const singleOff = c.single ? SC.offerAmount(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left) : 0;
-      const secondOff = c.second ? SC.offerAmount(c.second, Math.max(0, p.prices.double - p.prices.single) * left) : 0;
-      if (c.third) add(c.third, thirdOff, { base: p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, units: Math.max(0, paying - 2) });
-      if (c.single) add(c.single, singleOff);
-      if (c.second) add(c.second, secondOff);
-      // Age offers: on the guest's own price, less what the offers above took from that guest
+      // Parts of the cabin price, at what is left of it; several offers on one part, one after the other
+      const stack = (list, base, units = 1) => list.reduce((off, o) => {
+        const amount = SC.offerAmount(o, base - off, units);
+        add(o, amount, { base: base - off, units });
+        return off + amount;
+      }, 0);
+      const thirdOff = stack(c.third, p.lines.filter((l) => l.band === 'extra').reduce((s, l) => s + l.total, 0) * left, Math.max(0, paying - 2));
+      const singleOff = stack(c.single, Math.max(0, p.prices.single - p.prices.double / 2) * left);
+      // 2nd guest: their own share of the double (double ÷ 2), whatever the single price is
+      const secondOff = stack(c.second, p.prices.double / 2 * left);
+      // Age offers: on the guest's own price, less what the offers above (and the guest's age offers before this
+      // one) took from that guest
+      const ageTaken = {};
       c.age.forEach((o, k) => {
         const pos = (c.agePositions || [])[k] || 1;
         const price = SC.guestPrice(p.prices, paying, pos) * left
           - (pos > 2 ? thirdOff / Math.max(1, paying - 2) : 0)
           - (paying === 1 ? singleOff : 0)
-          - (paying >= 2 && pos <= 2 ? secondOff / 2 : 0);
+          - (paying >= 2 && pos === 2 ? secondOff : 0)
+          - (ageTaken[pos] || 0);
         const guest = { price: Math.max(0, price), who: pos > (p.guests.adult || 0) ? 'child' : 'adult', role: paying === 1 ? 'single' : pos <= 2 ? 'double' : 'third' };
-        add(o, SC.offerAmount(o, guest.price), { base: guest.price, guest, units: 1 });
+        const amount = SC.offerAmount(o, guest.price);
+        add(o, amount, { base: guest.price, guest, units: 1 });
+        ageTaken[pos] = (ageTaken[pos] || 0) + amount;
       });
     });
     return [...totals.values()].map(({ offer, amount, base, guests, units }) => {
@@ -777,6 +791,66 @@
     const list = offers || [];
     const o = bestOffer(list.filter((x) => ['fare', 'free_nights', 'upgrade'].includes(x.target))) || bestOffer(list);
     return o ? `<span class="tag tag-sun ${cls}" data-offer="${o.id}">${SC.icon('tag', 'w-3.5 h-3.5')}${SC.esc(o.name)} · ${SC.esc(SC.t('ui.card.offer_until', { date: SC.fmtDate(o.endsOn, { day: 'numeric', month: 'short' }) }))}</span>` : '';
+  };
+  /* Laravel (step 26): the green discounts box of a price summary (cruise page and booking page). Every offer used,
+     each on its own: name, what it takes off, how (SC.offerHint), "Applied" and its last day; extra discounts
+     (agent commission, promo code) after them; then what they save together. Offers by age or nationality that
+     wait for the travellers are listed too, marked as such, with what they give (pending: false hides them).
+       q        a SC.quoteRooms() result (q.offers)
+       rooms    [{ cabinId, guests }]: only waiting offers for these cabin types (and guest counts)
+       lead     [{ name, amount, detail? }] before the offers (agent commission); extras after them (promo code)
+       title    the box heading key (ui.details.*) */
+  SC.ui.offersBox = (q, sailing, { rooms = [], lead = [], extras = [], pending = true, title = 'offers_title' } = {}) => {
+    const T = (k, r) => SC.t(`ui.details.${k}`, r);
+    const used = q.offers || [];
+    const usedIds = new Set(used.map((o) => o.id));
+    const byId = new Map((sailing.offers || []).map((o) => [o.id, o]));
+    // An offer from the 3rd guest on only waits for a cabin with that many paying guests (a room without its guests
+    // counts as big enough)
+    const paying = (r) => (r.guests ? (r.guests.adult || 0) + (r.guests.child || 0) : Infinity);
+    const waiting = pending ? SC.ageOffers(sailing).filter((o) => !usedIds.has(o.id) && ((!o.cabins && o.minPosition == null) || rooms.some((r) => (!o.cabins || o.cabins.includes(r.cabinId))
+      && (o.minPosition == null || paying(r) >= o.minPosition)))) : [];
+    if (!used.length && !lead.length && !extras.length && !waiting.length) return '';
+
+    // What a waiting offer gives, e.g. "خصم 50% · للأعمار 0–11"
+    const gives = (o) => [
+      o.type === 'free' ? T('free') : o.type === 'fixed' ? T('offer_fixed', { value: SC.money(o.value) })
+        : o.type === 'fixed_price' ? T('offer_price', { value: SC.money(o.value) }) : T('offer_percent', { value: o.value }),
+      o.target === 'age' && (o.maxAge == null ? T('offer_ages_from', { min: o.minAge || 0 }) : T('offer_ages', { min: o.minAge || 0, max: o.maxAge })),
+      o.target === 'age' && o.minPosition && T('offer_from_position', { n: o.minPosition })
+    ].filter(Boolean).join(' · ');
+    const badge = (applied) => (applied
+      ? `<span class="inline-flex items-center gap-1 rounded-full bg-[#DDF3E7] px-2 py-0.5 text-[#12805C]">${SC.icon('check', 'w-3 h-3')}${T('offer_applied')}</span>`
+      : `<span class="inline-flex items-center gap-1 rounded-full bg-sun-50 px-2 py-0.5 text-sun-600">${SC.icon('clock', 'w-3 h-3')}${T('offer_pending')}</span>`);
+    // The equation of a hint may break before "−", "×", "=" in a narrow card (amounts themselves never break)
+    const hint = (h) => (h || '').replace(/ ([−×=·]) /g, ' $1 ');
+    const item = ({ id, name, amount, detail, applied = true, ends }) => `<li class="py-3 first:pt-0 last:pb-0"${id ? ` data-offer-row="${id}"` : ''}${applied ? '' : ' data-offer-pending'}>
+        <div class="flex items-start justify-between gap-3">
+          <p class="min-w-0 break-words font-bold text-ink leading-snug">${SC.esc(name)}</p>
+          ${applied ? `<span class="shrink-0 whitespace-nowrap font-bold text-[#12805C] tabular">−&nbsp;${SC.money(amount)}</span>` : ''}
+        </div>
+        ${detail ? `<p class="mt-1 text-xs text-muted leading-relaxed break-words"${applied ? ' data-offer-hint' : ''}>${SC.esc(detail)}</p>` : ''}
+        <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold">
+          ${badge(applied)}
+          ${ends ? `<span class="text-muted">${SC.esc(T('offer_until', { date: SC.fmtDate(ends, { day: 'numeric', month: 'short' }) }))}</span>` : ''}
+        </div>
+      </li>`;
+    const ends = (o) => (byId.get(o.id) || o).endsOn;
+    const applied = [
+      ...lead,
+      ...used.map((o) => ({ id: o.id, name: o.name, amount: o.discount, detail: hint(SC.offerHint(o)), ends: ends(o) })),
+      ...extras
+    ];
+    const saving = applied.reduce((s, x) => s + (x.amount || 0), 0);
+
+    return `<div class="mt-4 rounded-2xl border border-[#CDEBDC] bg-[#F3FBF7] p-4 text-sm" data-offers>
+        <p class="flex items-center gap-1.5 text-xs font-bold text-[#12805C] mb-3">${SC.icon('tag', 'w-4 h-4')}${T(title)}</p>
+        <ul class="divide-y divide-[#DCEFE5]">
+          ${applied.map(item).join('')}
+          ${waiting.map((o) => item({ id: o.id, name: o.name, detail: gives(o), applied: false, ends: ends(o) })).join('')}
+        </ul>
+        ${applied.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(saving)}</span></div>` : ''}
+      </div>`;
   };
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 

@@ -2148,3 +2148,58 @@ reference. No payment is taken: as on the website, the team arranges it offline.
 - an agent booking that happens only after the click, cannot be made twice, and keeps a valid history afterwards;
 - wrong details returned to Claude with nothing kept.
 The other assistant tests set `assistant.audience` to `everyone`. `artisan test`: 349 pass, plus the `PricingServiceTest` failure that is also on `main`.
+
+### Step 38: Age offers only from the 3rd guest (2026-11-21)
+
+Client rule: a child offer (e.g. "the child pays $100") applies when the child is the **3rd guest** of the cabin
+(2 adults + 1 child), not when they are the 2nd (1 adult + 1 child). Made a setting of each age offer:
+
+- **`offers.min_guest_position`** (`TINYINT NULL`, migration `2026_11_21_000001_add_min_guest_position_to_offers_table`):
+  the guest's place among the cabin's paying guests (adults first, then children; infants are free and not counted),
+  the same position as step 34. Empty = any guest (existing offers unchanged), 2 = 2nd guest and later, 3 = 3rd guest
+  and later only.
+- **Admin → Pricing & offers → Offers**: "Guest in the cabin" (Any guest / 2nd guest and later / 3rd guest and later
+  only), shown for "Age range" offers only, cleared for the other kinds (`OfferResource::fill()`).
+- **Pricing**: `Offer::fitsPosition()` in `PricingService::selectOffers()`, and `minPosition` (`Offer::toScript()`) in
+  `SC.selectOffers` (`core.js`). The amount is unchanged: the guest's own price (3rd-guest price at place 3).
+  With 3: 2A + 1C → the child gets it; 1A + 1C → no offer; 1A + 2C → only the second child; 1A + 1 infant + 1C → no
+  offer (the child is the 2nd paying guest).
+- **Screens**: a waiting offer shows "From guest 3 in the cabin" / "من الضيف رقم 3 في الكابينة"
+  (`ui.offer_from_position`), and is only listed as waiting when a cabin has that many paying guests. The admin list
+  label reads "(0–11, guest 3+)".
+- **Tests**: `OffersTest::test_an_age_offer_from_the_3rd_guest_skips_a_child_who_is_the_2nd_guest`; the admin form test
+  saves and validates the field.
+
+**Deploy:** upload the migration, `app/Models/Offer.php`, `app/Services/PricingService.php`,
+`app/Admin/Resources/OfferResource.php`, `public/assets/js/core.js`, `lang/en/ui.php`, `lang/ar/ui.php`, then
+`php artisan migrate`, `config:clear`, `view:clear`. Then edit the child offer in the admin panel and choose
+"3rd guest and later only".
+
+### Step 38b: The 2nd guest offer is on the 2nd guest's own share (2026-11-21)
+
+Before, a "2nd guest" offer was worked out on what the 2nd guest adds to the cabin (double − single). On cabins whose
+single price is the same as or above the double (e.g. a balcony at single 59,473 / double 58,541 EGP), that is 0, so
+"$50 off the 2nd guest" took nothing off and disappeared from the price. Now it is on the 2nd guest's own share of
+the double, **double ÷ 2** (as the age offers, `guestPrice()`), whatever the single price is:
+
+- `PricingService::offerLines()` and `SC.quoteRooms` (`core.js`): `secondOff` on `double ÷ 2 × k`; an age offer on the
+  2nd guest's place takes off what is left after it (before: half of it on the 1st and 2nd guest each).
+- **Percent offers change meaning:** "2nd guest 50%" is now half of the 2nd guest's share (7280 ÷ 2 × 50% = 1820),
+  before half of what they added. Fixed amounts ($50) and fixed prices are per 2nd guest as before.
+- Admin help text and `OfferTarget::SecondGuest` doc updated. Tests: `OffersTest` (2nd guest at half, and
+  `test_the_2nd_guest_offer_applies_even_when_the_single_costs_more_than_the_double`, with the child offer too).
+
+**Deploy:** `app/Services/PricingService.php`, `public/assets/js/core.js`, `app/Enums/OfferTarget.php`,
+`app/Admin/Resources/OfferResource.php` (no migration).
+
+### Step 38c: Cruise page summary stopped refreshing with a "guest 3+" offer (2026-11-21)
+
+Bug from step 38: the cruise page gave the offers box its cabin without the guests (`[{ cabinId }]`), and the
+"waiting" check of a `minPosition` offer read `r.guests.adult` → TypeError. The counter had already changed, so the
+guest numbers moved while the summary (lines, port taxes, offers, total) kept the old guests.
+Fix: `pages/details.js` passes `guests` to the box; `SC.ui.offersBox` (`core.js`) treats a room without guests as big
+enough instead of failing. Checked in the browser (sailing 24-NOV-2026-4N, balcony, 2nd guest $50 + child "guest 3+"):
+2A, 2A+1C, 1A+1C, 1A+2C, 1A, 1A+infant, 3A, interior 2A+1C — counters, cabin chip, 3rd-guest line, taxes × n,
+offers and total follow every click, no console errors; on the booking page the child offer applies after the dates
+of birth for 2A+1C and 1A+2C (one child) and not for 1A+1C; the browser totals equal `PricingService::quoteBooking()`.
+**Deploy:** `public/assets/js/core.js`, `public/assets/js/pages/details.js`.

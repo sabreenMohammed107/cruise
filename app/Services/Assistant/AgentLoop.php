@@ -28,16 +28,21 @@ class AgentLoop
         private SystemPrompt $prompt,
     ) {}
 
-    /** @return array{text: string, ui: list<array>} the answer and what the widget shows with it */
-    public function reply(AssistantConversation $conversation, string $message, ?User $user): array
+    /**
+     * @param  ?array  $image  a photo for this message (ImageInput): sent to Claude for this turn only, and never saved
+     *                         (the saved message is marked "image" so later turns know one was sent)
+     * @return array{text: string, ui: list<array>} the answer and what the widget shows with it
+     */
+    public function reply(AssistantConversation $conversation, string $message, ?User $user, ?array $image = null): array
     {
         $messages = $conversation->messages ?? [];
         $last = $messages === [] ? null : $messages[array_key_last($messages)];
+        $marker = $image ? ['image' => true] : [];
         if ($last && $last['role'] === 'user' && is_array($last['content'])) {
             // Answer to buttons: the tool results of the last turn are waiting, the click joins them
-            $messages[array_key_last($messages)]['content'][] = ['type' => 'text', 'text' => $message, 'at' => now()->toIso8601String()];
+            $messages[array_key_last($messages)]['content'][] = ['type' => 'text', 'text' => $message, 'at' => now()->toIso8601String()] + $marker;
         } else {
-            $messages[] = ['role' => 'user', 'content' => $message, 'at' => now()->toIso8601String()];
+            $messages[] = ['role' => 'user', 'content' => $message, 'at' => now()->toIso8601String()] + $marker;
         }
         $turnStart = count($messages);
         // Where the history sent to Claude starts: fixed for the whole turn (moving it between tool rounds would
@@ -52,7 +57,7 @@ class AgentLoop
         $ui = [];
 
         for ($round = 0; $round <= (int) config('assistant.max_tool_rounds'); $round++) {
-            $response = $this->ask($system, $definitions, $this->window($messages, $turnStart, $from), $conversation);
+            $response = $this->ask($system, $definitions, $this->window($messages, $turnStart, $from, $image), $conversation);
             $usage['input'] += (int) ($response['usage']['input_tokens'] ?? 0)
                 + (int) ($response['usage']['cache_read_input_tokens'] ?? 0)
                 + (int) ($response['usage']['cache_creation_input_tokens'] ?? 0);
@@ -109,6 +114,8 @@ class AgentLoop
             'input_tokens' => $conversation->input_tokens + $usage['input'],
             'output_tokens' => $conversation->output_tokens + $usage['output'],
         ])->save();
+        // The running package's tickets (Admin → Assistant tickets)
+        Tickets::charge($usage['input'], $usage['output']);
 
         return ['text' => trim($answer), 'ui' => $ui];
     }
@@ -185,8 +192,9 @@ class AgentLoop
      * before it (system prompt included, which has today's date), so after the history is cut or the next day comes
      * the API rejects old ones. Leaving out all the earlier ones is allowed, and saves tokens.
      */
-    private function window(array $messages, int $turnStart, ?int $from): array
+    private function window(array $messages, int $turnStart, ?int $from, ?array $image = null): array
     {
+        $messages = $this->withImages($messages, $turnStart, $image);
         foreach ($messages as $i => $m) {
             if ($i < $turnStart && $m['role'] === 'assistant' && is_array($m['content'])) {
                 $kept = array_values(array_filter($m['content'], fn ($b) => ! in_array($b['type'] ?? null, ['thinking', 'redacted_thinking'], true)));
@@ -198,7 +206,7 @@ class AgentLoop
             // Only tool results in reach: send the visitor's last words alone
             $text = collect((array) $messages[$turnStart - 1]['content'])->where('type', 'text')->pluck('text')->implode("
 ");
-            $sent = [['role' => 'user', 'content' => $text !== '' ? $text : '…']];
+            $sent = [['role' => 'user', 'content' => $image ? [$image, ['type' => 'text', 'text' => $text !== '' ? $text : '…']] : ($text !== '' ? $text : '…')]];
             // and this turn's tool rounds after them
             foreach (array_slice($messages, $turnStart) as $m) {
                 $sent[] = $m;
@@ -208,10 +216,10 @@ class AgentLoop
         }
 
         return array_map(function (array $m) {
-            unset($m['at']);
+            unset($m['at'], $m['image']);
             if (is_array($m['content'])) {
                 $m['content'] = array_map(function ($b) {
-                    unset($b['at']);
+                    unset($b['at'], $b['image']);
                     // Saved as JSON, an empty tool input {} comes back as []; the API wants an object
                     return ($b['type'] ?? null) === 'tool_use' && ($b['input'] ?? []) === [] ? ['input' => (object) []] + $b : $b;
                 }, $m['content']);
@@ -219,6 +227,41 @@ class AgentLoop
 
             return $m;
         }, array_values($sent));
+    }
+
+    /**
+     * Photos: this turn's image goes in front of the visitor's words (for every tool round of the turn, so what came
+     * before Claude's thinking stays the same). Images from earlier turns were not kept: their message says so.
+     */
+    private function withImages(array $messages, int $turnStart, ?array $image): array
+    {
+        $note = '[The visitor sent an image with this message. It is not kept: use what you said about it.] ';
+        foreach ($messages as $i => $m) {
+            if ($m['role'] !== 'user') {
+                continue;
+            }
+            $current = $i === $turnStart - 1;
+            if (is_string($m['content']) && ! empty($m['image'])) {
+                $messages[$i]['content'] = $current && $image
+                    ? [$image, ['type' => 'text', 'text' => $m['content']]]
+                    : $note.$m['content'];
+            } elseif (is_array($m['content'])) {
+                $blocks = [];
+                foreach ($m['content'] as $j => $b) {
+                    if (($b['type'] ?? null) === 'text' && ! empty($b['image'])) {
+                        if ($current && $image && $j === array_key_last($m['content'])) {
+                            $blocks[] = $image;
+                        } else {
+                            $b['text'] = $note.$b['text'];
+                        }
+                    }
+                    $blocks[] = $b;
+                }
+                $messages[$i]['content'] = $blocks;
+            }
+        }
+
+        return $messages;
     }
 
     private function hasToolResults(array $message): bool

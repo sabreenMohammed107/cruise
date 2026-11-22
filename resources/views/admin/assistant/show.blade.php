@@ -64,6 +64,7 @@
               <span>{{ $who }}</span>
               @if ($chat->user?->isAgent())<span class="tag tag-ocean">Agent</span>@endif
               @if ($t = $when($entry['at']))<span class="font-normal text-muted tabular">{{ $t }}</span>@endif
+              @if (! empty($entry['image']))<span class="tag tag-sun" title="Photos are sent to Claude with the message and never saved">Sent a photo (not saved)</span>@endif
             </p>
             <p class="whitespace-pre-line break-words leading-relaxed" dir="auto">{{ $entry['text'] }}</p>
           </div>

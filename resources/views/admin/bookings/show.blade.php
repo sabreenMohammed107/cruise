@@ -21,7 +21,8 @@
     <div class="flex flex-wrap gap-2">
       <a href="{{ route('booking.confirmation', $booking) }}" target="_blank" class="btn btn-outline btn-sm"><i data-icon="download" class="w-4 h-4"></i> Guest voucher</a>
       <a href="https://wa.me/{{ ltrim($booking->contact_dial, '+') }}{{ $booking->contact_phone }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm"><i data-icon="chat" class="w-4 h-4"></i> WhatsApp guest</a>
-      @if (! $cancelled && auth()->user()->can('manage-content'))
+      {{-- Cancel booking (with its confirm dialog): admins only, gate cancel-bookings (step 37) --}}
+      @if (! $cancelled && auth()->user()->can('cancel-bookings'))
         <form method="POST" action="{{ route('admin.bookings.cancel', $booking) }}" onsubmit="return confirm('Cancel booking {{ $booking->reference }}? The guest is not notified automatically.')">
           @csrf
           <button class="btn btn-ghost btn-sm text-[#C42F2F]"><i data-icon="x" class="w-4 h-4"></i> Cancel booking</button>

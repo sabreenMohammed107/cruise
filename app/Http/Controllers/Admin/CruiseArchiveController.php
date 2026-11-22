@@ -32,7 +32,7 @@ class CruiseArchiveController extends Controller
         return view('admin.cruises.archive', [
             'sailings' => $sailings
                 ->with('cruise:id,slug,name,departure_port,nights,deleted_at')
-                ->withCount(['bookings as confirmed_bookings_count' => fn (Builder $q) => $q->where('status', BookingStatus::Confirmed)])
+                ->withCount(['bookings as confirmed_bookings_count' => fn (Builder $q) => $q->visibleTo($request->user())->where('status', BookingStatus::Confirmed)])
                 ->orderByDesc('departure_date')
                 ->orderByDesc('id')
                 ->paginate(25)

@@ -6,6 +6,8 @@ use App\Models\AssistantConversation;
 use App\Services\Assistant\AgentLoop;
 use App\Services\Assistant\Assistant;
 use App\Services\Assistant\BookingDraft;
+use App\Services\Assistant\ImageInput;
+use App\Services\Assistant\Tickets;
 use App\Services\BookingService;
 use App\Services\CurrencyService;
 use Illuminate\Validation\ValidationException;
@@ -27,9 +29,19 @@ class AssistantController extends Controller
         abort_unless(Assistant::available(), 404);
 
         $data = $request->validate([
-            'message' => ['required', 'string', 'max:'.config('assistant.max_message_length')],
+            'message' => ['required_without:image', 'nullable', 'string', 'max:'.config('assistant.max_message_length')],
+            // A photo as a data URL (the browser shrinks it): chosen accounts only, never saved (ImageInput)
+            'image' => ['nullable', 'string', 'max:'.(int) ceil(config('assistant.max_image_bytes') * 4 / 3 + 64)],
             'new' => ['sometimes', 'boolean'],
         ]);
+        $image = null;
+        if (filled($data['image'] ?? null)) {
+            abort_unless(Assistant::imagesAllowed(), 403);
+            $image = ImageInput::fromDataUrl($data['image']);
+            if (! $image) {
+                return response()->json(['reply' => __('assistant.image_invalid'), 'error' => true, 'chat' => self::chatId($request)], 422);
+            }
+        }
 
         $user = $request->user('web');
         $conversation = $request->boolean('new') ? null : $this->current($request, $user?->id);
@@ -41,12 +53,16 @@ class AssistantController extends Controller
         if ($conversation->user_messages >= Assistant::limit('per_chat')) {
             return response()->json(['reply' => __('assistant.limit'), 'limit' => true, 'chat' => self::chatId($request)]);
         }
+        if ($image && ImageInput::countIn($conversation->messages ?? []) >= (int) config('assistant.max_images_per_chat')) {
+            return response()->json(['reply' => __('assistant.image_limit'), 'error' => true, 'chat' => self::chatId($request)]);
+        }
 
         // One answer can take several calls to Claude (tool rounds, retries): more than PHP's usual 30 seconds
         @set_time_limit(max(180, (int) config('assistant.timeout') * 2));
 
         try {
-            $reply = $agent->reply($conversation, trim($data['message']), $user);
+            $text = trim((string) ($data['message'] ?? ''));
+            $reply = $agent->reply($conversation, $text !== '' ? $text : __('assistant.image_default'), $user, $image);
         } catch (Throwable $e) {
             Log::error('Assistant reply failed', ['conversation' => $conversation->id, 'error' => $e->getMessage()]);
 
@@ -149,6 +165,11 @@ class AssistantController extends Controller
     {
         $token = $request->session()->get(self::SESSION_KEY);
         $conversation = $token ? AssistantConversation::where('token', $token)->first() : null;
+        // A conversation from before the running tickets package stays with the old package: a new one starts
+        $package = Tickets::current();
+        if ($conversation && $package && $conversation->created_at->lessThan($package->starts_at)) {
+            return null;
+        }
 
         return $conversation && $conversation->user_id === $userId ? $conversation : null;
     }

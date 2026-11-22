@@ -23,9 +23,17 @@ final class PhoneNumber
     /** The visitor-language message for a number that doesn't fit its country, or null. */
     public static function error(?string $dial, ?string $raw): ?string
     {
+        $key = self::errorKey($dial, $raw);
+
+        return $key ? __("site.booking.errors.$key") : null;
+    }
+
+    /** Which message fits (a key of site.booking.errors: "phone_sa", "phone_length", …), or null when the number is fine. */
+    public static function errorKey(?string $dial, ?string $raw): ?string
+    {
         $n = self::normalise($raw);
 
-        $key = match (true) {
+        return match (true) {
             $n === '' => 'phone_required',
             ! ctype_digit($n) => 'phone_digits',
             $dial === '+966' && ! preg_match('/^5\d{8}$/', $n) => 'phone_sa',
@@ -33,7 +41,5 @@ final class PhoneNumber
             strlen($n) < 7 || strlen($n) > 12 => 'phone_length',
             default => null,
         };
-
-        return $key ? __("site.booking.errors.$key") : null;
     }
 }

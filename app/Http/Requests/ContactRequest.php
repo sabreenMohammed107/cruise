@@ -3,10 +3,13 @@
 namespace App\Http\Requests;
 
 /**
- * "Contact us" form (pages.contact). The mobile number is optional.
+ * "Contact us" form (pages.contact). The mobile number is required: left empty it gets the same
+ * "The … field is required." line as the other fields; its other messages are worded in pages.contact.errors.
  */
 class ContactRequest extends PublicFormRequest
 {
+    protected bool $phoneRequired = true;
+
     public function rules(): array
     {
         return [
@@ -22,5 +25,14 @@ class ContactRequest extends PublicFormRequest
         return collect(['name', 'email', 'phone', 'message'])
             ->mapWithKeys(fn ($field) => [$field => __("pages.contact.fields.$field")])
             ->all();
+    }
+
+    protected function phoneMessage(string $key): string
+    {
+        if ($key === 'phone_required') {
+            return __('validation.required', ['attribute' => __('pages.contact.fields.phone')]);
+        }
+
+        return trans()->has("pages.contact.errors.$key") ? __("pages.contact.errors.$key") : parent::phoneMessage($key);
     }
 }

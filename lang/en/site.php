@@ -307,7 +307,12 @@ return [
         'cancelled' => 'Cancelled',
         'total' => 'Total',
         'download' => 'Download voucher',
-        'charged_usd' => 'Charged in US dollars: :usd (1 USD = :rate :currency on the booking day)',
+        // Voucher (step 36)
+        'itinerary' => 'Day-by-day itinerary',
+        'day_n' => 'Day :n',
+        'traveller_name' => 'Name',
+        'traveller_type' => 'Guest',
+        'traveller_nationality' => 'Nationality',
         'view_in_account' => 'View in my bookings',
         'home' => 'Back to home',
     ],

@@ -22,8 +22,8 @@ return [
     ],
 
     'home' => [
-        'title' => 'Safer Cruise | Red Sea cruises aboard AROYA',
-        'description' => 'Book AROYA cruises from Jeddah and Yanbu with Safer Cruise. Clear prices for adults, children and infants.',
+        'title' => 'Safer Cruise | Mediterranean cruises aboard AROYA',
+        'description' => 'Book AROYA cruises from Alexandria and Istanbul with Safer Cruise. Clear prices for adults, children and infants.',
         'search_button' => 'Search cruises',
         'cabin_categories' => 'Cabin categories',
         'previous_photo' => 'Previous photo',
@@ -51,7 +51,7 @@ return [
 
     'catalog' => [
         'title' => 'All cruises | Safer Cruise',
-        'description' => 'Every AROYA departure from Jeddah and Yanbu, with prices per person and filters by port, date, nights and cabin.',
+        'description' => 'Every AROYA departure from Alexandria and Istanbul, with prices per person and filters by port, date, nights and cabin.',
         'search_label' => 'Search by cruise name',
         'filters' => 'Filters',
         'clear_all' => 'Clear all',
@@ -119,8 +119,14 @@ return [
         'fields' => [
             'name' => 'Full name',
             'email' => 'Email address',
-            'phone' => 'Phone (optional)',
+            'phone' => 'Phone',
             'message' => 'Message',
+        ],
+        // Mobile-number messages of this form (an empty number gets "The Phone field is required.")
+        'errors' => [
+            'phone_sa' => 'Saudi mobile numbers have 9 digits and start with 5.',
+            'phone_eg' => 'Egyptian mobile numbers have 10 digits and start with 1.',
+            'phone_length' => 'Enter a mobile number with 7 to 12 digits.',
         ],
         'placeholders' => [
             'name' => 'Your name',
@@ -142,7 +148,7 @@ return [
     // Headings and texts of the page itself: Admin → Cruise pages → Become an agent
     'agents' => [
         'title' => 'Become our agent | Safer Cruise',
-        'description' => 'Travel agencies: join the Safer agents program and sell AROYA Red Sea cruises at agent prices, with a dedicated support team.',
+        'description' => 'Travel agencies: join the Safer agents program and sell AROYA Mediterranean cruises at agent prices, with a dedicated support team.',
         'fields' => [
             'company_name' => 'Company name',
             'contact_name' => 'Contact person',

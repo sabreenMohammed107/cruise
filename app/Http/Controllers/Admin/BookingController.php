@@ -14,6 +14,7 @@ use App\Models\Payment;
 use App\Models\PaymentReceipt;
 use App\Models\User;
 use App\Support\MediaLibrary;
+use App\Support\TestAccounts;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +53,7 @@ class BookingController extends Controller
 
         // Everything but the channel, so the B2C / Agents tabs can count within the other filters
         $filtered = fn () => Booking::query()
+            ->visibleTo($user)
             ->when($user->isSeller(), fn (Builder $query) => $query->where('seller_id', $user->id))
             ->when($user->can('assign-bookings') ? ($filters['seller'] ?? null) : null, fn (Builder $query, string $seller) => $seller === 'none'
                 ? $query->whereNull('seller_id')
@@ -89,13 +91,14 @@ class BookingController extends Controller
             'counts' => $counts,
             'agentTiers' => AgentTier::options(),
             // Agents who have booked, for the "Agent" filter
-            'agents' => User::whereIn('id', Booking::query()->whereNotNull('agent_id')->select('agent_id'))
+            'agents' => User::visibleTo($user)->whereIn('id', Booking::query()->whereNotNull('agent_id')->select('agent_id'))
                 ->orderBy('company_name')->orderBy('name')->get(['id', 'name', 'company_name']),
         ]);
     }
 
     public function show(Booking $booking): View
     {
+        $this->visible($booking);
         Gate::authorize('view-booking', $booking);
         $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers', 'payments.recordedBy', 'payments.receipts', 'promoCode', 'user', 'seller', 'agent', 'agentTier']);
 
@@ -107,14 +110,18 @@ class BookingController extends Controller
 
     public function update(Request $request, Booking $booking): RedirectResponse
     {
+        $this->visible($booking);
         Gate::authorize('view-booking', $booking);
         $booking->update($request->validate(['admin_notes' => ['nullable', 'string', 'max:5000']]));
 
         return back()->with('status', 'Notes saved.');
     }
 
+    /** Admins only (gate cancel-bookings, also on the route): supervisors and sellers get 403. */
     public function cancel(Booking $booking): RedirectResponse
     {
+        $this->visible($booking);
+        Gate::authorize('cancel-bookings');
         abort_if($booking->status === BookingStatus::Cancelled, 409);
 
         $booking->update(['status' => BookingStatus::Cancelled, 'cancelled_at' => now()]);
@@ -130,6 +137,7 @@ class BookingController extends Controller
      */
     public function assignSeller(Request $request, Booking $booking): RedirectResponse
     {
+        $this->visible($booking);
         $staff = array_map(fn (UserRole $role) => $role->value, UserRole::staff());
         $data = $request->validate([
             'seller_id' => ['nullable', Rule::exists('users', 'id')->whereIn('role', $staff)],
@@ -145,6 +153,7 @@ class BookingController extends Controller
 
     public function storePayment(Request $request, Booking $booking): RedirectResponse
     {
+        $this->visible($booking);
         Gate::authorize('view-booking', $booking);
         $data = $request->validate([
             'type' => ['required', Rule::enum(PaymentType::class)],
@@ -203,6 +212,7 @@ class BookingController extends Controller
      */
     public function receipt(Request $request, Booking $booking, Payment $payment, PaymentReceipt $receipt): StreamedResponse
     {
+        $this->visible($booking);
         Gate::authorize('view-booking', $booking);
         abort_unless($payment->booking_id === $booking->id && $receipt->payment_id === $payment->id && $receipt->fileExists(), 404);
 
@@ -224,6 +234,7 @@ class BookingController extends Controller
 
     public function destroyPayment(Booking $booking, Payment $payment): RedirectResponse
     {
+        $this->visible($booking);
         abort_unless($payment->booking_id === $booking->id, 404);
 
         // Its receipt files go with it (Payment::booted)
@@ -231,6 +242,12 @@ class BookingController extends Controller
         $booking->syncPaymentTotals();
 
         return back()->with('status', 'Payment entry removed.');
+    }
+
+    /** The super admin's test accounts' bookings: 404 for everyone else in the panel (App\Support\TestAccounts). */
+    private function visible(Booking $booking): void
+    {
+        TestAccounts::guard($booking, request()->user());
     }
 
     /**

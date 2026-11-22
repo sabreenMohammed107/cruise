@@ -89,12 +89,27 @@ final class Assistant
      */
     public static function available(): bool
     {
-        if (! self::enabled()) {
+        // Off, or the tickets package is used up or over (Admin → Assistant tickets)
+        if (! self::enabled() || ! Tickets::allows()) {
             return false;
         }
         if (self::audience() === 'everyone') {
             return true;
         }
+        $user = Auth::guard('web')->user();
+        if ($user instanceof User && ($user->isSuperAdmin() || in_array($user->id, self::testers(), true))) {
+            return true;
+        }
+
+        return (bool) Auth::guard('admin')->user()?->isSuperAdmin();
+    }
+
+    /**
+     * Sending photos in the chat: only the super admin and the accounts chosen in Admin → Assistant chats (testers),
+     * also when the chat is open to everyone.
+     */
+    public static function imagesAllowed(): bool
+    {
         $user = Auth::guard('web')->user();
         if ($user instanceof User && ($user->isSuperAdmin() || in_array($user->id, self::testers(), true))) {
             return true;

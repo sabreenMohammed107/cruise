@@ -102,7 +102,33 @@ class BookingCurrencyTest extends TestCase
 
         $this->withSession(['currency' => 'USD'])->get(BookingController::signedConfirmationUrl($booking))->assertOk()
             ->assertSee('EGP 559,000')
-            ->assertSee('Charged in US dollars: $11,180 (1 USD = 50.00 EGP on the booking day)');
+            // Step 36: only the EGP total, no USD equivalent or rate
+            ->assertDontSee('$11,180')->assertDontSee('1 USD =')->assertDontSee('Charged in US dollars');
+    }
+
+    public function test_the_voucher_has_the_banners_travellers_and_day_by_day_itinerary(): void
+    {
+        $booking = $this->book('EGP');
+        $sailing = $booking->sailing;
+        $days = $sailing->cruise->itinerary;
+        $this->assertNotEmpty($days, 'The seeded cruise has an itinerary.');
+        $last = $days->last();
+
+        $response = $this->get(BookingController::signedConfirmationUrl($booking))->assertOk()
+            ->assertSee('images/voucher/voucher-header.jpg')->assertSee('images/voucher/voucher-footer.jpg')
+            ->assertSee('Day-by-day itinerary')
+            ->assertSee('Day '.$last->day_number)
+            // Day N is departure + N − 1 days
+            ->assertSee($sailing->departure_date->copy()->addDays($last->day_number - 1)->format('j M Y'))
+            ->assertSee($last->port);
+        foreach ($booking->travellers as $t) {
+            $response->assertSee('<bdi dir="auto">'.e(trim($t->first_name.' '.$t->last_name)).'</bdi>', false);
+        }
+
+        // In Arabic
+        $this->withUnencryptedCookie(\App\Http\Middleware\SetLocale::COOKIE, 'ar')
+            ->get(BookingController::signedConfirmationUrl($booking))->assertOk()
+            ->assertSee('برنامج الرحلة يوماً بيوم')->assertSee('اليوم '.$last->day_number);
     }
 
     public function test_a_usd_booking_is_unchanged(): void

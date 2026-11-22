@@ -142,11 +142,20 @@ class PrepareBooking extends Tool
         $quote = $this->quote($request->cabins, $request, $sailing, $user);
         $id = BookingDraft::put($this->conversation, $payload, $user);
 
+        $offers = $this->offerLines($quote);
+
         return [
             'shown' => true,
+            // The same breakdown as quote_price: the summary shows the offers too
+            'cabin_fare' => $this->money($quote['fare']),
+            'offers' => array_map(fn ($o) => ['name' => $o['name'], 'discount' => $this->money($o['discount'])], $offers),
+            'price_before_offers' => $offers ? $this->money($quote['total'] + array_sum(array_column($offers, 'discount'))) : null,
+            'promo_discount' => $quote['discount'] > 0 ? $this->money($quote['discount']) : null,
+            'port_taxes' => $this->money($quote['fees']),
             'total' => $this->money($quote['total']),
-            'note' => 'The visitor sees the summary and a "Confirm booking" button. Nothing is booked until they press it: '
-                .'never say it is booked. If they want to change something, call prepare_booking again.',
+            'note' => 'The visitor sees the summary (with the offers applied, if any) and a "Confirm booking" button. Nothing '
+                .'is booked until they press it: never say it is booked. If they want to change something, call '
+                .'prepare_booking again. When offers apply, name them and the amount saved.',
             '_ui' => $this->card($id, $sailing, $request, $quote, $user),
         ];
     }
@@ -183,6 +192,14 @@ class PrepareBooking extends Tool
         if ($request->promo) {
             $lines[] = $b('promo').': '.$request->promo->code;
         }
+        // The offers taken off the total, and the price without them
+        $offers = $this->offerLines($quote);
+        foreach ($offers as $offer) {
+            $lines[] = $b('offer', ['name' => $offer['name'], 'amount' => $this->money($offer['discount'])['display']]);
+        }
+        if ($offers) {
+            $lines[] = $b('before_offers', ['amount' => $this->money($quote['total'] + array_sum(array_column($offers, 'discount')))['display']]);
+        }
 
         return [
             'type' => 'booking',
@@ -194,6 +211,15 @@ class PrepareBooking extends Tool
             'terms' => $b('terms', ['hours' => config('cruise.payment_contact_hours')]),
             'confirm' => $b('confirm'),
         ];
+    }
+
+    /** @return list<array{name: string, discount: float}> the offers in the quote that take something off, named in the visitor's language */
+    private function offerLines(array $quote): array
+    {
+        return array_values(array_map(
+            fn ($o) => ['name' => $this->isArabic() && filled($o['nameAr'] ?? null) ? $o['nameAr'] : $o['name'], 'discount' => (float) $o['discount']],
+            array_filter($quote['offers'] ?? [], fn ($o) => (float) ($o['discount'] ?? 0) > 0),
+        ));
     }
 
     private function agentApplies(?User $user): bool

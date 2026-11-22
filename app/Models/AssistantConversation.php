@@ -65,12 +65,12 @@ class AssistantConversation extends Model
         foreach ($this->messages ?? [] as $m) {
             if ($m['role'] === 'user') {
                 if (is_string($m['content'])) {
-                    $entries[] = ['kind' => 'user', 'text' => $m['content'], 'at' => $m['at'] ?? null];
+                    $entries[] = ['kind' => 'user', 'text' => $m['content'], 'at' => $m['at'] ?? null, 'image' => ! empty($m['image'])];
                 } else {
                     // A click on buttons, sent with the waiting tool results
                     foreach ($m['content'] as $block) {
                         if (($block['type'] ?? null) === 'text') {
-                            $entries[] = ['kind' => 'user', 'text' => (string) $block['text'], 'at' => $block['at'] ?? $m['at'] ?? null];
+                            $entries[] = ['kind' => 'user', 'text' => (string) $block['text'], 'at' => $block['at'] ?? $m['at'] ?? null, 'image' => ! empty($block['image'])];
                         }
                     }
                 }

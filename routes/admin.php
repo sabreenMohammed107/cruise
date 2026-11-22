@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AgentController;
 use App\Http\Controllers\Admin\AgentRequestController;
 use App\Http\Controllers\Admin\AssistantConversationController;
+use App\Http\Controllers\Admin\AssistantTicketsController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\CruiseArchiveController;
@@ -38,8 +39,9 @@ Route::post('bookings/{booking:reference}/payments', [BookingController::class, 
 Route::get('bookings/{booking:reference}/payments/{payment}/receipts/{receipt}', [BookingController::class, 'receipt'])->name('bookings.payments.receipt');
 
 Route::middleware('can:manage-content')->group(function () {
-    // Admins and supervisors: cancel, assign bookings to sellers, and remove payment entries (a delete: admins only)
-    Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+    // Admins and supervisors: assign bookings to sellers, and remove payment entries (a delete: admins only).
+    // Cancelling a booking: admins only (gate cancel-bookings, step 37).
+    Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel')->middleware('can:cancel-bookings');
     Route::delete('bookings/{booking:reference}/payments/{payment}', [BookingController::class, 'destroyPayment'])->name('bookings.payments.destroy');
     Route::patch('bookings/{booking:reference}/seller', [BookingController::class, 'assignSeller'])->name('bookings.seller')->middleware('can:assign-bookings');
 
@@ -86,12 +88,19 @@ Route::middleware('can:manage-content')->group(function () {
     Route::get('contact-messages/{contactMessage}', [ContactController::class, 'show'])->name('contact-messages.show')->whereNumber('contactMessage');
     Route::delete('contact-messages/{contactMessage}', [ContactController::class, 'destroy'])->name('contact-messages.destroy')->whereNumber('contactMessage');
 
+    // Website chat tickets: the package, renewing it, past packages. Super admin only for now (Gate in AppServiceProvider)
+    Route::middleware('can:manage-assistant-tickets')->group(function () {
+        Route::get('assistant-tickets', [AssistantTicketsController::class, 'index'])->name('assistant-tickets.index');
+    });
+
     // Website chat assistant: chats visitors had (steps, tokens, cost), on / off switch, limits. Super admin only.
     Route::middleware('can:manage-assistant')->group(function () {
         Route::get('assistant', [AssistantConversationController::class, 'index'])->name('assistant.index');
         Route::put('assistant/status', [AssistantConversationController::class, 'toggle'])->name('assistant.toggle');
         Route::put('assistant/audience', [AssistantConversationController::class, 'audience'])->name('assistant.audience');
         Route::put('assistant/limits', [AssistantConversationController::class, 'limits'])->name('assistant.limits');
+        // The tickets package (Admin → Assistant tickets): new package or renewal
+        Route::post('assistant/package', [AssistantConversationController::class, 'package'])->name('assistant.package');
         Route::get('assistant/{conversation}', [AssistantConversationController::class, 'show'])->name('assistant.show')->whereNumber('conversation');
         Route::delete('assistant/{conversation}', [AssistantConversationController::class, 'destroy'])->name('assistant.destroy')->whereNumber('conversation');
     });

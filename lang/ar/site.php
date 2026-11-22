@@ -295,7 +295,12 @@ return [
         'cancelled' => 'ملغى',
         'total' => 'الإجمالي',
         'download' => 'تحميل القسيمة',
-        'charged_usd' => 'المبلغ المستحق بالدولار الأمريكي: :usd (1 USD = :rate :currency يوم الحجز)',
+        // القسيمة (الخطوة 36)
+        'itinerary' => 'برنامج الرحلة يوماً بيوم',
+        'day_n' => 'اليوم :n',
+        'traveller_name' => 'الاسم',
+        'traveller_type' => 'الفئة',
+        'traveller_nationality' => 'الجنسية',
         'view_in_account' => 'عرض في حجوزاتي',
         'home' => 'العودة إلى الرئيسية',
     ],

@@ -31,6 +31,12 @@
   var chatId = root.dataset.chat || '';
   var history = [];
   var restoring = false;
+  // Photos (data-images: the longest side to shrink to; only for the accounts allowed to send them). The photo is
+  // sent with the next message and never kept, here or on the server.
+  var maxSide = parseInt(root.dataset.images || '0', 10);
+  var fileInput = root.querySelector('[data-assistant-file]');
+  var preview = root.querySelector('[data-assistant-preview]');
+  var pendingImage = null;
 
   function storeGet(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
   function storeSet(key, value) { try { window.localStorage.setItem(key, value); } catch (e) { /* full or blocked: only this page keeps it */ } }
@@ -299,21 +305,53 @@
     });
   }
 
+  // The chosen photo, shrunk so its longest side is at most maxSide, as a JPEG data URL
+  function shrink(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(); };
+      img.src = url;
+    });
+  }
+
+  function setImage(dataUrl) {
+    pendingImage = dataUrl;
+    if (!preview) return;
+    preview.hidden = !dataUrl;
+    preview.querySelector('[data-assistant-preview-img]').src = dataUrl || '';
+  }
+
   function send(text) {
     text = (text || '').trim();
-    if (!text || busy) return;
+    var image = pendingImage;
+    if ((!text && !image) || busy) return;
     busy = true;
     sendBtn.disabled = true;
     if (suggestions) suggestions.remove();
     suggestions = null;
     freezeChoices();
-    add('user', text);
+    // The photo itself isn't shown again (nor kept): a label stands for it
+    add('user', image ? '📷 ' + (t.imageSent || 'Photo') + (text ? '\n' + text : '') : text);
     input.value = '';
+    setImage(null);
     resize();
     var thinking = add('bot', root.dataset.thinking, '', false);
     thinking.classList.add('animate-pulse');
 
-    post(root.dataset.url, { message: text })
+    post(root.dataset.url, image ? { message: text, image: image } : { message: text })
       .then(function (res) {
         if (res.status === 429) return { reply: root.dataset.tooMany, error: true };
         return res.json().catch(function () { return {}; }).then(function (data) {
@@ -384,6 +422,47 @@
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); }
   });
   input.addEventListener('input', resize);
+  if (maxSide && fileInput) {
+    root.querySelector('[data-assistant-attach]').addEventListener('click', function () { if (!busy) fileInput.click(); });
+    var useFile = function (file) {
+      if (!file || busy) return;
+      shrink(file).then(function (dataUrl) {
+        setImage(dataUrl);
+        input.focus();
+      }, function () {
+        add('bot', t.imageInvalid || root.dataset.error, 'sc-msg-error');
+        scroll();
+      });
+    };
+    fileInput.addEventListener('change', function () {
+      var file = fileInput.files && fileInput.files[0];
+      fileInput.value = '';
+      useFile(file);
+    });
+    // A copied photo pasted in the message box (Ctrl+V): it becomes the photo to send; pasted text stays text
+    input.addEventListener('paste', function (e) {
+      var items = (e.clipboardData && e.clipboardData.items) || [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file' && /^image\//.test(items[i].type)) {
+          e.preventDefault();
+          useFile(items[i].getAsFile());
+          return;
+        }
+      }
+    });
+    // Or dropped on the chat
+    panel.addEventListener('dragover', function (e) {
+      if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1) e.preventDefault();
+    });
+    panel.addEventListener('drop', function (e) {
+      var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file && /^image\//.test(file.type)) {
+        e.preventDefault();
+        useFile(file);
+      }
+    });
+    root.querySelector('[data-assistant-remove-image]').addEventListener('click', function () { setImage(null); input.focus(); });
+  }
   bindSuggestions();
   restore();
   var state = storeGet(STATE_KEY);

@@ -66,8 +66,8 @@ class PageTranslationTest extends TestCase
     {
         $checks = [
             '/' => [
-                'en' => ['<title>Safer Cruise | Red Sea cruises aboard AROYA</title>', 'aria-label="Previous photo"', '>Email address</label>', '2 adults'],
-                'ar' => ['<title>Safer Cruise | رحلات البحر الأحمر على متن أرويا</title>', 'aria-label="الصورة السابقة"', '>البريد الإلكتروني</label>', 'بالغان'],
+                'en' => ['<title>Safer Cruise | Mediterranean cruises aboard AROYA</title>', 'aria-label="Previous photo"', '>Email address</label>', '2 adults'],
+                'ar' => ['<title>Safer Cruise | رحلات البحر المتوسط على متن أرويا</title>', 'aria-label="الصورة السابقة"', '>البريد الإلكتروني</label>', 'بالغان'],
             ],
             '/ship' => [
                 'en' => ['<title>The ship: AROYA | Safer Cruise</title>', '>About the ship</a>', '>Questions</a>', 'mt-2">AROYA</h1>'],

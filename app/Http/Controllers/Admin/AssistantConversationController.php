@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AssistantConversation;
+use App\Models\AssistantPackage;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Services\Assistant\Assistant;
-use Illuminate\Database\Eloquent\Builder;
+use App\Services\Assistant\ChatList;
+use App\Services\Assistant\Tickets;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -22,31 +25,8 @@ class AssistantConversationController extends Controller
 {
     public function index(Request $request): View
     {
-        $filters = [
-            'q' => trim((string) $request->query('q', '')),
-            'who' => in_array($request->query('who'), ['signed_in', 'guests'], true) ? $request->query('who') : null,
-            'lang' => in_array($request->query('lang'), ['en', 'ar'], true) ? $request->query('lang') : null,
-            'period' => in_array($request->query('period'), ['today', '7', '30'], true) ? $request->query('period') : null,
-        ];
-
-        $chats = AssistantConversation::query()
-            ->with('user')
-            ->when($filters['q'] !== '', function (Builder $q) use ($filters) {
-                $term = '%'.$filters['q'].'%';
-                $q->where(fn (Builder $w) => $w
-                    ->when(ctype_digit($filters['q']), fn ($x) => $x->orWhere('id', (int) $filters['q']))
-                    ->orWhere('ip', 'like', $term)
-                    ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $term)->orWhere('email', 'like', $term)));
-            })
-            ->when($filters['who'] === 'signed_in', fn ($q) => $q->whereNotNull('user_id'))
-            ->when($filters['who'] === 'guests', fn ($q) => $q->whereNull('user_id'))
-            ->when($filters['lang'], fn ($q) => $q->where('locale', $filters['lang']))
-            ->when($filters['period'] === 'today', fn ($q) => $q->where('created_at', '>=', today()))
-            ->when(in_array($filters['period'], ['7', '30'], true), fn ($q) => $q->where('created_at', '>=', today()->subDays((int) $filters['period'] - 1)))
-            ->where('user_messages', '>', 0)
-            ->latest('updated_at')
-            ->paginate(20)
-            ->withQueryString();
+        $filters = ChatList::filters($request);
+        $chats = ChatList::paginate($filters);
 
         return view('admin.assistant.index', [
             'chats' => $chats,
@@ -59,6 +39,9 @@ class AssistantConversationController extends Controller
             'testers' => Assistant::testers(),
             'agents' => User::agents()->orderBy('name')->get(['id', 'name', 'email']),
             'limits' => collect(Assistant::LIMITS)->map(fn ($l, $name) => ['label' => $l[1], 'value' => Assistant::limit($name), 'default' => Assistant::defaultLimit($name)])->all(),
+            // The tickets package (Admin → Assistant tickets): created and renewed here
+            'package' => Tickets::current() ?? Tickets::latest(),
+            'pricesSet' => config('assistant.price_input_per_mtok') !== null && config('assistant.price_output_per_mtok') !== null,
         ]);
     }
 
@@ -119,20 +102,46 @@ class AssistantConversationController extends Controller
         return redirect()->route('admin.assistant.index')->with('status', 'Chat deleted.');
     }
 
-    /** Chats and messages today / this month, tokens and cost this month, cost since the start. Chats with messages. */
+    /**
+     * A new tickets package, or a renewal (Admin → Assistant tickets): the tickets for the USD amount, from the chosen
+     * start (now by default) for one month. It replaces the running package: that one ends when this one starts.
+     */
+    public function package(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'tickets' => ['required', 'integer', 'min:1', 'max:100000000'],
+            'price_usd' => ['required', 'numeric', 'min:0.01', 'max:1000000'],
+            'starts_at' => ['nullable', 'date'],
+        ]);
+        $start = isset($data['starts_at']) ? Carbon::parse($data['starts_at']) : now();
+        $end = $start->copy()->addMonthNoOverflow();
+
+        // The packages still running (or scheduled) end when this one starts
+        AssistantPackage::where('ends_at', '>', $start)->each(function (AssistantPackage $old) use ($start) {
+            $old->update(['ends_at' => $old->starts_at->greaterThan($start) ? $old->starts_at : $start]);
+        });
+
+        AssistantPackage::create([
+            'tickets' => $data['tickets'],
+            'price_usd' => $data['price_usd'],
+            'starts_at' => $start,
+            'ends_at' => $end,
+            'created_by' => $request->user()->id,
+        ]);
+
+        return redirect()->to(route('admin.assistant.index').'#package')->with('status', $start->isFuture()
+            ? 'Package saved: it starts on '.$start->format('j M Y, H:i').'.'
+            : 'Package started: '.number_format($data['tickets']).' tickets until '.$end->format('j M Y, H:i').'.');
+    }
+
+    /** Chats and messages today / this month, with this month's and all-time cost. Chats with messages. */
     private function stats(): array
     {
+        $stats = ChatList::stats();
         $all = AssistantConversation::where('user_messages', '>', 0)->selectRaw('coalesce(sum(input_tokens), 0) as input, coalesce(sum(output_tokens), 0) as output')->first();
-        $month = AssistantConversation::where('user_messages', '>', 0)->where('created_at', '>=', now()->startOfMonth());
-        $totals = (clone $month)->selectRaw('count(*) as chats, coalesce(sum(user_messages), 0) as messages, coalesce(sum(input_tokens), 0) as input, coalesce(sum(output_tokens), 0) as output')->first();
 
-        return [
-            'today' => AssistantConversation::where('user_messages', '>', 0)->where('created_at', '>=', today())->count(),
-            'chats' => (int) $totals->chats,
-            'messages' => (int) $totals->messages,
-            'input' => (int) $totals->input,
-            'output' => (int) $totals->output,
-            'cost' => Assistant::cost((int) $totals->input, (int) $totals->output),
+        return $stats + [
+            'cost' => Assistant::cost($stats['input'], $stats['output']),
             'cost_all' => Assistant::cost((int) $all->input, (int) $all->output),
         ];
     }

@@ -32,7 +32,7 @@
       </div>
     </section>
 
-    <div id="flow" class="hidden max-w-site mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[1fr_370px] gap-8 items-start">
+    <div id="flow" class="hidden max-w-site mx-auto px-4 sm:px-6 py-8 grid lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] gap-6 xl:gap-8 items-start">
       <div class="min-w-0">
 
         <!-- =========================================================
@@ -109,7 +109,7 @@
       <!-- =========================================================
            BOOKING SUMMARY (sticky)
            ========================================================= -->
-      <aside class="lg:sticky lg:top-24 order-first lg:order-none" aria-label="{{ __('site.booking.summary') }}">
+      <aside class="min-w-0 lg:sticky lg:top-24 order-first lg:order-none"aria-label="{{ __('site.booking.summary') }}">
         <details class="lg:hidden card mb-2 group" id="m-summary-toggle">
           <summary class="list-none flex items-center justify-between p-4 cursor-pointer">
             <span class="font-bold">{{ __('site.booking.summary') }}</span>
@@ -117,7 +117,7 @@
           </summary>
           <div id="summary-mobile" class="border-t border-line"></div>
         </details>
-        <div class="hidden lg:block card pass overflow-hidden" style="--perf-bg:#F5F8FB" id="summary"></div>
+        <div class="hidden lg:flex flex-col card pass overflow-hidden summary-card" style="--perf-bg:#F5F8FB" id="summary"></div>
       </aside>
     </div>
   </main>

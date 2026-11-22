@@ -62,8 +62,14 @@ class AppServiceProvider extends ServiceProvider
         // Admin → Assistant chats (the website chat's conversations, limits and cost): the super admin only, who
         // passes every check through Gate::before above; nobody else
         Gate::define('manage-assistant', fn (User $user) => false);
+        // Admin → Assistant tickets (the chat's package, in tickets): the super admin only for now. To show it to the
+        // admins, return $user->isAdmin() here; creating and renewing packages and the USD amounts stay the super admin's.
+        Gate::define('manage-assistant-tickets', fn (User $user) => false);
         // Adding and editing people (Customers, Admins & staff): admins only; supervisors can look at the lists.
         Gate::define('manage-users', fn (User $user) => $user->isAdmin());
+        // Cancelling a booking: admins and the super admin only; not supervisors, sellers or agents (step 37).
+        // Route admin.bookings.cancel (can:cancel-bookings), Admin\BookingController::cancel() and the button.
+        Gate::define('cancel-bookings', fn (User $user) => $user->isAdmin() || $user->isSuperAdmin());
         // Choosing who a booking is assigned to (any admin, supervisor or seller): admins and supervisors.
         Gate::define('assign-bookings', fn (User $user) => $user->isAdmin() || $user->isSupervisor());
         // A booking's admin page and voucher: admins, supervisors, and the seller it is assigned to.

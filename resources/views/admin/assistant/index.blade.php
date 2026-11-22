@@ -1,6 +1,5 @@
 @extends('layouts.admin')
 @use('App\Support\Format')
-@use('Illuminate\Support\Str')
 
 @section('title', 'Assistant chats')
 
@@ -88,6 +87,55 @@
     </form>
   </section>
 
+  {{-- Tickets package (shown in tickets on Admin → Assistant tickets) --}}
+  <section id="package" class="card p-5 mt-5">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="font-display font-semibold text-lg">Tickets package</h2>
+        <p class="text-sm text-muted mt-1">Tickets for an amount in USD, for one month from the start. Each message uses tickets in proportion to what it cost; the chat stops when they are used up or the month is over. Renewing replaces the current package: full tickets and a new month.</p>
+      </div>
+      <a href="{{ route('admin.assistant-tickets.index') }}" class="btn btn-ghost btn-sm">Assistant tickets</a>
+    </div>
+
+    @if ($package)
+      @php
+        $state = $package->status();
+        $label = ['active' => ['tag-lagoon', 'Active'], 'scheduled' => ['tag-sun', 'Starts later'], 'used_up' => ['tag-sun', 'Used up: renew'], 'expired' => ['tag-sun', 'Ended: renew']][$state];
+      @endphp
+      <p class="text-sm mt-3"><span class="tag {{ $label[0] }}">{{ $label[1] }}</span>
+        <span class="tabular" dir="ltr">{{ number_format(floor($package->remaining())) }} / {{ number_format($package->tickets) }}</span> tickets left,
+        until <span class="tabular" dir="ltr">{{ $package->ends_at->format('j M Y, H:i') }}</span>.
+        ${{ number_format($package->price_usd, 2) }} for {{ number_format($package->tickets) }} tickets: 1 ticket = ${{ number_format($package->price_usd / max(1, $package->tickets), 4) }} of chat usage.
+      </p>
+    @else
+      <p class="text-sm mt-3"><span class="tag tag-sun">No package</span> The chat runs without tickets until you start the first package.</p>
+    @endif
+    @unless ($pricesSet)
+      <p class="text-xs text-[#C42F2F] mt-2">The model's prices aren't set, so messages can't be turned into tickets. Set <code dir="ltr">ASSISTANT_PRICE_INPUT</code> and <code dir="ltr">ASSISTANT_PRICE_OUTPUT</code> in <code>.env</code>.</p>
+    @endunless
+
+    <form method="POST" action="{{ route('admin.assistant.package') }}" class="mt-4 flex flex-wrap items-start gap-4">
+      @csrf
+      <div>
+        <label for="tickets" class="label">Tickets</label>
+        <input id="tickets" name="tickets" type="number" min="1" required value="{{ old('tickets', $package?->tickets ?? 1000) }}" class="field !py-2 !w-40 tabular">
+        @error('tickets')<p class="text-xs text-[#C42F2F] mt-1">{{ $message }}</p>@enderror
+      </div>
+      <div>
+        <label for="price_usd" class="label">For (USD)</label>
+        <input id="price_usd" name="price_usd" type="number" min="0.01" step="0.01" required value="{{ old('price_usd', $package?->price_usd ?? 20) }}" class="field !py-2 !w-40 tabular">
+        @error('price_usd')<p class="text-xs text-[#C42F2F] mt-1">{{ $message }}</p>@enderror
+      </div>
+      <div>
+        <label for="starts_at" class="label">Starts</label>
+        <input id="starts_at" name="starts_at" type="datetime-local" value="{{ old('starts_at', now()->format('Y-m-d\TH:i')) }}" class="field !py-2 !w-auto">
+        <p class="text-xs text-muted mt-1">Ends one month later</p>
+        @error('starts_at')<p class="text-xs text-[#C42F2F] mt-1">{{ $message }}</p>@enderror
+      </div>
+      <button class="btn btn-primary btn-sm mt-6">{{ $package ? 'Renew' : 'Start package' }}</button>
+    </form>
+  </section>
+
   {{-- This month --}}
   <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mt-5">
     @foreach ([
@@ -109,80 +157,5 @@
     <p class="text-xs text-muted mt-2">Estimated from the tokens used ({{ number_format($stats['input']) }} input, {{ number_format($stats['output']) }} output this month) at ${{ config('assistant.price_input_per_mtok') }} / ${{ config('assistant.price_output_per_mtok') }} per million input / output tokens. Saved (cached) instructions cost less, so the real bill is a little lower; the exact amount is in the Anthropic Console.</p>
   @endif
 
-  <form method="GET" class="mt-6 flex flex-wrap gap-2 items-end">
-    <div class="w-full sm:w-72">
-      <label for="q" class="label">Search</label>
-      <input id="q" name="q" value="{{ $filters['q'] }}" class="field !py-2" placeholder="Customer name or email, chat number, IP">
-    </div>
-    <div>
-      <label for="who" class="label">Visitor</label>
-      <select id="who" name="who" class="field !py-2 !w-auto">
-        <option value="">All</option>
-        <option value="signed_in" @selected($filters['who'] === 'signed_in')>Signed in</option>
-        <option value="guests" @selected($filters['who'] === 'guests')>Guests</option>
-      </select>
-    </div>
-    <div>
-      <label for="lang" class="label">Language</label>
-      <select id="lang" name="lang" class="field !py-2 !w-auto">
-        <option value="">All</option>
-        <option value="ar" @selected($filters['lang'] === 'ar')>Arabic</option>
-        <option value="en" @selected($filters['lang'] === 'en')>English</option>
-      </select>
-    </div>
-    <div>
-      <label for="period" class="label">Started</label>
-      <select id="period" name="period" class="field !py-2 !w-auto">
-        <option value="">Any time</option>
-        <option value="today" @selected($filters['period'] === 'today')>Today</option>
-        <option value="7" @selected($filters['period'] === '7')>Last 7 days</option>
-        <option value="30" @selected($filters['period'] === '30')>Last 30 days</option>
-      </select>
-    </div>
-    <button class="btn btn-primary btn-sm">Filter</button>
-    @if (array_filter($filters))
-      <a href="{{ route('admin.assistant.index') }}" class="btn btn-ghost btn-sm">Clear</a>
-    @endif
-  </form>
-
-  <div class="card overflow-hidden mt-5">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-ocean-50 text-ocean-800">
-          <tr>
-            <th class="text-start font-semibold p-3">Visitor</th>
-            <th class="text-start font-semibold p-3">First question</th>
-            <th class="text-end font-semibold p-3">Messages</th>
-            <th class="text-end font-semibold p-3">Tokens</th>
-            <th class="text-end font-semibold p-3">Cost</th>
-            <th class="text-start font-semibold p-3">Last message</th>
-            <th class="p-3"><span class="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          @forelse ($chats as $c)
-            <tr class="border-t border-line hover:bg-page">
-              <td class="p-3">
-                <a href="{{ route('admin.assistant.show', $c) }}" class="font-bold text-ocean-700 hover:underline">{{ $c->user?->name ?? 'Guest' }}</a>
-                <span class="tag {{ $c->locale === 'ar' ? 'tag-ocean' : 'tag-lagoon' }} ms-1">{{ strtoupper($c->locale) }}</span>
-                <p class="text-xs text-muted break-all">{{ $c->user?->email ?? 'Chat #'.$c->id }}</p>
-              </td>
-              <td class="p-3 max-w-md" dir="auto">{{ Str::limit($c->firstQuestion() ?? '—', 110) }}</td>
-              <td class="p-3 text-end tabular">{{ $c->user_messages }}</td>
-              <td class="p-3 text-end tabular text-muted">{{ number_format($c->input_tokens + $c->output_tokens) }}</td>
-              @php $chatCost = \App\Services\Assistant\Assistant::cost($c->input_tokens, $c->output_tokens); @endphp
-              <td class="p-3 text-end tabular text-muted">{{ $chatCost !== null ? '$'.number_format($chatCost, 4) : '—' }}</td>
-              <td class="p-3 whitespace-nowrap text-muted">{{ Format::date($c->updated_at, 'j M, H:i') }}</td>
-              <td class="p-3 text-end whitespace-nowrap">
-                <a href="{{ route('admin.assistant.show', $c) }}" class="btn btn-ghost btn-sm">Open</a>
-              </td>
-            </tr>
-          @empty
-            <tr><td colspan="7"class="p-8 text-center text-muted">{{ array_filter($filters) ? 'No chats match these filters.' : 'No chats yet.' }}</td></tr>
-          @endforelse
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <div class="mt-5">{{ $chats->links() }}</div>
+  @include('admin.assistant.partials.chats', ['route' => 'admin.assistant.index', 'costs' => true])
 @endsection

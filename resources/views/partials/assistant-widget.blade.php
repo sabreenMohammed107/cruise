@@ -17,7 +17,11 @@
       'savePrompt' => __('assistant.report.save_prompt'),
       'usd' => __('assistant.report.usd'),
       'empty' => __('assistant.report.empty'),
+      'imageSent' => __('assistant.image_sent'),
+      'imageInvalid' => __('assistant.image_invalid'),
   ];
+  // Photos: the super admin and the accounts chosen in Admin → Assistant chats only
+  $images = \App\Services\Assistant\Assistant::imagesAllowed();
 @endphp
 <div id="sc-assistant"
      data-url="{{ route('assistant.message') }}"
@@ -26,6 +30,7 @@
      data-thinking="{{ __('assistant.thinking') }}"
      data-error="{{ __('assistant.error') }}"
      data-too-many="{{ __('assistant.too_many') }}"
+     @if ($images) data-images="{{ \App\Services\Assistant\ImageInput::MAX_SIDE }}" @endif
      data-strings='@json($strings)'>
 
   <button type="button" data-assistant-open aria-expanded="false" aria-controls="sc-assistant-panel"
@@ -61,9 +66,28 @@
       </div>
     </div>
 
+    @if ($images)
+      {{-- The chosen photo, before it is sent --}}
+      <div data-assistant-preview hidden class="border-t border-ocean-100 px-3 pt-3 bg-white">
+        <div class="relative inline-block">
+          <img data-assistant-preview-img alt="" class="h-16 w-16 rounded-xl object-cover border border-ocean-100">
+          <button type="button" data-assistant-remove-image class="absolute -top-2 -end-2 h-6 w-6 rounded-full bg-slate-800 text-white text-xs leading-none" aria-label="{{ __('assistant.remove_image') }}" title="{{ __('assistant.remove_image') }}">×</button>
+        </div>
+      </div>
+    @endif
     <form data-assistant-form class="border-t border-ocean-100 p-3 flex items-end gap-2 bg-white">
+      @if ($images)
+        <input type="file" accept="image/jpeg,image/png,image/webp" data-assistant-file hidden>
+        <button type="button" data-assistant-attach class="h-10 w-10 shrink-0 rounded-full border border-ocean-200 text-ocean-700 inline-flex items-center justify-center hover:bg-ocean-50"
+                aria-label="{{ __('assistant.attach_image') }}" title="{{ __('assistant.attach_image') }}: {{ __('assistant.image_hint') }}">
+          <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/>
+          </svg>
+        </button>
+      @endif
       <label for="sc-assistant-input" class="sr-only">{{ __('assistant.placeholder') }}</label>
-      <textarea id="sc-assistant-input" rows="1" maxlength="{{ config('assistant.max_message_length') }}" required
+      {{-- Not "required": a photo can be sent without words (assistant.js checks the message itself) --}}
+      <textarea id="sc-assistant-input" rows="1" maxlength="{{ config('assistant.max_message_length') }}"
                 class="flex-1 resize-none rounded-2xl border border-ocean-200 px-3 py-2 text-sm max-h-32 focus:outline-none focus:ring-2 focus:ring-ocean-300"
                 placeholder="{{ __('assistant.placeholder') }}"></textarea>
       <button type="submit" class="h-10 rounded-full bg-ocean-700 text-white px-4 text-sm font-bold hover:bg-ocean-800 disabled:opacity-50">{{ __('assistant.send') }}</button>

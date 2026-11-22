@@ -68,7 +68,14 @@ document.addEventListener('sc:ready', () => {
   // Offers (Admin → Offers, step 26): "Offer: Summer deal" and what it takes off
   const offerLabel = (o) => t('offer', { name: o.name });
   // How the offer's amount was worked out, under its name (SC.offerHint), e.g. "Child's price as 3rd guest $603 · pays only $110"
-  const offerHint = (o) => { const h = SC.offerHint(o); return h ? `<span class="block text-xs font-normal text-muted mt-0.5" data-offer-hint>${SC.esc(h)}</span>` : ''; };
+  // wrap: the narrow sidebar lets the equation break before "−", "×", "=" (amounts themselves still never break),
+  // otherwise its unbreakable width stretches the summary and pushes every amount off the card
+  const offerHint = (o, wrap = false) => {
+    let h = SC.offerHint(o);
+    if (!h) return '';
+    if (wrap) h = h.replace(/ ([−×=·]) /g, ' $1 ');
+    return `<span class="block text-xs font-normal text-muted mt-0.5 leading-relaxed" data-offer-hint>${SC.esc(h)}</span>`;
+  };
   const checkPromo = async (code) => {
     const r = await SC.api('POST', SC.route('bookingPromo'), { code, sailing: b.sailingId });
     if (r.ok) D.promos[r.data.code] = r.data;
@@ -128,8 +135,8 @@ document.addEventListener('sc:ready', () => {
         ${s.primary ? `<span class="tag tag-lagoon">${t('primary_guest')}</span>` : ''}
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
-        ${field(`${k}-first`, t('first_name'), `<input id="${k}-first" class="field" data-key="${k}" data-f="first" data-rule="name" autocomplete="${s.primary ? 'given-name' : 'off'}" value="${val(k, 'first')}">`)}
-        ${field(`${k}-last`, t('last_name'), `<input id="${k}-last" class="field" data-key="${k}" data-f="last" data-rule="name" autocomplete="${s.primary ? 'family-name' : 'off'}" value="${val(k, 'last')}">`)}
+        ${field(`${k}-first`, t('first_name'), `<input id="${k}-first" class="field" dir="ltr" lang="en" autocapitalize="words" spellcheck="false" data-key="${k}" data-f="first" data-rule="name" autocomplete="${s.primary ? 'given-name' : 'off'}" value="${val(k, 'first')}">`)}
+        ${field(`${k}-last`, t('last_name'), `<input id="${k}-last" class="field" dir="ltr" lang="en" autocapitalize="words" spellcheck="false" data-key="${k}" data-f="last" data-rule="name" autocomplete="${s.primary ? 'family-name' : 'off'}" value="${val(k, 'last')}">`)}
         ${field(`${k}-dob`, t('dob'), `<div class="relative"><input id="${k}-dob" type="text" class="field pe-11" data-key="${k}" data-f="dob" data-rule="dob" data-band="${s.band}" placeholder="dd/mm/yyyy" value="${val(k, 'dob')}">${SC.icon('calendar', 'pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted')}</div>`)}
         ${field(`${k}-gender`, t('gender'), `<select id="${k}-gender" class="field" data-key="${k}" data-f="gender" data-rule="required"><option value="">${t('select')}</option>${['Male', 'Female'].map((g) => `<option value="${g}" ${tr.gender === g ? 'selected' : ''}>${SC.genderLabel(g)}</option>`).join('')}</select>`, err('gender'))}
         ${field(`${k}-nat`, t('nationality'), `<select id="${k}-nat" class="field" data-key="${k}" data-f="nationality" data-rule="required"><option value="">${t('select_nationality')}</option>${D.nationalities.map((n) => `<option value="${SC.esc(n)}" ${tr.nationality === n ? 'selected' : ''}>${SC.esc(SC.natLabel(n))}</option>`).join('')}</select>`, err('nationality'), 'sm:col-span-2')}
@@ -157,7 +164,8 @@ document.addEventListener('sc:ready', () => {
     </section>`).join('');
 
   /* ---------- Validation (same rules and words as App\Http\Requests\ConfirmBookingRequest) ---------- */
-  const NAME = /^[\p{L}][\p{L}\s'’\-]{0,48}$/u;
+  // English letters only, as in the passport (ConfirmBookingRequest::TRAVELLER_NAME_PATTERN)
+  const NAME = /^[A-Za-z][A-Za-z '’\-]{0,48}$/;
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   const phoneError = (dial, raw) => {
     const n = raw.replace(/[\s\-()]/g, '').replace(/^0+/, '');
@@ -215,6 +223,9 @@ document.addEventListener('sc:ready', () => {
     locale: SC.lang() === 'ar' ? 'ar' : 'default',
     onReady: (_, __, fp) => {
       fp.altInput.id = `${el.id}-shown`; fp.altInput.dir = 'ltr'; fp.altInput.autocomplete = 'off';
+      // The box reads left to right (dd/mm/yyyy), so "pe-11" would pad its right side, while on Arabic pages the
+      // calendar icon sits on the left: pad the icon's side and keep the date on the right, under the label
+      if (document.documentElement.dir === 'rtl') { fp.altInput.classList.remove('pe-11'); fp.altInput.classList.add('pl-11', 'text-right'); }
       $(`label[for="${el.id}"]`).htmlFor = fp.altInput.id;
       yearSelect(fp);
     },
@@ -327,7 +338,8 @@ document.addEventListener('sc:ready', () => {
     save();
     // A date of birth can bring an offer by age (step 26): the price summary follows
     if (el.dataset.f === 'dob' && SC.ageOffers(sailing).length) renderSummary();
-    if (el.classList.contains('is-invalid')) showError(el, errorFor(el));
+    // A name typed in Arabic (or any non-English letter) is flagged straight away, not only on blur
+    if (el.classList.contains('is-invalid') || (el.dataset.rule === 'name' && /[^A-Za-z '’\-]/.test(el.value))) showError(el, errorFor(el));
     paintTabs();
   });
   // <select> changes don't always fire "input"
@@ -473,29 +485,50 @@ document.addEventListener('sc:ready', () => {
   });
 
   /* ---------- Summary (sidebar + mobile collapsible) ---------- */
+  /* The summary in three parts: what is paid (cabins at the public price, port taxes) and its subtotal; then every
+     discount in the green box (agent commission, offers, promo code, SC.ui.offersBox); then the net total, pinned at
+     the bottom of the card while the middle scrolls (.summary-card in theme.css). */
   const renderSummary = () => {
     const q = quote();
+    // A row: the label takes the room left and wraps; the amount keeps its width and never breaks
+    const row = 'flex items-start justify-between gap-3';
+    const label = 'min-w-0 flex-1 break-words';
+    const amount = 'shrink-0 text-end whitespace-nowrap';
+    // Agents: each cabin at the public price; the commission is one of the discounts below
+    const charges = several
+      ? q.rooms.map((p) => `<div class="${row}"><dt class="${label} text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd class="${amount}">${SC.money(p.agent ? p.agent.publicFare : p.fare)}</dd></div>`).join('')
+      : (q.agent && q.rooms[0].prices.public ? SC.fareLines(q.rooms[0].prices.public, q.rooms[0].guests) : q.lines)
+        .map((l) => `<div class="${row}"><dt class="${label} text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="${amount}">${SC.money(l.total)}</dd></div>`).join('');
+    const subtotal = (q.agent ? q.agent.publicFare : q.fare) + q.fees;
+    const lead = q.agent ? [{ name: agentLabel(q.agent), amount: q.agent.saving, detail: t('agent_public_fare', { amount: SC.money(q.agent.publicFare) }) }] : [];
+    const extras = q.discount ? [{ name: t('discount', { code: q.promo.code }), amount: q.discount }] : [];
+    // Offers by age / nationality are listed as waiting only while a paying traveller still misses those details
+    const waiting = slots.some((s) => s.band !== 'infant' && !((b.travellers[s.key] || {}).dob && (b.travellers[s.key] || {}).nationality));
+    const discounts = SC.ui.offersBox(q, sailing, { rooms, lead, extras, pending: waiting, title: 'discounts_title' });
     const html = `
-      <div class="p-5 flex gap-4">
-        <img src="${cabin.images[0]}" alt="" class="w-20 h-20 rounded-xl object-cover">
+      <div class="p-4 sm:p-5 flex gap-4">
+        <img src="${cabin.images[0]}" alt="" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0">
         <div class="min-w-0">
-          <p class="font-display font-semibold leading-snug">${SC.esc(cruiseName)}</p>
-          <p class="text-sm text-muted">${SC.fmtDate(b.departure, { day: 'numeric', month: 'short' })} – ${SC.fmtDate(b.returnDate)}</p>
+          <p class="font-display font-semibold leading-snug break-words">${SC.esc(cruiseName)}</p>
+          <p class="text-sm text-muted mt-1">${SC.fmtDate(b.departure, { day: 'numeric', month: 'short' })} – ${SC.fmtDate(b.returnDate)}</p>
           <p class="text-sm text-muted">${several ? SC.tc('ui.details.cabins_count', rooms.length) : cabin.nameEn}</p>
         </div>
       </div>
-      <div class="px-5 pb-4 text-sm flex justify-between gap-3"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(guestsTotal)}</span></div>
-      <div class="perf-x"></div>
-      <dl class="p-5 grid gap-2 text-sm tabular">
-        ${several
-          ? q.rooms.map((p) => `<div class="flex justify-between gap-3"><dt class="text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd>${SC.money(p.fare)}</dd></div>`).join('')
-          : q.lines.map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${SC.money(l.total)}</dd></div>`).join('')}
-        ${q.agent ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${agentLabel(q.agent)}<span class="block text-xs">${t('agent_public_fare', { amount: SC.money(q.agent.publicFare) })}</span></dt><dd class="text-end">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</dd></div>` : ''}
-        ${q.offers.map((o) => `<div class="flex justify-between gap-3 text-[#12805C]" data-offer-row="${o.id}"><dt>${SC.esc(offerLabel(o))}${offerHint(o)}</dt><dd class="shrink-0">− ${SC.money(o.discount)}</dd></div>`).join('')}
-        ${q.discount ? `<div class="flex justify-between gap-3 text-[#12805C]"><dt>${t('discount', { code: q.promo.code })}</dt><dd>− ${SC.money(q.discount)}</dd></div>` : ''}
-        ${q.fees > 0 ? `<div class="flex justify-between gap-3" data-port-tax><dt class="text-muted">${t('port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd>${SC.money(q.fees)}</dd></div>` : ''}
-        <div class="flex items-end justify-between gap-3 pt-3 mt-1 border-t border-line"><dt><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></dt><dd class="font-display font-bold text-2xl text-ocean-800">${SC.money(q.total)}</dd></div>
-      </dl>`;
+      <div class="sum-body">
+        <div class="px-4 sm:px-5 pb-4 text-sm flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(guestsTotal)}</span></div>
+        <div class="perf-x"></div>
+        <div class="p-4 sm:p-5">
+          <dl class="grid grid-cols-[minmax(0,1fr)] gap-3 text-sm tabular" data-summary-lines>
+            ${charges}
+            ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${t('port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.money(q.fees)}</dd></div>` : ''}
+            ${discounts ? `<div class="${row} pt-3 border-t border-line font-bold" data-subtotal><dt class="${label}">${SC.t('ui.details.charges_subtotal')}</dt><dd class="${amount}">${SC.money(subtotal)}</dd></div>` : ''}
+          </dl>
+          ${discounts}
+        </div>
+      </div>
+      <div class="sum-foot">
+        <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1"><p class="min-w-0"><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></p><p class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap tabular">${SC.money(q.total)}</p></div>
+      </div>`;
     $('#summary').innerHTML = html;
     $('#summary-mobile').innerHTML = html;
     $('#m-total').textContent = SC.money(q.total);

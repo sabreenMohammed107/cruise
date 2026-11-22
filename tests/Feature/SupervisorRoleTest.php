@@ -195,6 +195,38 @@ class SupervisorRoleTest extends TestCase
 
     /* ---------- Menu and command line ---------- */
 
+    /* ---------- Cancelling bookings: admins and the super admin only (step 37) ---------- */
+
+    public function test_only_admins_and_the_super_admin_cancel_bookings(): void
+    {
+        $booking = Booking::where('status', '!=', 'cancelled')->firstOrFail();
+        $seller = $this->seller();
+        $booking->update(['seller_id' => $seller->id]); // the seller can open it
+        $page = "/admin/bookings/{$booking->reference}";
+        $cancel = "/admin/bookings/{$booking->reference}/cancel";
+
+        // Supervisor and the assigned seller: the page opens (voucher, WhatsApp), but no button and 403 on the route
+        foreach ([$this->supervisor(), $seller] as $user) {
+            $this->actingAs($user, 'admin')->get($page)->assertOk()
+                ->assertSee('Guest voucher')->assertDontSee('Cancel booking')->assertDontSee($cancel);
+            $this->actingAs($user, 'admin')->post($cancel)->assertForbidden();
+        }
+        $this->assertNotSame('cancelled', $booking->fresh()->status->value);
+
+        // Admin: sees the button and cancels
+        $this->actingAs($this->admin(), 'admin')->get($page)->assertOk()->assertSee('Cancel booking');
+        $this->actingAs($this->admin(), 'admin')->post($cancel)->assertRedirect();
+        $this->assertSame('cancelled', $booking->fresh()->status->value);
+
+        // Super admin: sees the button and cancels
+        $other = Booking::where('status', '!=', 'cancelled')->firstOrFail();
+        $super = User::factory()->create(['email' => 'dev@example.com']);
+        $super->forceFill(['role' => UserRole::SuperAdmin])->save();
+        $this->actingAs($super, 'admin')->get("/admin/bookings/{$other->reference}")->assertOk()->assertSee('Cancel booking');
+        $this->actingAs($super, 'admin')->post("/admin/bookings/{$other->reference}/cancel")->assertRedirect();
+        $this->assertSame('cancelled', $other->fresh()->status->value);
+    }
+
     public function test_supervisor_menu_has_no_links_for_adding_people(): void
     {
         $this->actingAs($this->supervisor(), 'admin')->get('/admin')->assertOk()

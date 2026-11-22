@@ -23,7 +23,9 @@ use Illuminate\Validation\Rule;
  *
  *   1. what the discount is on (OfferTarget) and how much (OfferType)
  *   2. conditions, each switched on by its own tick box: cabin types · nationalities
- *   3. where, when, how many and for whom: cruise / sailing, dates, caps, customers / agents, promo codes
+ *   3. where, when, how many and for whom: cruise / sailing, booking window (starts_on / ends_on: when the booking is
+ *      made), sailing window (sailing_starts_on / sailing_ends_on: when the cruise departs), caps, customers / agents,
+ *      promo codes
  */
 class OfferResource extends Resource
 {
@@ -73,7 +75,7 @@ class OfferResource extends Resource
                         $fail('Set the age range of this offer ("From age", "Up to age" or both).');
                     }
                 }])
-                ->help('Cabin price: the whole cabin. Age range: each guest of that age, on their share. 3rd / 2nd guest: what that guest adds to the price. Single traveller: the extra a guest alone pays (single price − half the double). Free nights: e.g. 7 nights for the price of 6. Upgrade: the cabin at a cheaper cabin\'s price.'),
+                ->help('Cabin price: the whole cabin. Age range: each guest of that age, on their share. 3rd guest: the 3rd-guest price. 2nd guest: their share of the double (half the double). Single traveller: the extra a guest alone pays (single price − half the double). Free nights: e.g. 7 nights for the price of 6. Upgrade: the cabin at a cheaper cabin\'s price.'),
             Field::number('free_nights', 'Free nights')->showWhen('target', OfferTarget::FreeNights->value)
                 ->rules(['nullable', 'required_if:target,free_nights', 'integer', 'min:1', 'max:30'])
                 ->help('Nights off the cabin price: 1 on a 7-night cruise = 7 nights for the price of 6. Never more than the cruise\'s nights.'),
@@ -91,6 +93,13 @@ class OfferResource extends Resource
                     }
                 }])
                 ->help('E.g. 0 to 11 = under 12; 60 and empty = 60 and over.'),
+            Field::select('min_guest_position', 'Guest in the cabin', [
+                '' => 'Any guest',
+                '2' => '2nd guest and later',
+                '3' => '3rd guest and later only',
+            ])->showWhen('target', OfferTarget::Age->value)
+                ->rules(['nullable', 'integer', 'in:2,3'])
+                ->help('Paying guests are counted adults first, then children (infants are free and not counted). "3rd guest and later only": a child gets it with 2 adults, not with 1 adult; with 1 adult and 2 children only the second child gets it.'),
             // Free nights are always free: no type or value
             Field::select('type', 'Discount type', [
                 OfferType::Percent->value => 'Percent off',
@@ -128,8 +137,23 @@ class OfferResource extends Resource
                     }
                 }])
                 ->help('One departure only. Wins over an offer on the whole cruise.'),
-            Field::date('starts_on', 'Offer starts on')->rules(['nullable', 'date'])->help('Empty = from today.'),
-            Field::date('ends_on', 'Offer ends on (included)')->rules(['required', 'date', 'after_or_equal:starts_on'])->index(),
+            // Booking window: when the booking is made (Offer::scopeLive())
+            Field::date('starts_on', 'Offer starts on')->rules(['nullable', 'date'])
+                ->help('Booking window: when the booking is made. Empty = from today.'),
+            Field::date('ends_on', 'Offer ends on (included)')->rules(['required', 'date', 'after_or_equal:starts_on'])
+                ->help('Last day a booking can get this offer.')->index(),
+            // Sailing window: when the cruise departs (Offer::covers()). A single sailing is its own window: hidden, and
+            // cleared in fill()
+            Field::date('sailing_starts_on', 'Sailing starts on')->showWhen('sailing_id', '')->rules(['nullable', 'date'])
+                ->help('Optional: restrict the offer to sailings departing within this date range. Leave empty for all dates.'),
+            Field::date('sailing_ends_on', 'Sailing ends on (included)')->showWhen('sailing_id', '')
+                ->rules(['nullable', 'date', function ($attribute, $value, $fail) {
+                    $from = request('sailing_starts_on');
+                    if ($value && $from && strtotime((string) $value) < strtotime((string) $from)) {
+                        $fail('"Sailing ends on" must be the same as or after "Sailing starts on".');
+                    }
+                }])
+                ->help('Last departure date covered, e.g. 1 Nov 2026 – 1 Mar 2027 for the winter season. Empty = no end.'),
             Field::number('max_uses', 'Maximum bookings')
                 ->rules(['nullable', 'integer', 'min:1'])->help('The offer stops after this many bookings. Empty = unlimited.'),
             Field::number('used_count', 'Bookings')->indexOnly(),
@@ -181,11 +205,15 @@ class OfferResource extends Resource
         parent::fill($record, $request);
 
         if ($record->sailing_id) {
+            // One sailing: its cruise, and its own departure is the only date (no sailing window)
             $record->cruise_id = Sailing::whereKey($record->sailing_id)->value('cruise_id');
+            $record->sailing_starts_on = null;
+            $record->sailing_ends_on = null;
         }
         if ($record->target !== OfferTarget::Age) {
             $record->min_age = null;
             $record->max_age = null;
+            $record->min_guest_position = null;
         }
         if ($record->target !== OfferTarget::FreeNights) {
             $record->free_nights = null;

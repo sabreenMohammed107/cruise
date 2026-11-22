@@ -80,7 +80,7 @@ class BookingController extends Controller
         abort_unless($this->canView($request, $booking), 404);
 
         return view('booking.confirmation', [
-            'booking' => $booking->load(['sailing.cruise.ship', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers']),
+            'booking' => $booking->load(['sailing.cruise.ship', 'sailing.cruise.itinerary', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers']),
         ]);
     }
 

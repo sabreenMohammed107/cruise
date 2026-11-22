@@ -132,6 +132,18 @@ select.field {
 }
 .perf-x::before { left: -26px; }
 .perf-x::after { right: -26px; }
+/* Price summary in a sticky sidebar (cruise page: details.js, booking page: booking.js): never taller than the
+   screen. The middle (.sum-body) scrolls on its own; the total (.sum-foot) stays pinned at the bottom of the card.
+   The card shows as flex through its Tailwind classes (flex / lg:flex), so "hidden" still works on phones.
+   --sum-offset: the room kept above and below the card (sticky top + what follows it). */
+.summary-card { flex-direction: column; max-height: calc(100vh - var(--sum-offset, 200px)); }
+.summary-card > * { flex-shrink: 0; }
+.summary-card > .sum-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #C9DCEC transparent;
+}
+.sum-foot { padding: 1rem 1.25rem 1.25rem; border-top: 1px solid var(--line); background: #fff; }
+.summary-card > .sum-foot { box-shadow: 0 -12px 24px -20px rgba(12,45,78,.45); }
 .perf-y { position: relative; border-inline-start: 2px dashed var(--line); }
 .perf-y::before, .perf-y::after {
   content: ''; position: absolute; inset-inline-start: -12px; width: 22px; height: 22px; border-radius: 50%;
@@ -226,9 +238,70 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ---------- Print (booking voucher) ---------- */
+/* ---------- Booking voucher (booking/confirmation.blade.php, step 36) ---------- */
+#voucher .voucher-banner { display: block; width: 100%; height: auto; }
+/* Print frame (see Print): on screen plain blocks in source order: header banner, voucher, footer banner */
+.voucher-frame, .voucher-frame > * , .voucher-frame > * > tr, .voucher-frame > * > tr > td { display: block; width: 100%; padding: 0; }
+.voucher-table { border-collapse: collapse; }
+.voucher-table th, .voucher-table td { padding: .55rem .5rem; text-align: start; vertical-align: middle; }
+.voucher-table th { font-weight: 600; border-bottom: 1px solid var(--line); }
+.voucher-table tbody tr + tr td { border-top: 1px solid var(--line); }
+/* Names break only between words (never mid-word); a single very long word may still break rather than overflow */
+.voucher-table td bdi { overflow-wrap: break-word; word-break: normal; }
+.voucher-itinerary { display: grid; gap: .75rem; }
+.voucher-itinerary li { display: grid; grid-template-columns: 6.5rem 1fr; gap: .75rem; padding-bottom: .75rem; border-bottom: 1px solid var(--line); }
+.voucher-itinerary li:last-child { border-bottom: 0; padding-bottom: 0; }
+
+/* Printed voucher sheets (#voucher-print, built by the script in booking/confirmation.blade.php): one A4 sheet each,
+   header banner, a 6mm gap, content, footer banner pinned to the bottom (flex column, the body takes what is left).
+   296mm, not 297mm, so rounding never pushes a sheet onto a second page. The same rules apply to the hidden
+   measuring sheet on screen, so pieces are measured as they print (no sm: breakpoints, fixed padding). */
+#voucher-print { display: none; }
+.voucher-sheet { width: 210mm; height: 296mm; display: flex; flex-direction: column; overflow: hidden; background: #fff;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.voucher-sheet + .voucher-sheet { break-before: page; }
+.voucher-sheet-banner { display: block; width: 100%; height: auto; flex: none; }
+.voucher-sheet-foot { margin-top: auto; }
+.voucher-sheet-body { flex: 1 1 auto; min-height: 0; overflow: hidden; padding: 6mm 12mm 4mm; }
+.voucher-measure { position: absolute; top: 0; left: 0; visibility: hidden; z-index: -1; }
+.voucher-unit { display: flow-root; }
+.voucher-sheet .perf-x { margin: 0; }
+.voucher-sheet .perf-x::before, .voucher-sheet .perf-x::after { display: none; }
+.voucher-sheet .p-6 { padding: 4mm 0; }
+.voucher-sheet .voucher-cont { padding-top: 0; }
+.voucher-sheet .voucher-bar { padding: 5mm 6mm; border-radius: 3mm; }
+.voucher-sheet dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.voucher-sheet .voucher-itinerary li { padding-bottom: 3mm; margin-bottom: 3mm; border-bottom: 1px solid var(--line); }
+.voucher-sheet .voucher-cont .voucher-itinerary { margin-top: 0; }
+
+/* ---------- Print (booking voucher, A4) ----------
+   No page margin: the browser's own header / footer (date, URL, page numbers) has no room and is left out, and the
+   banners run edge to edge. The banners are the print frame's thead / tfoot rows, which the browser repeats at the
+   top and bottom of every printed page (no position: fixed: Chrome's print dialog dropped a fixed footer). */
+@page { size: A4; margin: 0; }
 @media print {
   header, footer, .no-print, #wa-fab, #toast-root { display: none !important; }
   body { background: #fff; }
   .card { border-color: #ccc; }
+  /* Only the voucher: full printable width, banners and the blue bar in colour */
+  main:has(#voucher) { max-width: none; padding: 0; }
+  #voucher { margin: 0; box-shadow: none; border: 0; border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #voucher .perf-x::before, #voucher .perf-x::after { display: none; }
+  #voucher .p-6 { padding: 14px 4px; }
+  .voucher-table tr, .voucher-itinerary li { break-inside: avoid; }
+  #voucher h3 { break-after: avoid; }
+  .voucher-frame { display: table; width: 100%; border-collapse: collapse; }
+  .voucher-frame > thead { display: table-header-group; }
+  .voucher-frame > tfoot { display: table-footer-group; }
+  .voucher-frame > tbody { display: table-row-group; }
+  .voucher-frame > * > tr { display: table-row; }
+  .voucher-frame > * > tr > td { display: table-cell; padding: 0; }
+  .voucher-frame > tbody > tr > td { padding: 4mm 12mm; }
+  #voucher .voucher-banner { width: 100%; height: auto; }
+  /* The mobile menu drawer sits off-canvas; never let it widen the printed page */
+  .drawer-panel { display: none !important; }
+  /* Sheets built (the normal case): print them instead of the on-screen voucher */
+  html.voucher-sheets #voucher { display: none !important; }
+  html.voucher-sheets #voucher-print { display: block; }
+  html.voucher-sheets main:has(#voucher), html.voucher-sheets #success { margin: 0; padding: 0; }
 }
