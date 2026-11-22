@@ -40,7 +40,7 @@ class PageTranslationTest extends TestCase
             '/ship' => [['Home', 'The ship'], ['الرئيسية', 'السفينة']],
             '/cruises' => [['Home', 'Cruises'], ['الرئيسية', 'الرحلات']],
             '/destinations' => [['Home', 'Destinations'], ['الرئيسية', 'الوجهات']],
-            '/cruises/red-sea-discovery' => [['Home', 'Cruises', 'Red Sea Discovery'], ['الرئيسية', 'الرحلات', 'اكتشاف البحر الأحمر']],
+            '/cruises/red-sea-discovery' => [['Home', 'Cruises', 'Red Sea Discovery'], ['الرئيسية', 'الرحلات', 'اكتشاف البحر المتوسط']],
         ];
 
         foreach ($pages as $url => [$en, $ar]) {
@@ -79,7 +79,7 @@ class PageTranslationTest extends TestCase
             ],
             '/cruises/red-sea-discovery' => [
                 'en' => ['<title>Red Sea Discovery | Safer Cruise</title>', '>Cabins &amp; prices</a>', 'View all photos', '>Expand all</button>', '>Continue</button>'],
-                'ar' => ['<title>اكتشاف البحر الأحمر | Safer Cruise</title>', '>الكبائن والأسعار</a>', 'عرض كل الصور', '>توسيع الكل</button>', '>متابعة</button>'],
+                'ar' => ['<title>اكتشاف البحر المتوسط | Safer Cruise</title>', '>الكبائن والأسعار</a>', 'عرض كل الصور', '>توسيع الكل</button>', '>متابعة</button>'],
             ],
             '/destinations' => [
                 'en' => ['<title>Destinations | Safer Cruise</title>', 'aria-label="Filter by country"'],

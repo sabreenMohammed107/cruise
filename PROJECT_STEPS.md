@@ -28,7 +28,7 @@ Safer Cruise template (`legacy-html/`) into a Laravel 12 app.
 ```powershell
 C:\xampp\php\php.exe artisan migrate:fresh --seed     # demo data
 C:\xampp\php\php.exe artisan serve                    # http://127.0.0.1:8000
-C:\xampp\php\php.exe artisan test                     # 155 tests
+C:\xampp\php\php.exe artisan test                     # 315 tests
 ```
 
 Demo logins (local only): **admin** `admin@safercruise.test` / `password` at **`/admin/login`**;
@@ -1727,7 +1727,8 @@ so no migration).
 
 | | Admin | Supervisor | Seller |
 | :--- | :---: | :---: | :---: |
-| Add / edit cruises, content, bookings (cancel, notes, payments) | yes | yes | own bookings only |
+| Add / edit cruises, content, bookings (notes, payments) | yes | yes | own bookings only |
+| Cancel a booking (since step 37) | yes | no | no |
 | Delete anything (records, payment entries, homepage cards) | yes | no | no |
 | Add / edit / delete people (Customers, Admins & staff) | yes | no, lists are read-only | no |
 | Assign bookings to sellers (only sellers can be chosen) | yes | yes | no |
@@ -1889,6 +1890,145 @@ what the offer gives, then the discount's calculation: "الطفل يدفع $110
 الخصم …", "… · بحد أقصى $800". Equations are isolated left-to-right (U+2066/2069) with non-breaking spaces, so they
 read correctly on Arabic pages and never split across lines. None for upgrade, free nights, single and 2nd guest offers. **Deploy:** `core.js`, `pages/booking.js`,
 `pages/details.js`, `lang/ar/ui.php`, `lang/en/ui.php`.
+
+### Step 35: Offers get a sailing window next to the booking window (2026-11-17)
+
+Suppliers (e.g. Cruise Saudi) run seasonal promotions such as "book 1 Nov – 31 Dec 2026, for winter sailings
+1 Nov 2026 – 1 Mar 2027": the dates a booking is made and the dates the cruise departs are two separate ranges. Before,
+an offer had only the first; "All cruises" or a whole cruise meant every departure, summer included.
+
+**Two windows on every offer** (`offers` table, `App\Models\Offer`):
+
+| Window | Columns | Meaning | Checked in |
+| --- | --- | --- | --- |
+| Booking window (sales period) | `starts_on` (nullable), `ends_on` (required) | Day the booking is **made** (today). Empty start = from today. Both days included. Unchanged. | `Offer::scopeLive()` |
+| Sailing window (eligible sailings) | `sailing_starts_on`, `sailing_ends_on` (both `DATE NULL`, new) | Sailing's `departure_date`. Either side may be empty = no limit on that side; both empty = every departure (the old behaviour, so existing offers are unchanged). Both days included. | `Offer::covers()` → `Offer::departsInWindow()` |
+
+The task brief called the booking columns `offer_starts_on` / `offer_ends_on`; they already exist as `starts_on` /
+`ends_on` and keep those names (no rename, nothing else changes).
+
+**Eligibility, in order** (an offer applies only when all are true):
+
+1. **Live** (`Offer::scopeLive()`, SQL): active, `starts_on ≤ today` (or empty), `ends_on ≥ today`, bookings left
+   (`used_count < max_uses` or no maximum).
+2. **Covers the sailing** (`Offer::covers()`): its sailing / its cruise / every cruise (level 2 / 1 / 0) **and**
+   `sailing_starts_on ≤ departure_date` (when set) **and** `departure_date ≤ sailing_ends_on` (when set).
+3. **For this visitor** (`Offer::isFor()`): customers / agents.
+4. **Conditions and pricing** (`PricingService::selectOffers()`, `SC.selectOffers` in `core.js`): cabin types,
+   nationalities, ages; the most specific level wins, then the newest offer.
+
+Steps 1–3 run on the server only (`OfferService::filter()`), for the website (`ScDataPresenter` → each sailing's
+`SC_DATA` `offers`), the confirm request (`ConfirmBookingRequest`) and the booking itself (`BookingService`, locked).
+So the browser never sees an offer outside its sailing window and `core.js` needed no change.
+
+**Admin → Pricing & offers → Offers, "Where and when"** (`App\Admin\Resources\OfferResource`):
+
+- *Offer starts on* / *Offer ends on (included)*: help text now says they are the booking window.
+- New *Sailing starts on* / *Sailing ends on (included)*: "Optional: restrict the offer to sailings departing within
+  this date range. Leave empty for all dates." Validation: `nullable|date`; *Sailing ends on* must be the same as or
+  after *Sailing starts on* when both are given.
+- **One sailing chosen in "Only this sailing":** its departure is the only date, so the two sailing fields are hidden
+  (`showWhen('sailing_id', '')`) and `fill()` saves them empty. No conflicting dates are possible.
+- The list's "Applies to" shows the window, e.g. "All cruises · sailing 1 Nov 2026 – 1 Mar 2027",
+  "Red Sea Discovery · sailing from 1 Nov 2026".
+
+**Files:** `database/migrations/2026_11_17_000001_add_sailing_window_to_offers_table.php`, `app/Models/Offer.php`,
+`app/Admin/Resources/OfferResource.php`, `tests/Feature/OffersTest.php` (new
+`test_the_sailing_window_limits_which_departures_get_the_offer`; `test_admin_manages_offers` covers the form,
+validation and clearing for one sailing).
+**Deploy:** upload those files (not the test), run `php artisan migrate --force`, then `php artisan view:clear`.
+
+### Step 36: Guest voucher redesign: official banners, day-by-day itinerary, total in one currency (2026-11-17)
+
+The guest voucher (`/booking/{reference}/confirmation`, `resources/views/booking/confirmation.blade.php`, also opened
+from Admin → Bookings → "Guest voucher" and from My bookings) is what guests print or save as PDF.
+
+- **Header and footer banners** (Menatours / Safer, 1600 × 255 JPEG): `public/images/voucher/voucher-header.jpg`
+  (logos, email, phone, website, services, Heliopolis address) at the top of the voucher, and
+  `public/images/voucher/voucher-footer.jpg` (ship, logos, www.cruises.safer.travel, "أول سيستم لحجز الكروزات في
+  مصر") at the bottom. Full voucher width on screen and on paper. To change them, replace the two files (same names).
+- **Total in the booked currency only:** the line "Charged in US dollars: $… (1 USD = … EGP on the booking day)" is
+  gone. An EGP booking shows only its EGP total (`Booking::money()`, booking-day rate as before); a USD booking its USD
+  total. Strings `site.confirmation.charged_usd` (en / ar) removed. The guest email, Admin → Bookings and the team
+  email still show the USD figures and rate (unchanged).
+- **Day-by-day itinerary (برنامج الرحلة يوماً بيوم):** every `itinerary_days` row of the booked cruise (Admin →
+  Cruises → Itinerary), in order: "Day N" with its date (departure date + N − 1 days), the port (Arabic `port_ar`
+  when set, else the port name through `Bi::port()`; sea days as `site.at_sea`), the time label and the description,
+  in the page language. Hidden when the cruise has no itinerary. The controller eager-loads
+  `sailing.cruise.itinerary`.
+- **Travellers as a table** (#, name, guest type, nationality), one table per cabin for multi-cabin bookings. Each
+  name has the remaining row width, is wrapped in `<bdi dir="auto">` so Arabic and Latin names keep their own
+  direction on both page languages, and breaks only between words; type and nationality never wrap.
+- **A4 printing / PDF** (`public/assets/css/theme.css`, "Booking voucher" and "Print"): only the voucher prints (the
+  success message above it, the site header / footer and buttons are hidden); colours and banners print
+  (`print-color-adjust: exact`); traveller rows and itinerary days never split across pages.
+- **Header and footer banner on every printed page, footer always at the very bottom:** the printed voucher is made
+  of real A4 sheets (`#voucher-print`), built by a small script in `confirmation.blade.php` on `beforeprint` (and
+  once when the page's fonts are ready). Each `.voucher-sheet` is 210 × 296 mm, a flex column: header banner, a 6 mm
+  gap, the body (side margin 12 mm), footer banner pinned to the bottom (`margin-top: auto`), whatever the amount of
+  content, on the last sheet too. The script cuts `#voucher` into pieces that never split (blue bar, trip details,
+  each traveller table, or as many of its rows as fit a sheet with the table header repeated, each itinerary day; a
+  dashed separator and a section title stay with the piece after them), measures them in a hidden sheet of the real
+  size, and fills sheets in order. Sheet rules are not print-only, so pieces are measured as they print (fixed
+  paddings, 3 columns of trip details, no `sm:` breakpoints). Print shows the sheets and hides `#voucher`
+  (`html.voucher-sheets`); `@page { size: A4; margin: 0 }` leaves out the browser's own date / URL / page number.
+  On screen nothing changes.
+  Fallback without the script: `#voucher` is a table (`.voucher-frame`) whose `thead` / `tfoot` banners repeat on
+  every printed page (footer after the content on the last one). Tried and dropped: `position: fixed` banners (in
+  Chrome's real print dialog the fixed footer never printed). The mobile menu drawer is hidden in print.
+  Print with paper size **A4** ("Microsoft Print to PDF" defaults to Letter and shrinks the page; "Save as PDF" is A4).
+  Checked: 2 and 3 page vouchers in English and Arabic print exactly 2 / 3 pages, banners on every page.
+- New strings `site.confirmation.itinerary`, `day_n`, `traveller_name`, `traveller_type`, `traveller_nationality`
+  (`lang/{en,ar}/site.php`).
+- **Tests:** `BookingCurrencyTest::test_the_voucher_shows_egp_at_the_booking_day_rate` now checks that the USD amount
+  and rate are absent; new `test_the_voucher_has_the_banners_travellers_and_day_by_day_itinerary` (banners, day N and
+  its date, port, names, Arabic headings).
+
+**Deploy:** upload `resources/views/booking/confirmation.blade.php`, `app/Http/Controllers/BookingController.php`,
+`public/assets/css/theme.css`, `public/images/voucher/` (both JPEGs), `lang/en/site.php`, `lang/ar/site.php`; then
+`php artisan view:clear`. No migration.
+
+### Step 37: Only admins and the super admin can cancel a booking (2026-11-17)
+
+Before, "× Cancel booking" on Admin → Bookings → {reference} was open to admins **and supervisors** (route group
+`can:manage-content`). To prevent unauthorised or accidental cancellations it is now **admins and the super admin
+only**.
+
+**Roles** (`App\Enums\UserRole`, `users.role` string column; permissions are Laravel gates in
+`AppServiceProvider`, no Spatie package, no permission tables or seeders to change):
+
+| Role | Where they sign in | Cancel a booking |
+| --- | --- | :---: |
+| `super_admin` (hidden developer account) | /admin | yes |
+| `admin` | /admin | yes |
+| `supervisor` | /admin | **no** (was yes) |
+| `seller` | /admin, own assigned bookings | no (unchanged) |
+| `agent` | website only | no (no panel access) |
+| `customer` | website only | no (no self-cancellation on the website) |
+
+Supervisors and sellers still open the bookings they may see, save notes, record payments, open the **Guest
+voucher** and **WhatsApp guest**; supervisors still assign bookings. Only cancelling is removed.
+
+**Enforced in three places**, all on the new gate `cancel-bookings` (`$user->isAdmin() || $user->isSuperAdmin()`;
+`Gate::before` lets the super admin through anyway):
+
+1. **Route:** `POST /admin/bookings/{reference}/cancel` (`admin.bookings.cancel`) has `can:cancel-bookings`:
+   anyone else gets **403**, also when calling it directly.
+2. **Controller:** `Admin\BookingController::cancel()` calls `Gate::authorize('cancel-bookings')` too.
+3. **View:** `admin/bookings/show.blade.php` shows the button and its confirm dialog only with
+   `@can('cancel-bookings')`.
+
+No other path cancels a booking: the bookings list (`admin/bookings/table.blade.php`) has no cancel or bulk action,
+`PATCH /admin/bookings/{reference}` (`update()`) accepts only `admin_notes` (a `status` sent with it is dropped by
+validation), and there is no generic CRUD screen for bookings.
+
+**Tests:** new `SupervisorRoleTest::test_only_admins_and_the_super_admin_cancel_bookings` (supervisor and assigned
+seller: page opens with Guest voucher, no button, 403 on the route, booking unchanged; admin and super admin: button
+shown, booking cancelled). `AdminPanelTest::test_cancelling_a_booking` (admin) unchanged.
+
+**Deploy:** upload `app/Providers/AppServiceProvider.php`, `routes/admin.php`,
+`app/Http/Controllers/Admin/BookingController.php`, `resources/views/admin/bookings/show.blade.php`; then
+`php artisan route:clear` and `php artisan view:clear`. No migration.
 
 **Open items (next):**
 

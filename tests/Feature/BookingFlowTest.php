@@ -167,6 +167,17 @@ class BookingFlowTest extends TestCase
         $this->postJson('/booking/confirm', $payload)->assertUnprocessable()->assertJsonValidationErrors(['cabins.0.travellers']);
     }
 
+    public function test_traveller_names_are_english_letters_only(): void
+    {
+        $this->postJson('/booking/confirm', $this->payload(['travellers' => [
+            'adult-1' => ['first' => 'نورة', 'last' => 'القحطاني'],
+            'adult-2' => ['first' => 'Khalid', 'last' => 'Al Qahtani'],
+            'child-1' => ['first' => 'Sara', 'last' => "O'Neil-Smith"],
+        ]]))->assertUnprocessable()
+            ->assertJsonValidationErrors(['cabins.0.travellers.adult-1.first', 'cabins.0.travellers.adult-1.last'])
+            ->assertJsonMissingValidationErrors(['cabins.0.travellers.adult-2.first', 'cabins.0.travellers.adult-2.last', 'cabins.0.travellers.child-1.last']);
+    }
+
     public function test_sold_out_or_full_cabins_cannot_be_booked(): void
     {
         $this->postJson('/booking/confirm', $this->payload(['sailing' => 'RSD-270117', 'cabin' => 'suite']))

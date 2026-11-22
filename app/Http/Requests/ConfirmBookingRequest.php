@@ -32,6 +32,9 @@ class ConfirmBookingRequest extends FormRequest
 {
     public const NAME_PATTERN = "/^[\p{L}][\p{L}\s'’\-]{0,48}$/u";
 
+    // Traveller names go on the cruise manifest as in the passport: English letters only (same rule in booking.js NAME)
+    public const TRAVELLER_NAME_PATTERN = "/^[A-Za-z][A-Za-z '’\-]{0,48}$/u";
+
     public ?Sailing $sailing = null;
 
     public ?PromoCode $promo = null;
@@ -69,8 +72,8 @@ class ConfirmBookingRequest extends FormRequest
             'cabins.*.guests.child' => ['required', 'integer', 'min:0', "max:$max"],
             'cabins.*.guests.infant' => ['required', 'integer', 'min:0', "max:$max"],
             'cabins.*.travellers' => ['required', 'array'],
-            'cabins.*.travellers.*.first' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
-            'cabins.*.travellers.*.last' => ['required', 'string', 'regex:'.self::NAME_PATTERN],
+            'cabins.*.travellers.*.first' => ['required', 'string', 'regex:'.self::TRAVELLER_NAME_PATTERN],
+            'cabins.*.travellers.*.last' => ['required', 'string', 'regex:'.self::TRAVELLER_NAME_PATTERN],
             'cabins.*.travellers.*.dob' => ['required', 'date_format:Y-m-d'],
             'cabins.*.travellers.*.gender' => ['required', Rule::in(['Male', 'Female', 'male', 'female'])],
             'cabins.*.travellers.*.nationality' => ['required', Rule::in(config('cruise.nationalities'))],
