@@ -426,7 +426,7 @@ document.addEventListener('sc:ready', () => {
               ${q.fees > 0 ? `<tr class="border-t border-line" data-port-tax><td class="py-2.5">${t('port_tax')}</td><td class="text-end">${SC.money(q.portTax)}</td><td class="text-end">× ${Math.round(q.fees / q.portTax)}</td><td class="text-end font-bold">${SC.money(q.fees)}</td></tr>` : ''}
               ${reviewDiscounts.length ? `<tr class="border-t-2 border-line font-bold" data-subtotal><td class="py-2.5" colspan="3">${SC.t('ui.details.charges_subtotal')}</td><td class="text-end">${SC.money(SC.publicSubtotal(q))}</td></tr>` : ''}
               ${reviewDiscounts.map((d) => `<tr class="border-t border-line text-[#12805C]"${d.id ? ` data-offer-row="${d.id}"` : ''}${d.agent ? ' data-agent-commission' : ''}><td class="py-2.5" colspan="3">${d.label}</td><td class="text-end font-bold whitespace-nowrap">− ${SC.money(d.amount)}</td></tr>`).join('')}
-              ${reviewDiscounts.length > 1 ? `<tr class="border-t border-line text-[#12805C] font-bold" data-offers-total><td class="py-2.5" colspan="3">${SC.t('ui.details.offers_saving')}</td><td class="text-end whitespace-nowrap">− ${SC.money(reviewDiscounts.reduce((s, d) => s + d.amount, 0))}</td></tr>` : ''}
+              ${reviewDiscounts.length ? `<tr class="border-t border-line text-[#12805C] font-bold" data-offers-total><td class="py-2.5" colspan="3">${SC.t('ui.details.offers_saving')}</td><td class="text-end whitespace-nowrap">− ${SC.money(reviewDiscounts.reduce((s, d) => s + d.amount, 0))}</td></tr>` : ''}
             </tbody>
           </table>
         </div>

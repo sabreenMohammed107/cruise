@@ -849,7 +849,7 @@
           ${applied.map(item).join('')}
           ${waiting.map((o) => item({ id: o.id, name: o.name, detail: gives(o), applied: false, ends: ends(o) })).join('')}
         </ul>
-        ${applied.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(saving)}</span></div>` : ''}
+        ${applied.length ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(saving)}</span></div>` : ''}
       </div>`;
   };
 

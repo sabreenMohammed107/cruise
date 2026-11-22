@@ -95,7 +95,7 @@ document.addEventListener('sc:ready', () => {
         ${q.fees > 0 ? line(`<span class="text-muted">${SC.t('booking.fees_short')}</span>`, money(q.fees)) : ''}
         ${discounts.length ? line(SC.t('ui.details.charges_subtotal'), money(subtotal), 'pt-2 mt-1 border-t border-line font-bold') : ''}
         ${discounts.map((d) => line(SC.esc(d.label), `− ${money(d.amount)}`, 'text-[#12805C]')).join('')}
-        ${discounts.length > 1 ? line(SC.t('ui.details.offers_saving'), `− ${money(discounts.reduce((s, d) => s + d.amount, 0))}`, 'text-[#12805C] font-bold') : ''}
+        ${discounts.length ? line(SC.t('ui.details.offers_saving'), `− ${money(discounts.reduce((s, d) => s + d.amount, 0))}`, 'text-[#12805C] font-bold') : ''}
         ${line(`${SC.t('ui.details.net_total')}<span class="block text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span>`, money(q.total), 'pt-2 mt-1 border-t border-line font-bold text-base')}
       </dl>`;
   };
