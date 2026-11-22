@@ -142,8 +142,14 @@ class PricingServiceTest extends TestCase
         $this->price('SCW-261105', 'interior')->update(['price_double' => 0]);
         $this->assertSame(750.0, $sailing->load('cabinPrices')->fromPrice());
 
-        // Every cabin sold out: no price
+        // Every cabin sold out: the card still shows the price (marked sold out), taken from all cabins
         $sailing->cabinPrices()->update(['is_sold_out' => true]);
+        $sailing->load('cabinPrices');
+        $this->assertTrue($sailing->isFullySoldOut());
+        $this->assertSame(750.0, $sailing->fromPrice());
+
+        // No cabin prices at all: no price
+        $sailing->cabinPrices()->delete();
         $this->assertNull($sailing->load('cabinPrices')->fromPrice());
     }
 
