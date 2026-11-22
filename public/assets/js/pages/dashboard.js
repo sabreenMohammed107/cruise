@@ -74,6 +74,32 @@ document.addEventListener('sc:ready', () => {
      band (single / double / extra / infant, or adult / child on bookings made before tiered pricing) */
   const lineLabel = (l) => (SC.t(`pricing.${l.band}`) !== `pricing.${l.band}` ? SC.t(`pricing.${l.band}`) : D.ageBands[l.band]?.label || l.label);
 
+  /* A saved booking's price (its price_snapshot), laid out as the booking summary (SC.ui.priceSummary): the charges
+     at the public price and the taxes, the subtotal before discounts, every discount (agent commission, offers,
+     promo code) and what they save together, then the net total. The snapshot keeps an agent's public fare per
+     cabin (not per line), so an agent's charges are one row per cabin. */
+  const priceRows = (q, several, money) => {
+    const line = (label, amount, cls = '') => `<div class="flex justify-between gap-3 ${cls}"><dt class="min-w-0">${label}</dt><dd class="shrink-0 whitespace-nowrap">${amount}</dd></div>`;
+    const cabins = q.cabins || [{ position: 1, lines: q.lines, agent: q.agent, fare: q.fare }]; // bookings before step 15
+    const charges = q.agent
+      ? cabins.map((c) => line(`<span class="text-muted">${several ? `${SC.t('ui.details.cabin_n', { n: c.position })} · ` : ''}${c.lines.map(lineLabel).join(' + ')}</span>`, money(c.agent ? c.agent.publicFare : c.fare))).join('')
+      : q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}${line(`<span class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</span>`, money(l.total))}`).join('');
+    const discounts = [
+      ...SC.agentDiscount(q.agent, money).map((a) => ({ label: a.name, amount: a.amount })),
+      ...(q.offers || []).map((o) => ({ label: SC.t('booking.offer', { name: (SC.lang() === 'ar' && o.nameAr) || o.name }), amount: o.discount })),
+      ...(q.discount ? [{ label: (q.promo && q.promo.code) ? SC.t('booking.discount', { code: q.promo.code }) : t('discount'), amount: q.discount }] : [])
+    ];
+    const subtotal = (q.agent ? q.agent.publicFare : q.fare) + (q.fees || 0);
+    return `<dl class="grid gap-1.5 text-sm tabular">
+        ${charges}
+        ${q.fees > 0 ? line(`<span class="text-muted">${SC.t('booking.fees_short')}</span>`, money(q.fees)) : ''}
+        ${discounts.length ? line(SC.t('ui.details.charges_subtotal'), money(subtotal), 'pt-2 mt-1 border-t border-line font-bold') : ''}
+        ${discounts.map((d) => line(SC.esc(d.label), `− ${money(d.amount)}`, 'text-[#12805C]')).join('')}
+        ${discounts.length > 1 ? line(SC.t('ui.details.offers_saving'), `− ${money(discounts.reduce((s, d) => s + d.amount, 0))}`, 'text-[#12805C] font-bold') : ''}
+        ${line(`${SC.t('ui.details.net_total')}<span class="block text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span>`, money(q.total), 'pt-2 mt-1 border-t border-line font-bold text-base')}
+      </dl>`;
+  };
+
   /* Booking detail modal */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-booking]'); if (!btn) return;
@@ -85,13 +111,8 @@ document.addEventListener('sc:ready', () => {
       <h3 class="font-bold mt-6 mb-2">${SC.t('booking.travellers')}</h3>
       <ul class="grid gap-2 text-sm">${Object.entries(b.travellers).sort(([, x], [, y]) => (x.cabin || 1) - (y.cabin || 1)).map(([k, t], i, all) => `${several && (all[i - 1]?.[1].cabin || 1) !== (t.cabin || 1) ? `<li class="pt-2 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: t.cabin || 1 })} · ${SC.esc(SC.getCabin(roomsOf(b)[(t.cabin || 1) - 1]?.cabinId)?.nameEn || '')}</li>` : ''}<li class="flex justify-between rounded-xl bg-page px-3 py-2"><span class="font-semibold">${SC.esc(t.first)} ${SC.esc(t.last)}</span><span class="text-muted">${D.ageBands[k.split('-')[0]].label}</span></li>`).join('')}</ul>
       <h3 class="font-bold mt-6 mb-2">${t('price')}</h3>
-      <dl class="grid gap-1.5 text-sm tabular">
-        ${q.lines.map((l, i) => `${several && q.lines[i - 1]?.cabin !== l.cabin ? `<div class="pt-1 text-xs font-bold text-muted">${SC.t('ui.details.cabin_n', { n: l.cabin })}</div>` : ''}<div class="flex justify-between"><dt class="text-muted">${lineLabel(l)}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd>${money(l.total)}</dd></div>`).join('')}
-        ${q.fees > 0 ? `<div class="flex justify-between"><dt class="text-muted">${SC.t('booking.fees_short')}</dt><dd>${money(q.fees)}</dd></div>` : '' /* bookings made before step 21 only */}
-        ${q.agent ? `<div class="flex justify-between text-[#12805C]"><dt>${q.agent.percent === null ? SC.t('booking.agent_discount_mixed') : SC.t('booking.agent_discount', { percent: q.agent.percent })}</dt><dd>${SC.t('booking.agent_saved', { amount: money(q.agent.saving) })}</dd></div>` : '' /* agent bookings: already in the lines above */}
-        ${(q.offers || []).map((o) => `<div class="flex justify-between text-[#12805C]"><dt>${SC.esc(SC.t('booking.offer', { name: (SC.lang() === 'ar' && o.nameAr) || o.name }))}</dt><dd>− ${money(o.discount)}</dd></div>`).join('') /* step 26 */}
-        ${q.discount ? `<div class="flex justify-between text-[#12805C]"><dt>${t('discount')}</dt><dd>− ${money(q.discount)}</dd></div>` : ''}
-        <div class="flex justify-between pt-2 mt-1 border-t border-line font-bold text-base"><dt>${t('total')}${q.fees > 0 ? '' : ` <span class="block text-xs font-semibold text-lagoon-600">${SC.t('booking.tax_included')}</span>`}</dt><dd>${money(q.total)}</dd></div>
+      ${priceRows(q, several, money)}
+      <dl class="grid gap-1.5 text-sm tabular mt-1.5">
         <div class="flex justify-between"><dt class="text-muted">${t('paid_so_far')}</dt><dd>${money(b.amountPaid)} ${paymentTag(b)}</dd></div>
       </dl>
       <div class="mt-6 flex flex-wrap justify-end gap-2">

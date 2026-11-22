@@ -316,50 +316,19 @@ document.addEventListener('sc:ready', () => {
         </div>
         <div class="perf-x"></div>
         <div class="p-5">
-          ${q ? `<dl class="grid gap-2.5 text-sm">
-              ${/* Agents: the lines at the public price, then the commission (agentRows) */ (q.agent ? SC.fareLines(q.prices.public, g) : q.lines).map((l) => `<div class="flex justify-between gap-3"><dt class="text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="tabular whitespace-nowrap">${SC.money(l.total)}</dd></div>`).join('')}
-              ${agentRows(q)}
-              ${portTaxRow(q)}
-            </dl>
-            ${offersBox(q, [{ cabinId: cab.id, guests: g }])}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
+          ${q ? /* As everywhere (SC.ui.priceSummary): public prices, taxes, subtotal, every discount (agents: their commission first) */
+            SC.ui.priceSummary(q, sailing, { charges: SC.chargeLines(SC.publicLines(q)), rooms: [{ cabinId: cab.id, guests: g }] })
+            : `<p class="text-sm text-muted">${SC.t('ui.details.choose_to_see_total')}</p>`}
         </div>
       </div>
       <div class="sum-foot">
-        ${q ? totalRow(q.total, q.agent) : ''}
+        ${q ? SC.ui.netTotal(q.total) : ''}
         <button class="btn btn-accent w-full ${q ? 'mt-4' : ''}" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
         ${q ? `<button type="button" class="btn btn-ghost btn-sm w-full mt-1.5" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : ''}
       </div>`;
     $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');
     $('#m-sub').textContent = q ? `${SC.guestText(g)}${SC.lang() === 'ar' ? '، ' : ', '}${cab.nameEn}` : SC.guestText(g);
   };
-
-  /* Signed-in agents (App\Services\AgentPricing): original (public) price and the commission taken off it;
-     the total below is then the price after commission. */
-  function agentRows(q) {
-    if (!q.agent) return '';
-    const label = q.agent.percent === null ? SC.t('ui.details.agent_commission_mixed') : SC.t('ui.details.agent_commission', { percent: q.agent.percent });
-    return `<div class="flex justify-between gap-3 pt-2 mt-1 border-t border-line"><dt class="font-semibold">${SC.t('ui.details.agent_original')}</dt><dd class="tabular whitespace-nowrap font-semibold">${SC.money(q.agent.publicFare)}</dd></div>
-            <div class="flex justify-between gap-3 text-[#12805C] font-semibold" data-agent-commission><dt>${label}</dt><dd class="tabular whitespace-nowrap">− ${SC.money(q.agent.saving)}</dd></div>`;
-  }
-
-  /* Laravel (step 26): the green offers box (SC.ui.offersBox in core.js): every offer used with its discount and
-     state, and the ones waiting for the travellers (next step). rooms: [{ cabinId, guests }]. */
-  function offersBox(q, rooms) { return SC.ui.offersBox(q, sailing, { rooms }); }
-
-  /* Port & departure taxes (SC_DATA.portTax per adult / child, Admin → Port taxes): "$50 × 3" and their sum */
-  function portTaxRow(q) {
-    if (!(q.fees > 0)) return '';
-    const n = Math.round(q.fees / q.portTax);
-    return `<div class="flex justify-between gap-3" data-port-tax><dt class="text-muted">${SC.t('ui.details.port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${n}</span></dt><dd class="tabular whitespace-nowrap">${SC.money(q.fees)}</dd></div>`;
-  }
-
-  /* Total of the summary (in the pinned footer): cabin prices include VAT; the port & departure taxes are above. */
-  function totalRow(total, agent) {
-    return `<div class="flex items-end justify-between gap-3">
-            <span><span class="block font-bold">${SC.t(agent ? 'ui.details.agent_total' : 'ui.details.total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></span>
-            <span class="font-display font-bold text-2xl text-ocean-800 tabular whitespace-nowrap">${SC.money(total)}</span>
-          </div>`;
-  }
 
   /* Summary with several cabins: each cabin (type, guests, price, edit / remove), then the total */
   const renderRoomsSummary = () => {
@@ -392,16 +361,14 @@ document.addEventListener('sc:ready', () => {
       <div class="px-4 pb-2">${state.rooms.length < SC.maxRooms() ? `<button type="button" class="btn btn-ghost btn-sm w-full" data-room-add>${SC.icon('plus', 'w-4 h-4')} ${SC.t('ui.details.add_cabin')}</button>` : `<p class="text-xs text-muted text-center py-2">${SC.t('booking.errors.too_many_cabins', { max: SC.maxRooms() })}</p>`}</div>
       <div class="perf-x"></div>
       <div class="p-5">
-        ${q ? `<dl class="grid gap-2.5 text-sm">
-            <div class="flex justify-between gap-3"><dt class="text-muted">${SC.t('ui.details.guests')}</dt><dd class="font-bold text-end">${SC.guestText(allGuests())}</dd></div>
-            ${agentRows(q)}
-            ${portTaxRow(q)}
-          </dl>
-          ${offersBox(q, state.rooms)}` : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
+        ${q ? `<div class="flex justify-between gap-3 text-sm mb-3"><span class="text-muted">${SC.t('ui.details.guests')}</span><span class="font-bold text-end">${SC.guestText(allGuests())}</span></div>
+          ${/* The cabins (listed above, at the public price) in one row, then as everywhere (SC.ui.priceSummary) */
+            SC.ui.priceSummary(q, sailing, { charges: [{ label: SC.tc('ui.details.cabins_count', state.rooms.length), amount: q.agent ? q.agent.publicFare : q.fare }], rooms: state.rooms })}`
+          : `<p class="text-sm text-muted">${SC.t('ui.details.choose_cabin_n', { n: missingRoom() + 1 })}</p>`}
       </div>
       </div>
       <div class="sum-foot">
-        ${q ? totalRow(q.total, q.agent) : ''}
+        ${q ? SC.ui.netTotal(q.total) : ''}
         <button class="btn btn-accent w-full ${q ? 'mt-4' : ''}" data-continue ${q ? '' : 'disabled'}>${SC.t('ui.details.continue_guests')}</button>
       </div>`;
     $('#m-total').textContent = q ? SC.money(q.total) : SC.t('ui.details.choose_cabin');

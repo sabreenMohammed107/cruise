@@ -166,12 +166,13 @@ return [
         'tax_included' => 'Tax included',
         'port_tax' => 'Port & departure taxes',
         'total' => 'Total',
+        'net_total' => 'Net total',
         'choose_to_see_total' => 'Choose a cabin to see your total price.',
-        // Signed-in agents (App\Services\AgentPricing): public price, commission, price after commission
-        'agent_original' => 'Original price',
+        // Signed-in agents (App\Services\AgentPricing): the prices are shown at the public price, and the commission is
+        // the first of the discounts (SC.ui.priceSummary in core.js)
         'agent_commission' => 'Agent commission (:percent%)',
-        'agent_commission_mixed' => 'Agent commission',
-        'agent_total' => 'Price after commission',
+        'agent_commission_mixed' => 'Agent commission (rate varies by cabin)',
+        'agent_public_fare' => 'On the public fare of :amount',
         // Time-limited offers (Admin → Offers)
         'offer' => 'Offer: :name',
         'age_offer_note' => 'Some offers (:offers) depend on the travellers and are taken off once you enter their details.',

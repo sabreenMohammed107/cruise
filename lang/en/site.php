@@ -223,13 +223,7 @@ return [
         'port_tax' => 'Port & departure taxes',
         'discount' => 'Discount (:code)',
         // Signed-in agents (App\Services\AgentPricing): the prices are already agent prices
-        'agent_discount' => 'Your agent commission: :percent%',
-        'agent_discount_mixed' => 'Your agent commission (rate varies by cabin)',
-        'agent_saving' => 'The prices below are after your commission: :saving off the original price of :public.',
-        'agent_included' => 'Included in the prices above',
-        'agent_saved' => ':amount saved',
         'offer' => 'Offer: :name', // time-limited offers (Admin → Offers)
-        'agent_public_fare' => 'Public fare :amount',
         'agent_bar' => 'You are signed in as an agent: the prices you see are your agent rates.', // every page (layouts.app)
         'promo_label' => 'Discount code',
         'promo_placeholder' => 'Discount code (try SAFER10)',

@@ -208,13 +208,7 @@ return [
         'port_tax' => 'رسوم الميناء والمغادرة',
         'discount' => 'الخصم (:code)',
         // الوكلاء المسجّلون (App\Services\AgentPricing): الأسعار هي أسعار الوكلاء
-        'agent_discount' => 'عمولة الوكيل الخاصة بك: :percent%',
-        'agent_discount_mixed' => 'عمولة الوكيل الخاصة بك (تختلف النسبة حسب الكابينة)',
-        'agent_saving' => 'الأسعار أدناه بعد خصم عمولتك: :saving من السعر الأصلي البالغ :public.',
-        'agent_included' => 'مشمول في الأسعار أعلاه',
-        'agent_saved' => 'وفّرت :amount',
         'offer' => 'عرض: :name',
-        'agent_public_fare' => 'السعر العام :amount',
         'agent_bar' => 'أنت مسجّل الدخول كوكيل: الأسعار المعروضة هي أسعار الوكلاء الخاصة بك.',
         'promo_label' => 'رمز الخصم',
         'promo_placeholder' => 'رمز الخصم (جرّب SAFER10)',

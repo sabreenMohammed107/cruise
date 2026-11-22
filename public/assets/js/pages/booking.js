@@ -57,8 +57,6 @@ document.addEventListener('sc:ready', () => {
   const phonePlaceholder = (dial) => ({ '+20': '1X XXXX XXXX', '+966': '5X XXX XXXX' })[dial] || '';
   const save = () => SC.booking.set(b);
   D.promos = D.promos || {};
-  // Signed-in agents: "Your agent discount: 10%" (or "rates vary by cabin" when the cabins had different rates)
-  const agentLabel = (agent) => (agent.percent === null ? t('agent_discount_mixed') : t('agent_discount', { percent: agent.percent }));
   // Each cabin with its travellers ("r2-adult-1" → "adult-1" of cabin 2), so offers by age see the dates of birth
   const roomTravellers = (i) => Object.fromEntries(Object.entries(b.travellers || {})
     .filter(([k]) => k.startsWith(`r${i + 1}-`)).map(([k, v]) => [k.slice(`r${i + 1}-`.length), v]));
@@ -361,6 +359,12 @@ document.addEventListener('sc:ready', () => {
   const CAT_CODE = { interior: 'IN', balcony: 'BC', suite: 'SK' };
   const renderReview = () => {
     const q = quote();
+    // Every discount, in the summary's order: agent commission (SC.agentDiscount), offers, promo code
+    const reviewDiscounts = [
+      ...SC.agentDiscount(q.agent).map((a) => ({ label: `${SC.esc(a.name)}<span class="block text-xs font-normal text-muted mt-0.5">${SC.esc(a.detail)}</span>`, amount: a.amount, agent: true })),
+      ...q.offers.map((o) => ({ id: o.id, label: `${SC.esc(offerLabel(o))}${offerHint(o)}`, amount: o.discount })),
+      ...(q.discount ? [{ label: t('discount', { code: q.promo.code }), amount: q.discount }] : [])
+    ];
     const row = (l, v) => `<div><dt class="text-xs font-semibold text-muted">${l}</dt><dd class="font-bold mt-0.5">${v}</dd></div>`;
     const sectionHead = (title, step) => `<div class="flex items-center justify-between mb-4"><h2 class="font-display font-semibold text-lg">${title}</h2>${step ? `<button class="btn btn-ghost btn-sm" data-goto="${step}">${SC.icon('edit', 'w-4 h-4')} ${t('edit')}</button>` : `<a class="btn btn-ghost btn-sm" href="${detailsUrl}">${SC.icon('edit', 'w-4 h-4')} ${t('change')}</a>`}</div>`;
     const bandTag = { adult: 'tag-ocean', child: 'tag-lagoon', infant: 'tag-sun' };
@@ -411,22 +415,18 @@ document.addEventListener('sc:ready', () => {
 
       <section class="card p-5 sm:p-6">
         <h2 class="font-display font-semibold text-lg mb-4">${t('price_breakdown')}</h2>
-        ${q.agent ? `<div class="mb-4 rounded-2xl bg-[#E8F6EF] text-[#12805C] p-4 text-sm" data-agent-rates>
-          <p class="font-bold inline-flex items-center gap-1.5">${SC.icon('award', 'w-4 h-4')}${agentLabel(q.agent)}</p>
-          <p class="mt-1">${t('agent_saving', { saving: SC.money(q.agent.saving), public: SC.money(q.agent.publicFare) })}</p>
-        </div>` : ''}
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead><tr class="text-muted text-xs"><th class="text-start font-semibold pb-2">${t('item')}</th><th class="text-end font-semibold pb-2">${t('price')}</th><th class="text-end font-semibold pb-2">${t('qty')}</th><th class="text-end font-semibold pb-2">${t('total')}</th></tr></thead>
             <tbody class="tabular">
-              ${q.rooms.map((p) => `
+              ${/* As the summary (SC.ui.priceSummary): the public prices and taxes, their subtotal, then every discount */ q.rooms.map((p) => `
                 ${several ? `<tr class="border-t border-line bg-page"><td class="py-2 font-bold" colspan="4">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)} <span class="font-normal text-muted">(${SC.guestText(p.guests)})</span></td></tr>` : ''}
-                ${p.lines.map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
+                ${SC.publicLines(p).map((l) => `<tr class="border-t border-line"><td class="py-2.5">${l.label}</td><td class="text-end">${SC.money(l.unit)}</td><td class="text-end">× ${l.qty}</td><td class="text-end font-bold">${SC.money(l.total)}</td></tr>`).join('')}
                 <tr class="border-t border-line"><td class="py-2.5">${t('cabin_line', { cabin: rooms[p.position - 1].cabin.nameEn })}</td><td class="text-end text-muted" colspan="2">${t('included')}</td><td class="text-end font-bold">${SC.money(0)}</td></tr>`).join('')}
-              ${q.agent ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${agentLabel(q.agent)}</td><td class="text-end" colspan="2">${t('agent_included')}</td><td class="text-end font-bold">${t('agent_saved', { amount: SC.money(q.agent.saving) })}</td></tr>` : ''}
-              ${q.offers.map((o) => `<tr class="border-t border-line text-[#12805C]" data-offer-row="${o.id}"><td class="py-2.5">${SC.esc(offerLabel(o))}${offerHint(o)}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(o.discount)}</td></tr>`).join('')}
-              ${q.discount ? `<tr class="border-t border-line text-[#12805C]"><td class="py-2.5">${t('discount', { code: q.promo.code })}</td><td></td><td></td><td class="text-end font-bold">− ${SC.money(q.discount)}</td></tr>` : ''}
               ${q.fees > 0 ? `<tr class="border-t border-line" data-port-tax><td class="py-2.5">${t('port_tax')}</td><td class="text-end">${SC.money(q.portTax)}</td><td class="text-end">× ${Math.round(q.fees / q.portTax)}</td><td class="text-end font-bold">${SC.money(q.fees)}</td></tr>` : ''}
+              ${reviewDiscounts.length ? `<tr class="border-t-2 border-line font-bold" data-subtotal><td class="py-2.5" colspan="3">${SC.t('ui.details.charges_subtotal')}</td><td class="text-end">${SC.money(SC.publicSubtotal(q))}</td></tr>` : ''}
+              ${reviewDiscounts.map((d) => `<tr class="border-t border-line text-[#12805C]"${d.id ? ` data-offer-row="${d.id}"` : ''}${d.agent ? ' data-agent-commission' : ''}><td class="py-2.5" colspan="3">${d.label}</td><td class="text-end font-bold whitespace-nowrap">− ${SC.money(d.amount)}</td></tr>`).join('')}
+              ${reviewDiscounts.length > 1 ? `<tr class="border-t border-line text-[#12805C] font-bold" data-offers-total><td class="py-2.5" colspan="3">${SC.t('ui.details.offers_saving')}</td><td class="text-end whitespace-nowrap">− ${SC.money(reviewDiscounts.reduce((s, d) => s + d.amount, 0))}</td></tr>` : ''}
             </tbody>
           </table>
         </div>
@@ -485,26 +485,18 @@ document.addEventListener('sc:ready', () => {
   });
 
   /* ---------- Summary (sidebar + mobile collapsible) ---------- */
-  /* The summary in three parts: what is paid (cabins at the public price, port taxes) and its subtotal; then every
-     discount in the green box (agent commission, offers, promo code, SC.ui.offersBox); then the net total, pinned at
-     the bottom of the card while the middle scrolls (.summary-card in theme.css). */
+  /* The summary as everywhere (SC.ui.priceSummary): what is paid (cabins at the public price, port taxes) and its
+     subtotal; then every discount in the green box (agent commission, offers, promo code); then the net total,
+     pinned at the bottom of the card while the middle scrolls (.summary-card in theme.css). */
   const renderSummary = () => {
     const q = quote();
-    // A row: the label takes the room left and wraps; the amount keeps its width and never breaks
-    const row = 'flex items-start justify-between gap-3';
-    const label = 'min-w-0 flex-1 break-words';
-    const amount = 'shrink-0 text-end whitespace-nowrap';
-    // Agents: each cabin at the public price; the commission is one of the discounts below
+    // Several cabins: one row each, at the public price
     const charges = several
-      ? q.rooms.map((p) => `<div class="${row}"><dt class="${label} text-muted">${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}<span class="block text-xs">${p.lines.map((l) => l.label).join(' + ')}</span></dt><dd class="${amount}">${SC.money(p.agent ? p.agent.publicFare : p.fare)}</dd></div>`).join('')
-      : (q.agent && q.rooms[0].prices.public ? SC.fareLines(q.rooms[0].prices.public, q.rooms[0].guests) : q.lines)
-        .map((l) => `<div class="${row}"><dt class="${label} text-muted">${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}</dt><dd class="${amount}">${SC.money(l.total)}</dd></div>`).join('');
-    const subtotal = (q.agent ? q.agent.publicFare : q.fare) + q.fees;
-    const lead = q.agent ? [{ name: agentLabel(q.agent), amount: q.agent.saving, detail: t('agent_public_fare', { amount: SC.money(q.agent.publicFare) }) }] : [];
+      ? q.rooms.map((p) => ({ label: `${rooms[p.position - 1].label} · ${SC.esc(rooms[p.position - 1].cabin.nameEn)}`, note: p.lines.map((l) => l.label).join(' + '), amount: p.agent ? p.agent.publicFare : p.fare }))
+      : SC.chargeLines(SC.publicLines(q.rooms[0]));
     const extras = q.discount ? [{ name: t('discount', { code: q.promo.code }), amount: q.discount }] : [];
     // Offers by age / nationality are listed as waiting only while a paying traveller still misses those details
     const waiting = slots.some((s) => s.band !== 'infant' && !((b.travellers[s.key] || {}).dob && (b.travellers[s.key] || {}).nationality));
-    const discounts = SC.ui.offersBox(q, sailing, { rooms, lead, extras, pending: waiting, title: 'discounts_title' });
     const html = `
       <div class="p-4 sm:p-5 flex gap-4">
         <img src="${cabin.images[0]}" alt="" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0">
@@ -518,17 +510,10 @@ document.addEventListener('sc:ready', () => {
         <div class="px-4 sm:px-5 pb-4 text-sm flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="text-muted">${t('guests')}</span><span class="font-bold text-end">${SC.guestText(guestsTotal)}</span></div>
         <div class="perf-x"></div>
         <div class="p-4 sm:p-5">
-          <dl class="grid grid-cols-[minmax(0,1fr)] gap-3 text-sm tabular" data-summary-lines>
-            ${charges}
-            ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${t('port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.money(q.fees)}</dd></div>` : ''}
-            ${discounts ? `<div class="${row} pt-3 border-t border-line font-bold" data-subtotal><dt class="${label}">${SC.t('ui.details.charges_subtotal')}</dt><dd class="${amount}">${SC.money(subtotal)}</dd></div>` : ''}
-          </dl>
-          ${discounts}
+          ${SC.ui.priceSummary(q, sailing, { charges, rooms, extras, pending: waiting })}
         </div>
       </div>
-      <div class="sum-foot">
-        <div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1"><p class="min-w-0"><span class="block font-bold text-base">${t('net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${t('tax_included')}</span></p><p class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap tabular">${SC.money(q.total)}</p></div>
-      </div>`;
+      <div class="sum-foot">${SC.ui.netTotal(q.total)}</div>`;
     $('#summary').innerHTML = html;
     $('#summary-mobile').innerHTML = html;
     $('#m-total').textContent = SC.money(q.total);

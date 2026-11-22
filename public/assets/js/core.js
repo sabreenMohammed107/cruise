@@ -852,6 +852,43 @@
         ${applied.length > 1 ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(saving)}</span></div>` : ''}
       </div>`;
   };
+
+  /* The price summary, laid out the same for visitors, customers and agents (cruise page, booking page and its
+     review step, the account's booking popup):
+       charges    the fare lines at the public price (an agent's too: the commission is a discount, below) and the
+                  port & departure taxes
+       subtotal   "Subtotal before discounts": what the charges add up to (shown when something is taken off)
+       discounts  the agent commission, the offers, the promo code; "You save" adds them up
+       net total  subtotal − discounts = q.total (as PricingService::quoteBooking) */
+  // A cabin's fare lines at the public price (agents: before their commission)
+  SC.publicLines = (p) => (p.agent && p.prices && p.prices.public ? SC.fareLines(p.prices.public, p.guests) : p.lines);
+  SC.publicSubtotal = (q) => (q.agent ? q.agent.publicFare : q.fare) + (q.fees || 0);
+  // The agent commission as the first discount: [{ name, amount, detail }], or [] for everyone else
+  SC.agentDiscount = (agent, money = SC.money) => (agent ? [{
+    name: agent.percent === null ? SC.t('ui.details.agent_commission_mixed') : SC.t('ui.details.agent_commission', { percent: agent.percent }),
+    amount: agent.saving,
+    detail: SC.t('ui.details.agent_public_fare', { amount: money(agent.publicFare) })
+  }] : []);
+  // Fare lines as charges: "Double occupancy × 2  $1,200"
+  SC.chargeLines = (lines) => lines.map((l) => ({ label: `${l.label}${l.qty > 1 ? ` × ${l.qty}` : ''}`, amount: l.total }));
+  /* charges [{ label, note?, amount }] (SC.chargeLines, or one row per cabin); rooms / extras (promo code) / pending
+     as SC.ui.offersBox */
+  SC.ui.priceSummary = (q, sailing, { charges, rooms = [], extras = [], pending = true } = {}) => {
+    // A row: the label takes the room left and wraps; the amount keeps its width and never breaks
+    const row = 'flex items-start justify-between gap-3', label = 'min-w-0 flex-1 break-words', amount = 'shrink-0 text-end whitespace-nowrap';
+    const discounts = SC.ui.offersBox(q, sailing, { rooms, lead: SC.agentDiscount(q.agent), extras, pending, title: 'discounts_title' });
+    return `<dl class="grid grid-cols-[minmax(0,1fr)] gap-3 text-sm tabular" data-summary-lines>
+        ${charges.map((c) => `<div class="${row}"><dt class="${label} text-muted">${c.label}${c.note ? `<span class="block text-xs">${c.note}</span>` : ''}</dt><dd class="${amount}">${SC.money(c.amount)}</dd></div>`).join('')}
+        ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${SC.t('ui.details.port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.money(q.fees)}</dd></div>` : ''}
+        ${discounts ? `<div class="${row} pt-3 border-t border-line font-bold" data-subtotal><dt class="${label}">${SC.t('ui.details.charges_subtotal')}</dt><dd class="${amount}">${SC.money(SC.publicSubtotal(q))}</dd></div>` : ''}
+      </dl>
+      ${discounts}`;
+  };
+  // The net total row (pinned at the bottom of a summary card)
+  SC.ui.netTotal = (total) => `<div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1" data-net-total>
+      <p class="min-w-0"><span class="block font-bold text-base">${SC.t('ui.details.net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></p>
+      <p class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap tabular">${SC.money(total)}</p>
+    </div>`;
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 
   /* Sailing card — one departure, shaped like a boarding pass.
