@@ -117,13 +117,21 @@ return [
         'fields' => [
             'name' => 'الاسم الكامل',
             'email' => 'البريد الإلكتروني',
-            'phone' => 'رقم الجوال (اختياري)',
+            'phone' => 'رقم الموبايل',
             'message' => 'الرسالة',
         ],
         'placeholders' => [
             'name' => 'اسمك',
             'email' => 'you@example.com',
             'message' => 'كيف يمكننا مساعدتك؟',
+        ],
+        // Mobile number problems on this form (the empty field uses "حقل رقم الموبايل مطلوب.")
+        'phone_errors' => [
+            'phone_digits' => 'استخدم الأرقام فقط.',
+            'phone_sa' => 'أرقام الموبايل السعودية من 9 أرقام وتبدأ بـ 5.',
+            'phone_eg' => 'أرقام الموبايل المصرية من 10 أرقام وتبدأ بـ 1.',
+            'phone_length' => 'أدخل رقم موبايل من 7 إلى 12 رقمًا.',
+            'dial' => 'اختر رمز الدولة.',
         ],
         'message_hint' => 'من 10 إلى 2000 حرف.',
         'send' => 'إرسال الرسالة',

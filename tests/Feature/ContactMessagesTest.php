@@ -50,19 +50,28 @@ class ContactMessagesTest extends TestCase
         $this->get('/contact')->assertSee('your message has been sent');
     }
 
-    public function test_the_phone_is_optional_and_checked_for_its_country(): void
+    public function test_the_phone_is_required_and_checked_for_its_country(): void
     {
         Mail::fake();
 
-        $this->post('/contact', ['dial' => '+966', 'phone' => ''] + $this->valid)->assertSessionHasNoErrors();
-        $this->assertSame([null, null], [ContactMessage::sole()->phone_dial, ContactMessage::sole()->phone]);
+        $this->post('/contact', ['dial' => '+966', 'phone' => ''] + $this->valid)
+            ->assertSessionHasErrors(['phone' => 'The Phone field is required.']);
+        $this->assertSame(0, ContactMessage::count());
 
         // Saudi numbers: 9 digits starting with 5; Egyptian: 10 digits starting with 1 (same as the booking form)
-        $this->post('/contact', ['phone' => '401234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('site.booking.errors.phone_sa')]);
-        $this->post('/contact', ['dial' => '+20', 'phone' => '501234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('site.booking.errors.phone_eg')]);
+        $this->post('/contact', ['phone' => '401234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('pages.contact.phone_errors.phone_sa')]);
+        $this->post('/contact', ['dial' => '+20', 'phone' => '501234567'] + $this->valid)->assertSessionHasErrors(['phone' => __('pages.contact.phone_errors.phone_eg')]);
         $this->post('/contact', ['dial' => '+999'] + $this->valid)->assertSessionHasErrors('dial');
         $this->post('/contact', ['dial' => '+20', 'phone' => '1012345678'] + $this->valid)->assertSessionHasNoErrors();
         $this->assertSame('+20 1012345678', ContactMessage::latest('id')->first()->full_phone);
+    }
+
+    public function test_the_arabic_phone_messages_say_mobile_number(): void
+    {
+        app()->setLocale('ar');
+
+        $this->assertSame('حقل رقم الموبايل مطلوب.', (new \App\Http\Requests\ContactRequest)->messages()['phone.required']);
+        $this->assertStringContainsString('الموبايل', __('pages.contact.phone_errors.phone_sa'));
     }
 
     public function test_invalid_messages_are_rejected(): void

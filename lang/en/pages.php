@@ -119,13 +119,21 @@ return [
         'fields' => [
             'name' => 'Full name',
             'email' => 'Email address',
-            'phone' => 'Phone (optional)',
+            'phone' => 'Phone',
             'message' => 'Message',
         ],
         'placeholders' => [
             'name' => 'Your name',
             'email' => 'you@example.com',
             'message' => 'How can we help?',
+        ],
+        // Mobile number problems on this form (the empty field uses "The Phone field is required.")
+        'phone_errors' => [
+            'phone_digits' => 'Use digits only.',
+            'phone_sa' => 'Saudi mobile numbers have 9 digits and start with 5.',
+            'phone_eg' => 'Egyptian mobile numbers have 10 digits and start with 1.',
+            'phone_length' => 'Enter a mobile number with 7 to 12 digits.',
+            'dial' => 'Choose a country code.',
         ],
         'message_hint' => '10 to 2,000 characters.',
         'send' => 'Send message',

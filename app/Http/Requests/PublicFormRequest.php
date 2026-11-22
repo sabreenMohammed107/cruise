@@ -44,10 +44,16 @@ abstract class PublicFormRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'dial.*' => __('site.booking.errors.dial'),
-            'phone.required' => __('site.booking.errors.phone_required'),
-            'phone.*' => __('site.booking.errors.phone_length'),
+            'dial.*' => $this->phoneMessage('dial'),
+            'phone.required' => $this->phoneMessage('phone_required'),
+            'phone.*' => $this->phoneMessage('phone_length'),
         ];
+    }
+
+    /** The message for a mobile number problem (a site.booking.errors key: dial, phone_required, phone_sa…). */
+    protected function phoneMessage(string $key): string
+    {
+        return __("site.booking.errors.$key");
     }
 
     public function after(): array
@@ -56,8 +62,8 @@ abstract class PublicFormRequest extends FormRequest
             if ($validator->errors()->hasAny(['dial', 'phone']) || ! $this->filled('phone')) {
                 return;
             }
-            if ($error = PhoneNumber::error($this->input('dial'), $this->input('phone'))) {
-                $validator->errors()->add('phone', $error);
+            if ($key = PhoneNumber::errorKey($this->input('dial'), $this->input('phone'))) {
+                $validator->errors()->add('phone', $this->phoneMessage($key));
             }
         }];
     }
