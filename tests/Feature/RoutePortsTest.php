@@ -155,6 +155,77 @@ class RoutePortsTest extends TestCase
         $this->assertSame('جدة', ((array) $ar['portNames'])['Jeddah']);
     }
 
+    public function test_admin_filters_route_ports_by_type(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+        Port::create(['name_en' => 'Home Port X', 'name_ar' => 'س', 'role' => Port::HOME]);
+        Port::create(['name_en' => 'Call Port Y', 'name_ar' => 'ص', 'role' => Port::CALL]);
+
+        $this->get('/admin/routes')->assertOk()->assertSee('Port type')->assertSee('Home Port X')->assertSee('Call Port Y');
+        $this->get('/admin/routes?role=home')->assertOk()->assertSee('Home Port X')->assertDontSee('Call Port Y');
+        $this->get('/admin/routes?role=call')->assertOk()->assertDontSee('Home Port X')->assertSee('Call Port Y');
+        $this->get('/admin/routes?role=nonsense')->assertOk()->assertSee('Home Port X')->assertSee('Call Port Y');
+    }
+
+    public function test_admin_saves_the_order_right_from_the_table(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+        $port = Port::create(['name_en' => 'Home Port X', 'name_ar' => 'س', 'role' => Port::HOME]);
+        $this->assertNull($port->fresh()->sort_order); // no order until one is set
+
+        $this->get('/admin/routes')->assertSee('data-inline-save="'.route('admin.routes.inline', $port->id).'"', false);
+
+        $this->patchJson("/admin/routes/{$port->id}/inline", ['field' => 'sort_order', 'value' => '3'])
+            ->assertOk()->assertJson(['field' => 'sort_order', 'value' => 3]);
+        $this->assertSame(3, $port->fresh()->sort_order);
+
+        // Emptied: back to no order
+        $this->patchJson("/admin/routes/{$port->id}/inline", ['field' => 'sort_order', 'value' => ''])->assertOk()->assertJson(['value' => null]);
+        $this->assertNull($port->fresh()->sort_order);
+
+        // The field's own rules; only inline fields
+        $this->patchJson("/admin/routes/{$port->id}/inline", ['field' => 'sort_order', 'value' => '-1'])->assertUnprocessable()->assertJsonValidationErrors('sort_order');
+        $this->patchJson("/admin/routes/{$port->id}/inline", ['field' => 'sort_order', 'value' => 'abc'])->assertUnprocessable();
+        $this->patchJson("/admin/routes/{$port->id}/inline", ['field' => 'name_en', 'value' => 'Hacked'])->assertNotFound();
+        $this->assertSame('Home Port X', $port->fresh()->name_en);
+
+        // Also in the edit form
+        $this->put("/admin/routes/{$port->id}", ['name_en' => 'Home Port X', 'name_ar' => 'س', 'role' => 'home', 'sort_order' => '7', 'is_active' => '1'])->assertSessionHasNoErrors();
+        $this->assertSame(7, $port->fresh()->sort_order);
+
+        // Becoming a port of call drops the order (the form hides the field)
+        $this->put("/admin/routes/{$port->id}", ['name_en' => 'Home Port X', 'name_ar' => 'س', 'role' => 'call', 'sort_order' => '7', 'is_active' => '1'])->assertSessionHasNoErrors();
+        $this->assertNull($port->fresh()->sort_order);
+    }
+
+    public function test_ports_of_call_have_no_order(): void
+    {
+        $this->actingAs($this->admin(), 'admin');
+        $call = Port::create(['name_en' => 'Call Port Y', 'name_ar' => 'ص', 'role' => Port::CALL, 'sort_order' => 4]);
+        $this->assertNull($call->fresh()->sort_order);
+
+        // No box in its row, and it can't be saved inline
+        $this->get('/admin/routes?role=call')->assertOk()->assertDontSee(route('admin.routes.inline', $call->id));
+        $this->patchJson("/admin/routes/{$call->id}/inline", ['field' => 'sort_order', 'value' => '1'])->assertNotFound();
+        $this->assertNull($call->fresh()->sort_order);
+    }
+
+    public function test_departure_ports_are_listed_by_their_order_then_without_one(): void
+    {
+        Port::query()->update(['sort_order' => null]);
+        Port::create(['name_en' => 'Zeta', 'name_ar' => 'ز', 'role' => Port::HOME, 'sort_order' => 2]);
+        Port::create(['name_en' => 'Alpha', 'name_ar' => 'أ', 'role' => Port::HOME, 'sort_order' => 5]);
+        Port::create(['name_en' => 'Beta', 'name_ar' => 'ب', 'role' => Port::HOME]);
+
+        // Numbered first (smallest first), then the rest by name
+        $this->assertSame(['Zeta', 'Alpha'], array_slice(Port::home()->ordered()->pluck('name_en')->all(), 0, 2));
+        $this->assertSame('Beta', Port::home()->ordered()->whereNull('sort_order')->value('name_en'));
+
+        // The cruises page gets the numbers for its departure port filter (catalog.js; ports without one: soonest sailing)
+        $data = $this->get('/cruises')->assertOk()->viewData('scData');
+        $this->assertEquals(['Zeta' => 2, 'Alpha' => 5], (array) $data['portOrder']);
+    }
+
     public function test_migration_converts_existing_routes(): void
     {
         $migration = ['--path' => 'database/migrations/2026_10_19_000001_create_ports_and_cruise_port_tables.php'];

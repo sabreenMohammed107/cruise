@@ -33,6 +33,13 @@ class Port extends Model
 
     protected static function booted(): void
     {
+        // Only departure & arrival ports have an Order; ports of call are listed by name
+        static::saving(function (Port $port) {
+            if ($port->role === self::CALL) {
+                $port->sort_order = null;
+            }
+        });
+
         // Cruises keep the English stop names in `route`: refresh them when a port is renamed
         static::updated(function (Port $port) {
             if ($port->wasChanged('name_en')) {
@@ -51,9 +58,10 @@ class Port extends Model
         return $this->belongsToMany(Cruise::class, 'cruise_port')->withPivot('position');
     }
 
+    /** By "Order" (smallest first), ports without one last; then by name. */
     public function scopeOrdered(Builder $query): void
     {
-        $query->orderBy('sort_order')->orderBy('name_en');
+        $query->orderByRaw('sort_order is null')->orderBy('sort_order')->orderBy('name_en');
     }
 
     /** Departure & arrival ports. */

@@ -112,6 +112,8 @@ Route::middleware('can:manage-content')->group(function () {
             Route::post('/', [ResourceController::class, 'store'])->name('store')->defaults('resource', $resource)->middleware($write);
             Route::get('{id}/edit', [ResourceController::class, 'edit'])->name('edit')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
             Route::put('{id}', [ResourceController::class, 'update'])->name('update')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
+            // One field saved from the index table (fields marked ->inline(), e.g. a route port's Order)
+            Route::patch('{id}/inline', [ResourceController::class, 'inline'])->name('inline')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
             Route::delete('{id}', [ResourceController::class, 'destroy'])->name('destroy')->defaults('resource', $resource)->whereNumber('id')->middleware($write);
         });
     }

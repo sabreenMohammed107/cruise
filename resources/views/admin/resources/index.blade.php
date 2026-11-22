@@ -37,7 +37,18 @@
             @foreach ($resource::indexFields() as $field)
               @php($value = $record->getAttribute($field->name))
               <td class="p-3 {{ $loop->first ? 'font-bold' : '' }}">
-                @if ($field->type === 'checkbox')
+                @if ($field->inline && ! $field->inlineFor($record))
+                  {{-- Not used for this row (e.g. a port of call has no order) --}}
+                  <span class="text-muted" title="Not used for this {{ strtolower($resource::$singular) }}">—</span>
+                @elseif ($field->inline && $resource::editable())
+                  {{-- Saved on its own when changed (Enter, leaving the box, or a short pause while typing) --}}
+                  <span class="inline-flex items-center gap-1.5">
+                    <input type="number" min="0" step="1" value="{{ $value }}" class="field !py-1 !px-2 !w-20 tabular"
+                           aria-label="{{ $field->label }}: {{ $record->getAttribute($resource::$title) }}"
+                           data-inline-save="{{ route($resource::routeName('inline'), $record->getKey()) }}" data-field="{{ $field->name }}">
+                    <span data-inline-status class="w-4 h-4 shrink-0" aria-live="polite"></span>
+                  </span>
+                @elseif ($field->type === 'checkbox')
                   <span class="tag {{ $value ? 'tag-lagoon' : 'tag-white' }}">{{ $value ? 'Yes' : 'No' }}</span>
                 @elseif ($field->type === 'select')
                   {{ $field->options[$value instanceof \BackedEnum ? $value->value : $value] ?? $value }}
@@ -90,3 +101,53 @@
 
   <div class="mt-5">{{ $records->links() }}</div>
 @endsection
+
+@push('scripts')
+  <script>
+    // Number boxes in the table ([data-inline-save]) save themselves: PATCH {field, value}, a green tick when saved,
+    // the server's message (and the last saved number back) when not.
+    (() => {
+      const boxes = document.querySelectorAll('[data-inline-save]');
+      if (!boxes.length) return;
+      const token = document.querySelector('meta[name="csrf-token"]').content;
+
+      boxes.forEach((box) => {
+        const status = box.parentElement.querySelector('[data-inline-status]');
+        let saved = box.value, timer = null, busy = null;
+        const show = (icon, cls, title) => { status.className = `w-4 h-4 shrink-0 ${cls}`; status.innerHTML = icon ? SC.icon(icon, 'w-4 h-4') : ''; status.title = title || ''; };
+
+        const save = () => {
+          clearTimeout(timer);
+          const value = box.value.trim();
+          if (value === saved || busy) return;
+          show('', '');
+          busy = fetch(box.dataset.inlineSave, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': token },
+            body: JSON.stringify({ field: box.dataset.field, value }),
+          })
+            .then(async (r) => {
+              const data = await r.json().catch(() => ({}));
+              if (!r.ok) throw new Error(data.message || 'Could not save. Reload the page and try again.');
+              saved = data.value == null ? '' : String(data.value);
+              if (box.value.trim() === value) box.value = saved; // not if more was typed meanwhile (saved next)
+              box.classList.remove('is-invalid');
+              show('check', 'text-lagoon-600', 'Saved');
+              setTimeout(() => { if (status.title === 'Saved') show('', ''); }, 2500);
+            })
+            .catch((e) => {
+              if (box.value.trim() === value) box.value = saved;
+              box.classList.add('is-invalid');
+              show('alert', 'text-[#C42F2F]', e.message);
+              SC.toast(e.message, 'error');
+            })
+            .finally(() => { busy = null; if (box.value.trim() !== saved) save(); });
+        };
+
+        box.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(save, 800); });
+        box.addEventListener('change', save);
+        box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+      });
+    })();
+  </script>
+@endpush

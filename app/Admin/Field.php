@@ -54,6 +54,15 @@ final class Field
 
     public ?Closure $virtualValue = null;
 
+    /**
+     * Editable right in the index table: a number box saved on its own as soon as it changes (no page reload),
+     * through ResourceController::inline() with this field's rules. Number fields only.
+     */
+    public bool $inline = false;
+
+    /** @var (Closure(Model): bool)|null Rows that get the inline box (see inline()); null: every row. */
+    public ?Closure $inlineWhen = null;
+
     private function __construct(public string $name, public string $label, public string $type) {}
 
     public static function text(string $name, string $label): self
@@ -188,6 +197,25 @@ final class Field
         $this->onIndex = true;
 
         return $this;
+    }
+
+    /**
+     * Index column with a number box that saves itself (see $inline). $when(Model): only rows where it gives true get
+     * the box (and may be saved inline); the other rows show "—".
+     */
+    public function inline(?Closure $when = null): self
+    {
+        $this->onIndex = true;
+        $this->inline = true;
+        $this->inlineWhen = $when;
+
+        return $this;
+    }
+
+    /** Does this record's row get the inline box? */
+    public function inlineFor(Model $record): bool
+    {
+        return $this->inline && (! $this->inlineWhen || ($this->inlineWhen)($record));
     }
 
     public function wide(): self

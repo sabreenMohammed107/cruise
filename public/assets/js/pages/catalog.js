@@ -45,7 +45,12 @@ document.addEventListener('sc:ready', () => {
       <span class="flex-1">${label}</span>${count != null ? `<span class="text-xs text-muted tabular">${count}</span>` : ''}
     </label>`;
 
-  const departPorts = [...new Set(ALL.map((s) => s.departurePort))];
+  // Departure ports by their Order (Admin → Route ports, smallest first); ports without one come after them, by their
+  // soonest sailing (ALL is soonest first, so first appearance), then by name
+  const portOrder = D.portOrder || {};
+  const rank = (p) => (p in portOrder ? Number(portOrder[p]) : Infinity);
+  const soonest = [...new Set(ALL.map((s) => s.departurePort))];
+  const departPorts = [...soonest].sort((a, b) => (rank(a) - rank(b)) || (soonest.indexOf(a) - soonest.indexOf(b)) || a.localeCompare(b));
   $('#f-ports').innerHTML = departPorts.map((p) => checkbox('depart', p, SC.port(p), ALL.filter((s) => s.departurePort === p).length)).join('') + `
     <div class="pt-2"><label class="label" for="f-visit">${SC.t('ui.catalog.visiting')}</label>
       <select id="f-visit" class="field"><option value="">${SC.t('ui.catalog.any_port')}</option>${SC.allPorts().sort().map((p) => `<option value="${p}" ${p === state.visit ? 'selected' : ''}>${SC.port(p)}</option>`).join('')}</select></div>`;

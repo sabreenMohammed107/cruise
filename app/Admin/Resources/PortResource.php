@@ -8,6 +8,7 @@ use App\Models\Port;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -36,6 +37,19 @@ class PortResource extends Resource
             ->ordered();
     }
 
+    /** ?role=home|call: the "Port type" filter next to the search box. */
+    public static function filter(Builder $query, Request $request): Builder
+    {
+        $role = $request->query('role');
+
+        return $query->when(is_string($role) && isset(Port::ROLES[$role]), fn (Builder $q) => $q->where('role', $role));
+    }
+
+    public static function indexToolbar(): ?string
+    {
+        return 'admin.routes.toolbar';
+    }
+
     public static function fields(): array
     {
         return [
@@ -52,7 +66,12 @@ class PortResource extends Resource
                     }])
                 ->help('Departure & arrival port: cruises can start or end here, and it is listed in the homepage search. Port of call only: cruises just stop here on the way.'),
             Field::number('cruises_count', 'Cruises')->indexOnly(),
-            Field::number('sort_order', 'Order in the port list')->default(0)->rules(['nullable', 'integer', 'min:0']),
+            // Departure & arrival ports only: ports of call are listed by name (the form hides it, so it saves empty)
+            Field::number('sort_order', 'Order')
+                ->inline(fn (Port $port) => $port->role === Port::HOME)
+                ->showWhen('role', Port::HOME)
+                ->rules(['nullable', 'integer', 'min:0', 'max:65535'])
+                ->help('Smallest first: the order of the departure ports in the website\'s "Departure port" filter and homepage search. Leave empty for no set order: those ports come after the numbered ones (on the website: soonest sailing first, then by name).'),
             Field::checkbox('is_active', 'Can be added to routes')->default(true)->index()
                 ->help('Hidden ports stay on the cruises that already call there.'),
         ];

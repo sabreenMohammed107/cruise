@@ -82,6 +82,8 @@ class ScDataPresenter
             'portNames' => (object) $this->portNames(),
             // Admin → Route ports marked "Departure & arrival port" (English names): the homepage port search
             'homePorts' => Port::home()->ordered()->pluck('name_en')->all(),
+            // Their "Order" (English name => number), for the cruises page's departure port filter; empty orders left out
+            'portOrder' => (object) Port::home()->whereNotNull('sort_order')->pluck('sort_order', 'name_en')->all(),
             'page' => (object) $page,
             'account' => $account,
         ], fn ($value) => $value !== null);
