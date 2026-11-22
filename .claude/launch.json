@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ai-chat-platform",
+      "runtimeExecutable": "C:\\xampp\\php\\php.exe",
+      "runtimeArgs": ["C:\\Users\\admin\\Downloads\\files\\ai-chat-platform\\artisan", "serve", "--port=8090"],
+      "port": 8090
+    }
+  ]
+}

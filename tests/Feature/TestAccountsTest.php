@@ -109,7 +109,9 @@ class TestAccountsTest extends TestCase
                 $this->get('/admin/agents')->assertOk()->assertSee('real@example.com')->assertDontSee('tester@example.com');
                 $this->get('/admin/agents/'.$tester->id)->assertNotFound();
                 $this->get('/admin/agents/'.$agent->id)->assertOk();
-                $this->post('/admin/bookings/'.$hidden->reference.'/cancel')->assertNotFound();
+                // Admins get 404 (hidden); supervisors can't cancel at all, so the route gate answers 403 first
+                $this->post('/admin/bookings/'.$hidden->reference.'/cancel')
+                    ->assertStatus($staff->role === UserRole::Admin ? 404 : 403);
             }
         }
         $this->actingAs($this->staff('admin@safercruise.test'), 'admin')->get('/admin/agents/'.$tester->id.'/edit')->assertNotFound();
