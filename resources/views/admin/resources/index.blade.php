@@ -121,14 +121,19 @@
           const value = box.value.trim();
           if (value === saved || busy) return;
           show('', '');
+          // A plain form POST with _method=PATCH (like the panel's forms): some hosts/firewalls refuse a real PATCH
           busy = fetch(box.dataset.inlineSave, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': token },
-            body: JSON.stringify({ field: box.dataset.field, value }),
+            method: 'POST',
+            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+            body: new URLSearchParams({ _method: 'PATCH', _token: token, field: box.dataset.field, value }),
           })
             .then(async (r) => {
               const data = await r.json().catch(() => ({}));
-              if (!r.ok) throw new Error(data.message || 'Could not save. Reload the page and try again.');
+              if (!r.ok) {
+                const why = r.status === 419 ? 'Your session expired. Reload the page and try again.'
+                  : (data.message || `Could not save (error ${r.status}). Reload the page and try again.`);
+                throw new Error(why);
+              }
               saved = data.value == null ? '' : String(data.value);
               if (box.value.trim() === value) box.value = saved; // not if more was typed meanwhile (saved next)
               box.classList.remove('is-invalid');
