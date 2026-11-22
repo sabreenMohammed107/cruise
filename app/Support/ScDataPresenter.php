@@ -347,8 +347,9 @@ class ScDataPresenter
                     'soldOut' => $sailing->cabinPrices->where('is_sold_out', true)->map(fn ($p) => $p->cabinCategory->slug)->values()->all(),
                     // Tiered cabin prices for the whole cruise (SC.prices / SC.quote in core.js), agent prices for agents
                     ...$sailingPrices($sailing),
-                    // Time-limited offers (step 26): SC.quoteRooms prices them as PricingService::quoteBooking does
-                    'offers' => OfferService::filter($offers, $sailing, $agent !== null)->map(fn (Offer $o) => $o->toScript())->all(),
+                    // Time-limited offers (step 26): SC.quoteRooms prices them as PricingService::quoteBooking does.
+                    // The cruise is already here: offers by cruise length (Offer::covers()) read its nights
+                    'offers' => OfferService::filter($offers, $sailing->setRelation('cruise', $cruise), $agent !== null)->map(fn (Offer $o) => $o->toScript())->all(),
                 ])->all(),
             ])
             ->values()

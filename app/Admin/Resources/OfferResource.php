@@ -2,6 +2,7 @@
 
 namespace App\Admin\Resources;
 
+use App\Admin\CruiseFilters;
 use App\Admin\Field;
 use App\Admin\Options;
 use App\Admin\Resource;
@@ -22,7 +23,7 @@ use Illuminate\Validation\Rule;
  * each choice shows only its own fields (Field::showWhen):
  *
  *   1. what the discount is on (OfferTarget) and how much (OfferType)
- *   2. conditions, each switched on by its own tick box: cabin types · nationalities
+ *   2. conditions, each switched on by its own tick box: cabin types · nationalities · cruise length (nights)
  *   3. where, when, how many and for whom: cruise / sailing, booking window (starts_on / ends_on: when the booking is
  *      made), sailing window (sailing_starts_on / sailing_ends_on: when the cruise departs), caps, customers / agents,
  *      promo codes
@@ -45,6 +46,7 @@ class OfferResource extends Resource
     private const CONDITIONS = [
         'if_cabins' => ['cabin_categories'],
         'if_nationality' => ['nationalities'],
+        'if_nights' => ['cruise_nights'],
     ];
 
     public static function query(): Builder
@@ -123,6 +125,9 @@ class OfferResource extends Resource
             $switch('if_nationality', 'Some nationalities', 'Every traveller of the cabin (or, for age offers, the guest) must have one of them.'),
             Field::checkboxes('nationalities', 'Nationalities', array_combine(config('cruise.nationalities'), config('cruise.nationalities')))
                 ->showWhen('if_nationality', '1'),
+            $switch('if_nights', 'Cruise length', 'Only cruises of these lengths. One offer per length gives each its own price, e.g. children $100 on 4 nights and, in another offer, $70 on 7 nights.'),
+            Field::checkboxes('cruise_nights', 'Nights', collect(CruiseFilters::nights())->mapWithKeys(fn (int $n) => [$n => $n.' '.($n === 1 ? 'night' : 'nights')])->all())
+                ->showWhen('if_nights', '1'),
 
             // ---- 3. Where, when, for whom ----
             Field::heading('Where and when'),
@@ -192,6 +197,7 @@ class OfferResource extends Resource
 
         $rules['if_cabins'][] = $needs('Tick the cabin types of this offer.', 'cabin_categories');
         $rules['if_nationality'][] = $needs('Tick the nationalities of this offer.', 'nationalities');
+        $rules['if_nights'][] = $needs('Tick the cruise lengths of this offer.', 'cruise_nights');
 
         return $rules;
     }
@@ -227,9 +233,13 @@ class OfferResource extends Resource
             $record->value = 100;
         }
         $record->agent_mode ??= OfferAgentMode::Stack;
-        // Both conditions are lists: kept when their switch is ticked, empty (no condition) otherwise
+        // The conditions are lists: kept when their switch is ticked, empty (no condition) otherwise
         foreach (self::CONDITIONS as $switch => [$column]) {
             $record->setAttribute($column, $request->boolean($switch) ? (array_values((array) $request->input($column, [])) ?: null) : null);
+        }
+        // Cruise lengths as numbers, shortest first (the form sends strings)
+        if ($record->cruise_nights) {
+            $record->cruise_nights = collect($record->cruise_nights)->map(fn ($n) => (int) $n)->unique()->sort()->values()->all();
         }
     }
 }

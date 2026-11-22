@@ -462,6 +462,68 @@ class OffersTest extends TestCase
         $this->assertSame(['Kids'], array_column($mixed->price_snapshot['offers'], 'name'));
     }
 
+    public function test_the_cruise_length_condition_gives_each_length_its_own_price(): void
+    {
+        // Children up to 12 on every cruise: $100 on 4-night cruises, $70 on 7-night cruises (RSD-261213 is 7 nights)
+        $kids = ['cruise_id' => null, 'target' => 'age', 'min_age' => 2, 'max_age' => 12, 'type' => 'fixed_price'];
+        $four = $this->offer(['name' => 'Kids 4 nights', 'value' => 100, 'cruise_nights' => [4]] + $kids);
+        $seven = $this->offer(['name' => 'Kids 7 nights', 'value' => 70, 'cruise_nights' => [7]] + $kids);
+        $this->assertSame(7, $this->sailing()->cruise->nights);
+
+        $this->assertFalse($four->covers($this->sailing()));
+        $this->assertTrue($seven->covers($this->sailing()));
+        $this->assertTrue($this->offer(['cruise_nights' => [4, 7]])->covers($this->sailing()));
+        Offer::where('name', 'Summer deal')->delete();
+
+        // The child (3rd guest, 1680) pays 70: 8960 − 1610
+        $booking = $this->book();
+        $this->assertSame(['1610.00', '7350.00'], [$booking->offer_discount_total, $booking->grand_total]);
+        $this->assertSame(['Kids 7 nights'], array_column($booking->price_snapshot['offers'], 'name'));
+
+        // Each sailing publishes only the offer of its cruise's length; 3- and 5-night cruises get none
+        $this->assertSame([$seven->id], array_column($this->publishedOffers(), 'id'));
+        $cruises = collect(app(ScDataPresenter::class)->make()['cruises']);
+        $this->assertTrue($cruises->contains('nights', 4));
+        foreach ($cruises as $cruise) {
+            $expected = match ($cruise['nights']) { 4 => [$four->id], 7 => [$seven->id], default => [] };
+            foreach ($cruise['sailings'] as $sailing) {
+                $this->assertSame($expected, array_column($sailing['offers'], 'id'), $cruise['id']);
+            }
+        }
+
+        // Admin list shows the lengths
+        $this->assertSame('All cruises · 4 nights', $four->scope_label);
+        $this->assertSame('All cruises · 4 / 7 nights', Offer::make(['cruise_nights' => [7, 4]])->scope_label);
+    }
+
+    public function test_admin_sets_the_cruise_length_condition(): void
+    {
+        $this->actingAs(User::where('email', 'admin@safercruise.test')->sole(), 'admin');
+        $form = ['name' => 'Kids 4 nights', 'cruise_id' => '', 'sailing_id' => '', 'target' => 'age', 'min_age' => 2, 'max_age' => 12, 'min_guest_position' => '',
+            'type' => 'fixed_price', 'value' => 100, 'max_discount' => '', 'max_uses' => '', 'starts_on' => '', 'ends_on' => '2026-11-30',
+            'audience' => 'all', 'agent_mode' => 'stack', 'is_active' => 1];
+
+        // The switch and the lengths of the cruises
+        $this->get(route('admin.offers.create'))->assertOk()->assertSee('Cruise length')
+            ->assertSee('data-show-when="if_nights" data-show-values="1"', false)
+            ->assertSee('name="cruise_nights[]" value="4"', false)->assertSee('name="cruise_nights[]" value="7"', false);
+
+        // Ticked: needs a length, and only lengths of the cruises
+        $this->post(route('admin.offers.store'), ['if_nights' => 1] + $form)->assertSessionHasErrors('if_nights');
+        $this->post(route('admin.offers.store'), ['if_nights' => 1, 'cruise_nights' => ['6']] + $form)->assertSessionHasErrors('cruise_nights.0');
+        $this->assertSame(0, Offer::count());
+
+        // Saved as numbers, shortest first; unticked: cleared
+        $this->post(route('admin.offers.store'), ['if_nights' => 1, 'cruise_nights' => ['7', '4']] + $form)->assertSessionHasNoErrors();
+        $offer = Offer::sole();
+        $this->assertSame([4, 7], $offer->cruise_nights);
+        $this->get(route('admin.offers.edit', $offer))->assertOk()->assertSee('name="if_nights" value="1" class="check" checked', false);
+        $this->get(route('admin.offers.index'))->assertOk()->assertSee('All cruises · 4 / 7 nights');
+
+        $this->post(route('admin.offers.store'), ['name' => 'Any length', 'if_nights' => 0, 'cruise_nights' => ['4']] + $form)->assertSessionHasNoErrors();
+        $this->assertNull(Offer::where('name', 'Any length')->sole()->cruise_nights);
+    }
+
     public function test_admin_manages_offers(): void
     {
         $this->actingAs(User::where('email', 'admin@safercruise.test')->sole(), 'admin');

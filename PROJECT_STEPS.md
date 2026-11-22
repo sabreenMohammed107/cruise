@@ -2094,3 +2094,29 @@ enough instead of failing. Checked in the browser (sailing 24-NOV-2026-4N, balco
 offers and total follow every click, no console errors; on the booking page the child offer applies after the dates
 of birth for 2A+1C and 1A+2C (one child) and not for 1A+1C; the browser totals equal `PricingService::quoteBooking()`.
 **Deploy:** `public/assets/js/core.js`, `public/assets/js/pages/details.js`.
+
+### Step 39: Offers by cruise length (2026-11-22)
+
+Client rule: the same discount can cost differently on cruises of different lengths, e.g. children 2–12 pay **$100 on
+a 4-night** cruise and **$70 on a 7-night** cruise. Made a third offer condition, next to cabin types and
+nationalities; one offer per length gives each length its own price:
+
+- **`offers.cruise_nights`** (`JSON NULL`, migration `2026_11_22_000003_add_cruise_nights_to_offers_table`): the cruise
+  lengths (nights, `cruises.nights`) the offer is for, e.g. `[4]` or `[4, 7]`. Empty = every length (existing offers
+  unchanged).
+- **Checked with the sailing** in `Offer::covers()` → `Offer::fitsNights()`, like the sailing window. All prices
+  read offers through `OfferService::filter()` (website `SC_DATA`, `ConfirmBookingRequest`, `BookingService`), so a
+  sailing simply doesn't get an offer of another length: no change to `PricingService` or `core.js`.
+  `ScDataPresenter` gives each sailing its cruise (`setRelation`) so no extra query is made.
+- **Admin → Pricing & offers → Offers**: "Cruise length" switch under Conditions, with a tick box per length used by
+  the cruises (`CruiseFilters::nights()`). Ticked without a length: error. Saved as numbers, shortest first; unticked:
+  cleared (`OfferResource::fill()`). The admin list shows it in "Applies to", e.g. "All cruises · 4 / 7 nights".
+- **Example**: two offers on all cruises, Age range 2–12, Fixed final price, one $100 with 4 nights ticked, one $70
+  with 7 nights ticked.
+- **Tests**: `OffersTest::test_the_cruise_length_condition_gives_each_length_its_own_price`,
+  `test_admin_sets_the_cruise_length_condition`. (Before and after this step, `PageTranslationTest` ×2 and
+  `PricingServiceTest::test_from_price_is_the_lowest_double_halved_never_the_single` fail; not related.)
+
+**Deploy:** upload the migration, `app/Models/Offer.php`, `app/Admin/Resources/OfferResource.php`,
+`app/Support/ScDataPresenter.php`, then `php artisan migrate`, `config:clear`, `view:clear`. Then edit the child
+offer in the admin panel, tick "Cruise length" → 4 nights, and add a second offer for 7 nights with its own price.

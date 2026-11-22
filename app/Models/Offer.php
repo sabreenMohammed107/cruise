@@ -21,9 +21,11 @@ use Illuminate\Support\Carbon;
  *               what that guest adds · single: the single supplement of a guest alone in a cabin · free_nights:
  *               nights off the cabin price · upgrade: the cabin at the price of a cheaper cabin (upgrade_from)
  *   type        percent · fixed (per cabin or per guest) · free (all of it) · fixed_price (what is left to pay)
- *   conditions  both optional, both must be met (PricingService::selectOffers(), SC.selectOffers in core.js):
+ *   conditions  all optional, all must be met (PricingService::selectOffers(), SC.selectOffers in core.js):
  *                 cabin_categories  only these cabin types (slugs)
  *                 nationalities     every traveller of the cabin for cabin offers, the guest's own for age offers
+ *                 cruise_nights     only cruises of these lengths, e.g. [4]: checked with the sailing (covers()), so
+ *                                   one offer per length gives each length its own price
  *   limits      max_discount (cap per booking) and / or max_uses (bookings)
  *   booking     starts_on (empty: now) to ends_on, both days included: when the booking is made (scopeLive())
  *   sailing     sailing_starts_on to sailing_ends_on, both optional and included: only sailings departing then
@@ -39,7 +41,7 @@ class Offer extends Model
 
     protected $fillable = [
         'name', 'cruise_id', 'sailing_id', 'target', 'min_age', 'max_age', 'min_guest_position', 'free_nights', 'upgrade_from', 'type', 'value', 'max_discount', 'max_uses',
-        'cabin_categories', 'nationalities', 'starts_on', 'ends_on', 'sailing_starts_on', 'sailing_ends_on', 'audience', 'agent_mode', 'combinable', 'is_active',
+        'cabin_categories', 'nationalities', 'cruise_nights', 'starts_on', 'ends_on', 'sailing_starts_on', 'sailing_ends_on', 'audience', 'agent_mode', 'combinable', 'is_active',
     ];
 
     protected function casts(): array
@@ -59,6 +61,7 @@ class Offer extends Model
             'used_count' => 'integer',
             'cabin_categories' => 'array',
             'nationalities' => 'array',
+            'cruise_nights' => 'array',
             'starts_on' => 'date',
             'ends_on' => 'date',
             'sailing_starts_on' => 'date',
@@ -94,14 +97,24 @@ class Offer extends Model
         return $this->sailing_id ? 2 : ($this->cruise_id ? 1 : 0);
     }
 
-    /** The offer's cruise / sailing, departing inside its sailing window. */
+    /**
+     * The offer's cruise / sailing, departing inside its sailing window, of one of its cruise lengths (the cruise is
+     * read only when the offer has lengths).
+     */
     public function covers(Sailing $sailing): bool
     {
         return match ($this->level()) {
             2 => (int) $this->sailing_id === (int) $sailing->id,
             1 => (int) $this->cruise_id === (int) $sailing->cruise_id,
             default => true,
-        } && $this->departsInWindow($sailing->departure_date);
+        } && $this->departsInWindow($sailing->departure_date)
+            && (! $this->cruise_nights || $this->fitsNights($sailing->cruise?->nights));
+    }
+
+    /** No cruise length condition, or the cruise's nights are one of its lengths. */
+    public function fitsNights(?int $nights): bool
+    {
+        return ! $this->cruise_nights || ($nights !== null && in_array($nights, array_map('intval', $this->cruise_nights), true));
     }
 
     /** Sailing window: on or after sailing_starts_on, on or before sailing_ends_on (each skipped when empty). */
@@ -194,7 +207,8 @@ class Offer extends Model
 
     /**
      * Admin list: "Red Sea Discovery · RSD-261213", "Red Sea Discovery (all dates)", "All cruises", and with a sailing
-     * window e.g. "All cruises · sailing 1 Nov 2026 – 1 Mar 2027" / "… · sailing from 1 Nov 2026" / "… until …".
+     * window e.g. "All cruises · sailing 1 Nov 2026 – 1 Mar 2027" / "… · sailing from 1 Nov 2026" / "… until …",
+     * then the cruise lengths, e.g. "All cruises · 4 / 7 nights".
      */
     public function getScopeLabelAttribute(): string
     {
@@ -207,11 +221,14 @@ class Offer extends Model
             default => null,
         };
 
+        $nights = collect($this->cruise_nights ?? [])->map(fn ($n) => (int) $n)->sort()->values();
+        $lengths = $nights->isEmpty() ? '' : ' · '.$nights->implode(' / ').' '.($nights->count() === 1 && $nights[0] === 1 ? 'night' : 'nights');
+
         return match ($this->level()) {
             2 => ($this->cruise?->name ?? '').' · '.($this->sailing?->code ?? ''),
             1 => ($this->cruise?->name ?? '').($window ?? ' (all dates)'),
             default => 'All cruises'.$window,
-        };
+        }.$lengths;
     }
 
     /** Admin list: what it takes off, e.g. "20% · Guests of an age range (2–5)". */
