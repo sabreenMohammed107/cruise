@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\UserRole;
+use App\Models\AgentApplication;
+use App\Models\AgentTier;
 use App\Models\Booking;
 use App\Models\ContactMessage;
 use App\Models\Cruise;
@@ -80,12 +82,38 @@ class SupervisorRoleTest extends TestCase
         $this->put("/admin/users/{$this->seller()->id}", $this->newUser('changed@example.com', 'admin'))->assertForbidden();
         $this->assertSame(UserRole::Seller, $this->seller()->role);
 
-        // The lists stay readable, without the add / edit / delete buttons
-        $this->get('/admin/users')->assertOk()->assertSee('seller@safercruise.test')
-            ->assertDontSee('New staff member')->assertDontSee('/admin/users/create')->assertDontSee("/admin/users/{$this->seller()->id}/edit");
-        $this->get('/admin/customers')->assertOk()->assertSee('reem@example.com')
-            ->assertDontSee('/admin/customers/create')->assertDontSee("/admin/customers/{$reem->id}/edit");
-        $this->get("/admin/customers/{$reem->id}")->assertOk()->assertDontSee("/admin/customers/{$reem->id}/edit");
+        // Nor even see the lists
+        $this->get('/admin/users')->assertForbidden();
+        $this->get('/admin/customers')->assertForbidden();
+        $this->get("/admin/customers/{$reem->id}")->assertForbidden();
+        $this->get('/admin/customers/export')->assertForbidden();
+    }
+
+    public function test_supervisor_has_no_agents_section(): void
+    {
+        $this->actingAs($this->supervisor(), 'admin');
+        $request = AgentApplication::create(['company_name' => 'Blue Sea Travel', 'contact_name' => 'Omar', 'email' => 'omar@bluesea.example', 'phone_dial' => '+20', 'phone' => '1012345678']);
+        $tier = AgentTier::create(['name' => 'Gold']);
+
+        foreach (['/admin/agents', '/admin/agents/create', '/admin/agent-tiers', '/admin/agent-tiers/create', "/admin/agent-tiers/{$tier->id}/edit",
+            '/admin/agent-rates', '/admin/agent-rates/create', '/admin/agent-requests', "/admin/agent-requests/{$request->id}"] as $url) {
+            $this->get($url)->assertForbidden();
+        }
+        $this->post('/admin/agent-tiers', ['name' => 'Platinum'])->assertForbidden();
+        $this->put("/admin/agent-tiers/{$tier->id}", ['name' => 'Changed'])->assertForbidden();
+        $this->patch("/admin/agent-requests/{$request->id}", ['status' => 'rejected'])->assertForbidden();
+        $this->post("/admin/agent-requests/{$request->id}/approve")->assertForbidden();
+
+        $this->assertDatabaseMissing('agent_tiers', ['name' => 'Platinum']);
+        $this->assertSame('Gold', $tier->fresh()->name);
+        $this->assertSame($request->status, $request->fresh()->status);
+
+        // Admins keep the whole section
+        $this->actingAs($this->admin(), 'admin');
+        foreach (['/admin/agents', '/admin/agent-tiers', '/admin/agent-rates', '/admin/agent-requests', "/admin/agent-requests/{$request->id}",
+            '/admin/customers', '/admin/users'] as $url) {
+            $this->get($url)->assertOk();
+        }
     }
 
     /* ---------- 2. Adding and editing content, but no deleting ---------- */
@@ -227,14 +255,17 @@ class SupervisorRoleTest extends TestCase
         $this->assertSame('cancelled', $other->fresh()->status->value);
     }
 
-    public function test_supervisor_menu_has_no_links_for_adding_people(): void
+    public function test_supervisor_menu_has_no_people_sections(): void
     {
         $this->actingAs($this->supervisor(), 'admin')->get('/admin')->assertOk()
-            ->assertSee('Staff list')->assertSee('Customers list')->assertSee('Add cruise')
-            ->assertDontSee('Add staff member')->assertDontSee('Add customer');
+            ->assertSee('Add cruise')->assertSee('Contact messages')
+            ->assertDontSee('Customers list')->assertDontSee('Staff list')->assertDontSee('Agent requests')
+            ->assertDontSee('/admin/customers')->assertDontSee('/admin/users')->assertDontSee('/admin/agents')
+            ->assertDontSee('/admin/agent-tiers')->assertDontSee('/admin/agent-rates');
 
         $this->actingAs($this->admin(), 'admin')->get('/admin')->assertOk()
-            ->assertSee('Add staff member')->assertSee('Add customer');
+            ->assertSee('Customers list')->assertSee('Add customer')->assertSee('Staff list')->assertSee('Add staff member')
+            ->assertSee('Agent requests')->assertSee('/admin/agent-rates');
     }
 
     public function test_make_admin_command_makes_a_supervisor(): void

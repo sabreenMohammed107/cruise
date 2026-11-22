@@ -29,8 +29,10 @@ class UserResource extends Resource
 
     public static array $search = ['name', 'email', 'phone'];
 
-    /** People are added and edited by admins only; supervisors see the lists (also Customers). */
+    /** People screens (this one, Customers, Agents) are for admins only: supervisors don't see them at all. */
     public static ?string $ability = 'manage-users';
+
+    public static ?string $viewAbility = 'manage-users';
 
     public static function query(): Builder
     {

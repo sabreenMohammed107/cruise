@@ -18,6 +18,9 @@ class AgentTierResource extends Resource
 
     public static string $slug = 'agent-tiers';
 
+    /** The Agents section is for admins only. */
+    public static ?string $viewAbility = 'manage-users';
+
     public static string $label = 'Agent types';
 
     public static string $singular = 'Agent type';

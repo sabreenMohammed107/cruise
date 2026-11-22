@@ -34,6 +34,9 @@ abstract class Resource
     /** Gate for adding and editing records (routes/admin.php); null: everyone with the panel's content screens. */
     public static ?string $ability = null;
 
+    /** Gate for the whole screen, the list included (routes/admin.php); null: everyone with the panel's content screens. */
+    public static ?string $viewAbility = null;
+
     /** @return list<Field> */
     abstract public static function fields(): array;
 

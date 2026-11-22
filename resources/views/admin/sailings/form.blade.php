@@ -139,7 +139,9 @@
         <b>Agent %</b>: agents of the chosen type pay these prices less this commission (shown in green under each price). It applies to
         <b>every sailing of {{ $cruise->name }}</b>. Leave it empty to use the general rate shown in grey; 0 = no agent commission for this cabin.
         @if (count($agentTabs) > 1) An agent gets their own type's rates first, then the ones for all agent types. Saving saves every type. @endif
-        All rates: <a href="{{ route('admin.agent-rates.index') }}" class="text-ocean-600 font-semibold hover:underline">Agents → Agent rates</a>.
+        @can('manage-users')
+          All rates: <a href="{{ route('admin.agent-rates.index') }}" class="text-ocean-600 font-semibold hover:underline">Agents → Agent rates</a>.
+        @endcan
       </p>
     </section>
 

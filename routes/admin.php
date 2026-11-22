@@ -23,7 +23,8 @@ use Illuminate\Support\Facades\Route;
 | Staff (admins, supervisors and sellers) can open the dashboard and bookings; a seller only sees and works on
 | the bookings assigned to them (checked in Admin\BookingController). Everything else is for admins and
 | supervisors, except that supervisors can't delete anything (Middleware\AuthorizeDeletes, every DELETE here)
-| or add and edit people (Customers, Admins & staff: gate "manage-users").
+| and don't get the people sections at all: Customers, Admins & staff and Agents are for admins only (gate
+| "manage-users", also the super admin), every screen and action of them.
 */
 
 Route::get('/', DashboardController::class)->name('dashboard');
@@ -42,10 +43,6 @@ Route::middleware('can:manage-content')->group(function () {
     Route::post('bookings/{booking:reference}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel')->middleware('can:cancel-bookings');
     Route::delete('bookings/{booking:reference}/payments/{payment}', [BookingController::class, 'destroyPayment'])->name('bookings.payments.destroy');
     Route::patch('bookings/{booking:reference}/seller', [BookingController::class, 'assignSeller'])->name('bookings.seller')->middleware('can:assign-bookings');
-
-    // Customers: details page and spreadsheet export (list / edit are the generic screens below)
-    Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
-    Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show')->whereNumber('customer');
 
     // Sailings already back (return date before today), a year at a time; the cruises list keeps the rest
     Route::get('cruises/archive', CruiseArchiveController::class)->name('cruises.archive');
@@ -86,27 +83,35 @@ Route::middleware('can:manage-content')->group(function () {
     Route::get('contact-messages/{contactMessage}', [ContactController::class, 'show'])->name('contact-messages.show')->whereNumber('contactMessage');
     Route::delete('contact-messages/{contactMessage}', [ContactController::class, 'destroy'])->name('contact-messages.destroy')->whereNumber('contactMessage');
 
-    // Applications from the website's "Become an agent" page (its texts: pages.edit with page "agents")
-    Route::get('agent-requests', [AgentRequestController::class, 'index'])->name('agent-requests.index');
-    Route::get('agent-requests/{agentRequest}', [AgentRequestController::class, 'show'])->name('agent-requests.show')->whereNumber('agentRequest');
-    Route::patch('agent-requests/{agentRequest}', [AgentRequestController::class, 'update'])->name('agent-requests.update')->whereNumber('agentRequest');
-    // Approving makes a website account (role "agent") and emails its sign-in details: admins only, like adding people
+    // People sections (Customers, Admins & staff, Agents): admins only. Their lists and forms are the generic screens
+    // below, closed the same way (Resource::$viewAbility).
     Route::middleware('can:manage-users')->group(function () {
+        // Customers: details page and spreadsheet export
+        Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
+        Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show')->whereNumber('customer');
+
+        // Applications from the website's "Become an agent" page (its texts: pages.edit with page "agents").
+        // Approving makes a website account (role "agent") and emails its sign-in details.
+        Route::get('agent-requests', [AgentRequestController::class, 'index'])->name('agent-requests.index');
+        Route::get('agent-requests/{agentRequest}', [AgentRequestController::class, 'show'])->name('agent-requests.show')->whereNumber('agentRequest');
+        Route::patch('agent-requests/{agentRequest}', [AgentRequestController::class, 'update'])->name('agent-requests.update')->whereNumber('agentRequest');
         Route::post('agent-requests/{agentRequest}/approve', [AgentRequestController::class, 'approve'])->name('agent-requests.approve')->whereNumber('agentRequest');
         Route::post('agent-requests/{agentRequest}/credentials', [AgentRequestController::class, 'resendCredentials'])->name('agent-requests.credentials')->middleware('throttle:10,1')->whereNumber('agentRequest');
-    });
 
-    // An agent's statement: bookings, original price, commission, net, paid and due (list / edit: generic screens below)
-    Route::get('agents/{agent}', [AgentController::class, 'show'])->name('agents.show')->whereNumber('agent');
+        // An agent's statement: bookings, original price, commission, net, paid and due
+        Route::get('agents/{agent}', [AgentController::class, 'show'])->name('agents.show')->whereNumber('agent');
+    });
 
     // Media library behind every photo field: images on the server + photo URLs in use (JSON pages)
     Route::get('media-library', MediaLibraryController::class)->name('media-library');
 
-    // Generic CRUD screens (config/admin.php). A resource with its own $ability (people) is read-only without it.
+    // Generic CRUD screens (config/admin.php). A resource with its own $viewAbility (people, agents) is closed without
+    // it; one with an $ability is read-only without it.
     foreach (collect(config('admin.resources'))->flatten() as $resource) {
         $write = $resource::$ability ? ['can:'.$resource::$ability] : [];
+        $view = $resource::$viewAbility ? ['can:'.$resource::$viewAbility] : [];
 
-        Route::prefix($resource::$slug)->name($resource::$slug.'.')->group(function () use ($resource, $write) {
+        Route::prefix($resource::$slug)->name($resource::$slug.'.')->middleware($view)->group(function () use ($resource, $write) {
             Route::get('/', [ResourceController::class, 'index'])->name('index')->defaults('resource', $resource);
             Route::get('create', [ResourceController::class, 'create'])->name('create')->defaults('resource', $resource)->middleware($write);
             Route::post('/', [ResourceController::class, 'store'])->name('store')->defaults('resource', $resource)->middleware($write);

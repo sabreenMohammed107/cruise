@@ -263,16 +263,20 @@ class AgentAccountsTest extends TestCase
     public function test_only_admins_approve_and_the_status_form_cannot_accept(): void
     {
         $application = $this->application();
-        $this->actingAs($this->staff('supervisor@safercruise.test'), 'admin');
 
-        $this->get(route('admin.agent-requests.show', $application))->assertOk()->assertDontSee('Approve and send sign-in details');
+        // Supervisors don't get the Agents section at all
+        $this->actingAs($this->staff('supervisor@safercruise.test'), 'admin');
+        $this->get(route('admin.agent-requests.show', $application))->assertForbidden();
         $this->post(route('admin.agent-requests.approve', $application))->assertForbidden();
+        $this->patch(route('admin.agent-requests.update', $application), ['status' => 'rejected'])->assertForbidden();
+        $this->assertSame(AgentRequestStatus::Pending, $application->fresh()->status);
+
+        // Admins approve with the button; the status form can't accept
+        $this->actingAs($this->staff('admin@safercruise.test'), 'admin');
+        $this->get(route('admin.agent-requests.show', $application))->assertOk()->assertSee('Approve and send sign-in details');
         $this->patch(route('admin.agent-requests.update', $application), ['status' => 'accepted'])->assertSessionHasErrors('status');
         $this->patch(route('admin.agent-requests.update', $application), ['status' => 'rejected'])->assertSessionHas('status');
         $this->assertSame(AgentRequestStatus::Rejected, $application->fresh()->status);
-
-        $this->actingAs($this->staff('admin@safercruise.test'), 'admin')
-            ->get(route('admin.agent-requests.show', $application))->assertSee('Approve and send sign-in details');
     }
 
     public function test_resending_makes_a_new_password(): void

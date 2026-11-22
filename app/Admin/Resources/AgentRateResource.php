@@ -24,6 +24,9 @@ class AgentRateResource extends Resource
 
     public static string $slug = 'agent-rates';
 
+    /** The Agents section is for admins only. */
+    public static ?string $viewAbility = 'manage-users';
+
     public static string $label = 'Agent rates';
 
     public static string $singular = 'Agent rate';

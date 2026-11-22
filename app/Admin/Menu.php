@@ -9,8 +9,8 @@ use App\Models\ContactMessage;
 /**
  * The admin sidebar (admin.partials.nav), laid out like the safeer dashboard: single links with an icon,
  * and collapsible groups whose links have a bullet. The group holding the current page starts open.
- * Admins get the whole panel; supervisors too, without the links for adding people; sellers their
- * dashboard and the bookings assigned to them.
+ * Admins get the whole panel; supervisors too, without the people sections (Customers, Admins & staff, Agents:
+ * gate "manage-users", routes/admin.php); sellers their dashboard and the bookings assigned to them.
  *
  * Node: ['label', 'icon', 'href', 'active', 'badge'?, 'badge_title'?] or ['label', 'icon', 'children' => [...], 'active'].
  */
@@ -79,14 +79,26 @@ final class Menu
                 self::link('Port taxes', null, 'admin.port-tax.edit', ['admin.port-tax.*']),
             ]),
 
+            ...($managesUsers ? self::people() : []),
+
+            self::link('Contact messages', 'chat', 'admin.contact-messages.index', ['admin.contact-messages.*'])
+                + ['badge' => ContactMessage::unread()->count() ?: null, 'badge_title' => 'Unread'],
+            self::resource(Resources\NewsletterSubscriberResource::class, 'mail'),
+        ];
+    }
+
+    /** Customers, Admins & staff and Agents: admins only. */
+    private static function people(): array
+    {
+        return [
             self::group('Customers', 'user', [
                 self::link('Customers list', null, 'admin.customers.index', ['admin.customers.index', 'admin.customers.edit', 'admin.customers.show']),
-                ...($managesUsers ? [self::link('Add customer', null, 'admin.customers.create', ['admin.customers.create'])] : []),
+                self::link('Add customer', null, 'admin.customers.create', ['admin.customers.create']),
             ]),
 
             self::group('Admins & staff', 'shield', [
                 self::link('Staff list', null, 'admin.users.index', ['admin.users.index', 'admin.users.edit']),
-                ...($managesUsers ? [self::link('Add staff member', null, 'admin.users.create', ['admin.users.create'])] : []),
+                self::link('Add staff member', null, 'admin.users.create', ['admin.users.create']),
             ]),
 
             self::group('Agents', 'award', [
@@ -97,10 +109,6 @@ final class Menu
                 self::resource(Resources\AgentRateResource::class),
                 ['label' => 'Agents page texts', 'icon' => null, 'href' => route('admin.pages.index').'#page-agents', 'active' => request()->is('admin/pages/agents/*')],
             ]),
-
-            self::link('Contact messages', 'chat', 'admin.contact-messages.index', ['admin.contact-messages.*'])
-                + ['badge' => ContactMessage::unread()->count() ?: null, 'badge_title' => 'Unread'],
-            self::resource(Resources\NewsletterSubscriberResource::class, 'mail'),
         ];
     }
 
