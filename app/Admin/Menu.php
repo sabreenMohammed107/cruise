@@ -3,6 +3,7 @@
 namespace App\Admin;
 
 use App\Models\AgentApplication;
+use App\Models\AssistantConversation;
 use App\Models\Booking;
 use App\Models\ContactMessage;
 
@@ -29,7 +30,7 @@ final class Menu
 
     private static function seller(int $id): array
     {
-        $awaiting = Booking::awaitingPayment()->where('seller_id', $id)->count();
+        $awaiting = Booking::awaitingPayment()->visibleTo(request()->user())->where('seller_id', $id)->count();
 
         return [
             self::link('Dashboard', 'grid', 'admin.dashboard', ['admin.dashboard']),
@@ -39,7 +40,7 @@ final class Menu
 
     private static function admin(bool $managesUsers): array
     {
-        $awaiting = Booking::awaitingPayment()->count();
+        $awaiting = Booking::awaitingPayment()->visibleTo(request()->user())->count();
 
         return [
             self::link('Dashboard', 'grid', 'admin.dashboard', ['admin.dashboard']),
@@ -83,6 +84,16 @@ final class Menu
 
             self::link('Contact messages', 'chat', 'admin.contact-messages.index', ['admin.contact-messages.*'])
                 + ['badge' => ContactMessage::unread()->count() ?: null, 'badge_title' => 'Unread'],
+            ...(auth('admin')->user()?->can('manage-assistant') ? [
+                self::link('Assistant chats', 'chat', 'admin.assistant.index', ['admin.assistant.*'])
+                    // "Renew" when the tickets package is used up or over (renewed on this page), else today's chats
+                    + (\App\Services\Assistant\Tickets::enforced() && ! \App\Services\Assistant\Tickets::allows()
+                        ? ['badge' => 'Renew', 'badge_title' => 'The tickets package is used up or over']
+                        : ['badge' => AssistantConversation::where('user_messages', '>', 0)->where('created_at', '>=', today())->count() ?: null, 'badge_title' => 'Chats today']),
+            ] : []),
+            ...(auth('admin')->user()?->can('manage-assistant-tickets') ? [
+                self::link('Assistant tickets', 'ticket', 'admin.assistant-tickets.index', ['admin.assistant-tickets.*']),
+            ] : []),
             self::resource(Resources\NewsletterSubscriberResource::class, 'mail'),
         ];
     }

@@ -31,7 +31,7 @@ class AgentResource extends UserResource
         // Their agent bookings, and the balance of the ones not cancelled (Admin\AgentController::show has the details)
         $live = fn (Builder $q) => $q->where('status', '!=', BookingStatus::Cancelled);
 
-        return User::query()->agents()->with('agentTier')
+        return User::query()->agents()->visibleTo(request()->user())->with('agentTier')
             ->withCount(['agentBookings as bookings_count'])
             ->withSum(['agentBookings as sales_total' => $live], 'grand_total')
             ->withSum(['agentBookings as commission_total' => $live], 'agent_discount_total')
@@ -40,7 +40,7 @@ class AgentResource extends UserResource
 
     public static function scope(): Builder
     {
-        return User::query()->agents();
+        return User::query()->agents()->visibleTo(request()->user());
     }
 
     /** ?tier= : the agents of one type (Agent types → Agents). */

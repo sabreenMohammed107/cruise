@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\TestAccounts;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Mail\BookingConfirmed;
@@ -232,7 +233,8 @@ class BookingService
         try {
             // Sent now (send, not queue), so the temporary password is never stored in a queued job
             Mail::to($booking->contact_email)->send(new BookingConfirmed($booking, $newAccountPassword));
-            if ($team = config('cruise.team_email')) {
+            // The super admin's test accounts' bookings: to the test address only (App\Support\TestAccounts)
+            if ($team = TestAccounts::teamEmail($booking)) {
                 Mail::to($team)->send(new NewBookingForTeam($booking, accountCreated: $newAccountPassword !== null));
             }
         } catch (Throwable $e) {

@@ -33,6 +33,7 @@
   @yield('content')
 
   @include('partials.footer')
+  @include('partials.assistant-widget')
 
   <!-- Data for the template scripts, built from the database (App\Support\ScDataPresenter) -->
   <script>window.SC_DATA = @json($scData);</script>

@@ -24,12 +24,12 @@ class CustomerResource extends UserResource
 
     public static function query(): Builder
     {
-        return User::query()->customers()->withCount('bookings')->latest('id');
+        return User::query()->customers()->visibleTo(request()->user())->withCount('bookings')->latest('id');
     }
 
     public static function scope(): Builder
     {
-        return User::query()->customers();
+        return User::query()->customers()->visibleTo(request()->user());
     }
 
     public static function fields(): array

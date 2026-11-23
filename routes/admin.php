@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Admin\AgentController;
 use App\Http\Controllers\Admin\AgentRequestController;
+use App\Http\Controllers\Admin\AssistantConversationController;
+use App\Http\Controllers\Admin\AssistantTicketsController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\CruiseArchiveController;
@@ -82,6 +84,23 @@ Route::middleware('can:manage-content')->group(function () {
     Route::get('contact-messages', [ContactController::class, 'index'])->name('contact-messages.index');
     Route::get('contact-messages/{contactMessage}', [ContactController::class, 'show'])->name('contact-messages.show')->whereNumber('contactMessage');
     Route::delete('contact-messages/{contactMessage}', [ContactController::class, 'destroy'])->name('contact-messages.destroy')->whereNumber('contactMessage');
+
+    // Website chat tickets: the package, renewing it, past packages. Super admin only for now (Gate in AppServiceProvider)
+    Route::middleware('can:manage-assistant-tickets')->group(function () {
+        Route::get('assistant-tickets', [AssistantTicketsController::class, 'index'])->name('assistant-tickets.index');
+    });
+
+    // Website chat assistant: chats visitors had (steps, tokens, cost), on / off switch, limits. Super admin only.
+    Route::middleware('can:manage-assistant')->group(function () {
+        Route::get('assistant', [AssistantConversationController::class, 'index'])->name('assistant.index');
+        Route::put('assistant/status', [AssistantConversationController::class, 'toggle'])->name('assistant.toggle');
+        Route::put('assistant/audience', [AssistantConversationController::class, 'audience'])->name('assistant.audience');
+        Route::put('assistant/limits', [AssistantConversationController::class, 'limits'])->name('assistant.limits');
+        // The tickets package (Admin → Assistant tickets): new package or renewal
+        Route::post('assistant/package', [AssistantConversationController::class, 'package'])->name('assistant.package');
+        Route::get('assistant/{conversation}', [AssistantConversationController::class, 'show'])->name('assistant.show')->whereNumber('conversation');
+        Route::delete('assistant/{conversation}', [AssistantConversationController::class, 'destroy'])->name('assistant.destroy')->whereNumber('conversation');
+    });
 
     // People sections (Customers, Admins & staff, Agents): admins only. Their lists and forms are the generic screens
     // below, closed the same way (Resource::$viewAbility).

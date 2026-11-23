@@ -21,7 +21,8 @@ use Illuminate\View\View;
  */
 class BookingController extends Controller
 {
-    private const VIEWABLE = 'bookings.viewable';
+    /** Bookings this browser may open without signing in (also the chat's bookings, AssistantController::book()) */
+    public const VIEWABLE = 'bookings.viewable';
 
     public function show(Request $request, ScDataPresenter $presenter): View
     {
