@@ -317,6 +317,8 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
   .hero-portrait .hero-inner { padding-bottom: 4.5rem; }
   .hero-portrait .hero-inner .flex-wrap { flex-wrap: nowrap; }
   .hero-portrait .hero-inner .btn-lg { flex: 1 1 0; min-width: 0; padding-inline: .75rem; white-space: nowrap; }
+  /* the outlined button may sit over a bright part of the photo (e.g. the ship) */
+  .hero-portrait .hero-inner .btn-lg:not(.btn-accent) { background: rgba(12,45,78,.55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .hero-portrait .hero-img { object-position: center bottom; }
   .hero-portrait .hero-shade-side { background: linear-gradient(to bottom, rgba(12,45,78,.75), rgba(12,45,78,.4) 35%, transparent 55%); }
   .hero-portrait .hero-shade-bottom { display: none; }

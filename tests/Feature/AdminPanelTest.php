@@ -99,7 +99,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin(), 'admin');
         $cruise = Cruise::where('slug', 'red-sea-discovery')->firstOrFail();
 
-        $urls = ['/admin', '/admin/bookings', '/admin/bookings/SC2611-K4P2Q',
+        $urls = ['/admin', '/admin/bookings', '/admin/bookings/SC2611-K4P2Q', '/admin/reports', '/admin/reports/sales-summary',
             "/admin/cruises/{$cruise->slug}/sailings", "/admin/cruises/{$cruise->slug}/sailings/create",
             '/admin/sailings/'.$cruise->sailings()->first()->id.'/edit'];
         foreach (collect(config('admin.resources'))->flatten() as $resource) {
@@ -334,7 +334,7 @@ class AdminPanelTest extends TestCase
         $cruise = Cruise::firstOrFail();
 
         $html = $this->get("/admin/cruises/{$cruise->slug}/sailings")->assertOk()->getContent();
-        foreach (['Dashboard', 'Bookings', 'Cruises', 'Ship', 'Website content', 'Pricing &amp; offers', 'Customers', 'Admins &amp; staff', 'Newsletter', 'Add cruise', 'Add staff member'] as $label) {
+        foreach (['Dashboard', 'Bookings', 'Reports', 'Cruises', 'Ship', 'Website content', 'Pricing &amp; offers', 'Customers', 'Admins &amp; staff', 'Newsletter', 'Add cruise', 'Add staff member'] as $label) {
             $this->assertStringContainsString($label, $html);
         }
         // Only the group of the current page is open, with its link marked

@@ -11,7 +11,7 @@ use App\Models\ContactMessage;
  * The admin sidebar (admin.partials.nav), laid out like the safeer dashboard: single links with an icon,
  * and collapsible groups whose links have a bullet. The group holding the current page starts open.
  * Admins get the whole panel; supervisors too, without the people sections (Customers, Admins & staff, Agents:
- * gate "manage-users", routes/admin.php); sellers their dashboard and the bookings assigned to them.
+ * gate "manage-users", routes/admin.php); sellers their dashboard, the bookings assigned to them and reports on those.
  *
  * Node: ['label', 'icon', 'href', 'active', 'badge'?, 'badge_title'?] or ['label', 'icon', 'children' => [...], 'active'].
  */
@@ -35,6 +35,7 @@ final class Menu
         return [
             self::link('Dashboard', 'grid', 'admin.dashboard', ['admin.dashboard']),
             self::link('My bookings', 'ticket', 'admin.bookings.index', ['admin.bookings.*']) + ['badge' => $awaiting ?: null],
+            self::link('Reports', 'chart', 'admin.reports.index', ['admin.reports.*']),
         ];
     }
 
@@ -45,6 +46,7 @@ final class Menu
         return [
             self::link('Dashboard', 'grid', 'admin.dashboard', ['admin.dashboard']),
             self::link('Bookings', 'ticket', 'admin.bookings.index', ['admin.bookings.*']) + ['badge' => $awaiting ?: null],
+            self::link('Reports', 'chart', 'admin.reports.index', ['admin.reports.*']),
 
             self::group('Cruises', 'ship', [
                 self::link('Cruises list', null, 'admin.cruises.index', ['admin.cruises.index', 'admin.cruises.edit', 'admin.cruises.sailings.*', 'admin.sailings.*']),

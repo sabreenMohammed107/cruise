@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Admin\Resources\CustomerResource;
 use App\Enums\BookingStatus;
 use App\Http\Controllers\Controller;
+use App\Support\Csv;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -36,14 +37,12 @@ class CustomerController extends Controller
             ->withCount(['bookings as confirmed_bookings_count' => fn ($q) => $q->where('status', BookingStatus::Confirmed)])
             ->withMax('bookings as last_booked_at', 'created_at');
 
-        return response()->streamDownload(function () use ($query) {
-            $out = fopen('php://output', 'w');
-            fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['ID', 'First name', 'Last name', 'Email', 'Phone', 'Nationality', 'Registered', 'Email verified', 'Bookings', 'Confirmed bookings', 'Last booking', 'Status']);
+        $headers = ['ID', 'First name', 'Last name', 'Email', 'Phone', 'Nationality', 'Registered', 'Email verified', 'Bookings', 'Confirmed bookings', 'Last booking', 'Status'];
 
-            $query->chunk(500, function ($customers) use ($out) {
+        return Csv::download('customers-'.now()->format('Y-m-d').'.csv', $headers, function (callable $write) use ($query) {
+            $query->chunk(500, function ($customers) use ($write) {
                 foreach ($customers as $c) {
-                    fputcsv($out, array_map([$this, 'cell'], [
+                    $write([
                         $c->id,
                         $c->first_name,
                         $c->last_name,
@@ -57,19 +56,9 @@ class CustomerController extends Controller
                         $c->confirmed_bookings_count,
                         $c->last_booked_at ? substr((string) $c->last_booked_at, 0, 10) : '',
                         $c->bookings_count ? 'Has bookings' : 'No bookings yet',
-                    ]));
+                    ]);
                 }
             });
-
-            fclose($out);
-        }, 'customers-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
-
-    /** Text starting with = + - @ would run as a formula in Excel; prefix it with a quote. */
-    private function cell(mixed $value): string
-    {
-        $value = (string) $value;
-
-        return $value !== '' && in_array($value[0], ['=', '+', '-', '@'], true) && ! is_numeric($value) ? "'".$value : $value;
+        });
     }
 }

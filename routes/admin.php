@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\HomeSectionController;
 use App\Http\Controllers\Admin\MediaLibraryController;
 use App\Http\Controllers\Admin\PortTaxSettingController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SailingController;
 use App\Http\Controllers\Admin\SiteSettingController;
@@ -38,6 +39,11 @@ Route::patch('bookings/{booking:reference}', [BookingController::class, 'update'
 Route::post('bookings/{booking:reference}/payments', [BookingController::class, 'storePayment'])->name('bookings.payments.store');
 // A payment's receipts (private files): staff who can see the booking
 Route::get('bookings/{booking:reference}/payments/{payment}/receipts/{receipt}', [BookingController::class, 'receipt'])->name('bookings.payments.receipt');
+
+// Reports (app/Reports, docs/reports-plan.pdf): staff; a seller's figures cover the bookings assigned to them
+Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+Route::get('reports/{key}', [ReportController::class, 'show'])->name('reports.show')->where('key', '[a-z-]+');
+Route::get('reports/{key}/export', [ReportController::class, 'export'])->name('reports.export')->where('key', '[a-z-]+');
 
 Route::middleware('can:manage-content')->group(function () {
     // Admins and supervisors: assign bookings to sellers, and remove payment entries (a delete: admins only).
