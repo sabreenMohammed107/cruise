@@ -208,12 +208,7 @@ class SalesSummaryReport extends Report
         $pct = fn (string $k) => $p && ($d = self::change($c[$k], $p[$k])) !== null ? [$d / 100, 'percent'] : ($p ? ['—', 'muted'] : null);
 
         $xlsx = (new Xlsx)->sheet('Summary', [36, 18, 18, 14, 20]);
-        $xlsx->row([['Sales summary', 'title']], 30)
-            ->row([['Safer Cruise · '.ReportFilters::label($filters->from, $filters->to)
-                .($comparison ? ' · compared with '.ReportFilters::label(...$comparison) : '').' · amounts in USD', 'subtitle']])
-            ->row([['Filters: '.(implode(' · ', $filters->describe()) ?: 'none'), 'subtitle']])
-            ->row([['Exported '.now()->format('j M Y, H:i').' by '.$filters->viewer->name, 'subtitle']])
-            ->row();
+        $this->heading($xlsx, $filters);
 
         // Key figures, with the comparison period
         $xlsx->row([['Key figures', 'section'], ['', 'section'], ['', 'section'], ['', 'section']])

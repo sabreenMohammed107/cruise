@@ -68,14 +68,17 @@ class ReportController extends Controller
     /** Choices for the filter bar. */
     private function options(User $viewer): array
     {
+        // Sailings and agents of the bookings the viewer may see (a seller: the ones assigned to them)
+        $bookings = fn () => Booking::query()->visibleTo($viewer)->when($viewer->isSeller(), fn ($q) => $q->where('seller_id', $viewer->id));
+
         return [
             'cruises' => Cruise::withTrashed()->orderBy('name')->get(['id', 'name']),
             'sailings' => Sailing::with('cruise:id,name')
-                ->whereIn('id', Booking::query()->visibleTo($viewer)->select('sailing_id'))
+                ->whereIn('id', $bookings()->select('sailing_id'))
                 ->orderByDesc('departure_date')->get(['id', 'cruise_id', 'departure_date', 'code']),
             // Sellers always see their own bookings: no staff picker for them
             'staff' => $viewer->isSeller() ? collect() : User::assignable()->visibleTo($viewer)->get(['id', 'name', 'role']),
-            'agents' => User::visibleTo($viewer)->whereIn('id', Booking::query()->whereNotNull('agent_id')->select('agent_id'))
+            'agents' => User::visibleTo($viewer)->whereIn('id', $bookings()->whereNotNull('agent_id')->select('agent_id'))
                 ->orderBy('company_name')->orderBy('name')->get(['id', 'name', 'company_name']),
         ];
     }
