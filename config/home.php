@@ -49,7 +49,7 @@ return [
 
         'hero' => [
             'name' => 'Hero',
-            'fields' => ['eyebrow', 'title', 'body', 'primary', 'secondary', 'image'],
+            'fields' => ['eyebrow', 'title', 'body', 'primary', 'secondary', 'image', 'image_mobile'],
             'image' => ['asset' => 'assets/img/hero-home.jpg'],
             'content' => [
                 'eyebrow' => 'Sailing from Jeddah and Yanbu',

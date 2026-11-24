@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\HasArabicCopy;
 use App\Support\MediaLibrary;
+use App\Support\ResponsiveImage;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Every text column has an Arabic twin ({field}_ar); links and the photo are shared.
  *
  * Image resolution order: uploaded photo (image_path, relative to public/) → the section's
- * default from config (an asset path or a photo of the ship) → none.
+ * default from config (an asset path or a photo of the ship) → none. Sections with the 'image_mobile' field
+ * (the homepage hero) can also have a portrait photo for phones/portrait tablets (image_mobile_path).
+ * Uploads get smaller WebP copies (App\Support\ResponsiveImage) for srcset.
  */
 class HomeSection extends Model
 {
@@ -24,7 +27,7 @@ class HomeSection extends Model
     protected $fillable = [
         'page', 'key', 'eyebrow', 'eyebrow_ar', 'title', 'title_ar', 'body', 'body_ar',
         'primary_label', 'primary_label_ar', 'primary_url', 'secondary_label', 'secondary_label_ar', 'secondary_url',
-        'image_path', 'image_alt', 'image_alt_ar', 'video_url', 'caption_label', 'caption_label_ar', 'caption_value', 'caption_value_ar',
+        'image_path', 'image_mobile_path', 'image_alt', 'image_alt_ar', 'video_url', 'caption_label', 'caption_label_ar', 'caption_value', 'caption_value_ar',
         'is_visible',
     ];
 
@@ -147,6 +150,33 @@ class HomeSection extends Model
         }
 
         return null;
+    }
+
+    /** srcset of the uploaded photo (null for default photos: they have no copies). */
+    public function imageSrcset(): ?string
+    {
+        return $this->hasUpload() ? ResponsiveImage::srcset($this->image_path) : null;
+    }
+
+    public function hasMobileUpload(): bool
+    {
+        return $this->supports('image_mobile') && $this->image_mobile_path !== null && is_file(public_path($this->image_mobile_path));
+    }
+
+    public function imageMobileUrl(): ?string
+    {
+        return $this->hasMobileUpload() ? asset($this->image_mobile_path) : null;
+    }
+
+    public function imageMobileSrcset(): ?string
+    {
+        return $this->hasMobileUpload() ? ResponsiveImage::srcset($this->image_mobile_path) : null;
+    }
+
+    /** Height ÷ width of the portrait photo; the hero box on phones takes that shape so the photo isn't cropped. */
+    public function imageMobileHeightRatio(): ?float
+    {
+        return $this->hasMobileUpload() ? ResponsiveImage::heightRatio($this->image_mobile_path) : null;
     }
 
     /**

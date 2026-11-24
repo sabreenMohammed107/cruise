@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\HomeSection;
+use App\Support\ResponsiveImage;
 use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,7 @@ class HomeSectionController extends Controller
 
         $data = $request->validate($this->rules($section), [
             'image.max' => 'Photos can be at most 5 MB. Compress it first (e.g. squoosh.app).',
+            'image_mobile.max' => 'Photos can be at most 5 MB. Compress it first (e.g. squoosh.app).',
             '*.regex' => 'Links must start with /, #, https://, mailto: or tel:.',
             '*.*.title.required_unless' => 'Every card needs a title.',
             'new_items.*.title.required_with' => 'Every new card needs a title.',
@@ -79,16 +81,25 @@ class HomeSectionController extends Controller
             // Sections the page script shows on its own (e.g. "No results") can't be hidden
             $section->is_visible = $section->config('can_hide', true) ? $request->boolean('is_visible') : true;
 
-            if ($section->supports('image')) {
-                if ($request->hasFile('image')) {
-                    $this->deleteUpload($section);
-                    $file = $request->file('image');
-                    $name = $section->page.'-'.$section->key.'-'.Str::lower(Str::random(6)).'.'.$file->extension();
+            // Photo (image_path) and, for the hero, the portrait photo for phones (image_mobile_path)
+            foreach (['image' => 'image_path', 'image_mobile' => 'image_mobile_path'] as $field => $column) {
+                if (! $section->supports($field)) {
+                    continue;
+                }
+                if ($request->hasFile($field)) {
+                    $this->deleteUpload($section, $column);
+                    $file = $request->file($field);
+                    $suffix = $field === 'image_mobile' ? '-mobile' : '';
+                    $name = $section->page.'-'.$section->key.$suffix.'-'.Str::lower(Str::random(6)).'.'.$file->extension();
                     $file->move(public_path(config('home.upload_dir')), $name);
-                    $section->image_path = config('home.upload_dir').'/'.$name;
-                } elseif ($request->boolean('remove_image')) {
-                    $this->deleteUpload($section);
-                    $section->image_path = null;
+                    $section->{$column} = config('home.upload_dir').'/'.$name;
+                    ResponsiveImage::generate($section->{$column});
+                } elseif ($request->boolean('remove_'.$field)) {
+                    $this->deleteUpload($section, $column);
+                    $section->{$column} = null;
+                } elseif (ResponsiveImage::missing($section->{$column})) {
+                    // Uploaded before smaller copies existed: make them now (live has no shell to run a command)
+                    ResponsiveImage::generate($section->{$column});
                 }
             }
 
@@ -147,6 +158,10 @@ class HomeSectionController extends Controller
             $rules['image'] = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
             $rules['image_alt'] = $text(255);
             $rules['remove_image'] = ['boolean'];
+        }
+        if ($section->supports('image_mobile')) {
+            $rules['image_mobile'] = ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
+            $rules['remove_image_mobile'] = ['boolean'];
         }
         if ($section->supports('subheading')) {
             $rules['caption_label'] = $text(80);
@@ -251,13 +266,14 @@ class HomeSectionController extends Controller
           + ($section->config('item_links') ? ['url' => $values['url'] ?? null] : []);
     }
 
-    private function deleteUpload(HomeSection $section): void
+    private function deleteUpload(HomeSection $section, string $column = 'image_path'): void
     {
         // Only ever delete files inside the uploads folder
         $dir = config('home.upload_dir').'/';
-        if ($section->image_path && str_starts_with($section->image_path, $dir)
-            && ! str_contains($section->image_path, '..') && is_file(public_path($section->image_path))) {
-            unlink(public_path($section->image_path));
+        $path = $section->{$column};
+        if ($path && str_starts_with($path, $dir) && ! str_contains($path, '..') && is_file(public_path($path))) {
+            ResponsiveImage::delete($path);
+            unlink(public_path($path));
         }
     }
 }

@@ -18,15 +18,27 @@
     <!-- =========================================================
          HERO + SEARCH (boarding-pass search widget)
          ========================================================= -->
-    <section class="relative isolate" @unless ($hero->is_visible) hidden @endunless>
+    {{-- Phones / portrait tablets show the portrait photo when one is uploaded; the box then takes its ratio
+         (--hero-m-h = height ÷ width, theme.css .hero-portrait) so it scales instead of being cropped. --}}
+    <section class="relative isolate {{ $hero->hasMobileUpload() ? 'hero-portrait' : '' }}"
+      @if ($hero->hasMobileUpload()) style="--hero-m-h: {{ $hero->imageMobileHeightRatio() }}" @endif
+      @unless ($hero->is_visible) hidden @endunless>
       <div class="absolute inset-0 -z-10">
-        <img id="hero-img" src="{{ $hero->imageUrl() }}" alt="{{ $hero->tr('image_alt') }}" class="w-full h-full object-cover object-[65%_center]" fetchpriority="high">
+        <picture class="block w-full h-full">
+          @if ($hero->hasMobileUpload())
+            <source media="(max-width: 1023px) and (orientation: portrait)" srcset="{{ $hero->imageMobileSrcset() }}" sizes="100vw">
+          @endif
+          @if ($srcset = $hero->imageSrcset())
+            <source srcset="{{ $srcset }}" sizes="100vw">
+          @endif
+          <img id="hero-img" src="{{ $hero->imageUrl() }}" alt="{{ $hero->tr('image_alt') }}" class="hero-img w-full h-full object-cover object-[65%_center]" fetchpriority="high">
+        </picture>
         <!-- Left-to-right shade keeps the headline readable over the bright sky -->
-        <div class="absolute inset-0 bg-gradient-to-r from-ocean-900/75 via-ocean-900/35 to-transparent rtl:bg-gradient-to-l"></div>
-        <div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ocean-900/70 to-transparent"></div>
+        <div class="hero-shade-side absolute inset-0 bg-gradient-to-r from-ocean-900/75 via-ocean-900/35 to-transparent rtl:bg-gradient-to-l"></div>
+        <div class="hero-shade-bottom absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-ocean-900/70 to-transparent"></div>
       </div>
 
-      <div class="max-w-site mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-44 sm:pb-40">
+      <div class="hero-inner max-w-site mx-auto px-4 sm:px-6 pt-20 sm:pt-28 pb-44 sm:pb-40">
         <div class="max-w-2xl text-white">
           @if ($hero->filledBi('eyebrow'))
             <p class="inline-flex items-center gap-2 text-sm font-semibold bg-white/15 backdrop-blur px-3 py-1.5 rounded-full">
@@ -50,7 +62,7 @@
     </section>
 
     <!-- Search widget overlaps the hero bottom (no overlap when the hero is hidden) -->
-    <section class="relative z-10 {{ $hero->is_visible ? '-mt-32 sm:-mt-24' : 'pt-10' }}" aria-labelledby="search-title" @unless ($search->is_visible) hidden @endunless>
+    <section class="relative z-10 {{ $hero->is_visible ? '-mt-32 sm:-mt-24' : 'pt-10' }} {{ $hero->is_visible && $hero->hasMobileUpload() ? 'hero-portrait-search' : '' }}" aria-labelledby="search-title" @unless ($search->is_visible) hidden @endunless>
       <div class="max-w-site mx-auto px-4 sm:px-6">
         <form id="search-form" class="card pass shadow-[0_30px_60px_-30px_rgba(12,45,78,.45)] flex flex-col lg:flex-row" style="--perf-bg:transparent" novalidate>
           <div class="flex-1 p-5 sm:p-6">

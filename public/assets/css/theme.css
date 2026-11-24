@@ -305,3 +305,20 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
   html.voucher-sheets #voucher-print { display: block; }
   html.voucher-sheets main:has(#voucher), html.voucher-sheets #success { margin: 0; padding: 0; }
 }
+
+/* Home hero with a portrait photo for phones / portrait tablets (home.blade.php, admin: Hero → portrait photo).
+   The box takes the photo's shape (--hero-m-h = height ÷ width; 9:16 recommended) so it scales on every phone
+   instead of being cropped (on portrait tablets it is taller than the screen; capping it would push the offer up
+   under the headline). The search card overlaps it less and the buttons stay on one row, so the offer area (lower
+   part of the photo) stays clear. min-height, so the text can still grow the box: then the photo, pinned to the
+   bottom, only loses its side edges. */
+@media (max-width: 1023px) and (orientation: portrait) {
+  .hero-portrait { min-height: calc(100vw * var(--hero-m-h)); }
+  .hero-portrait .hero-inner { padding-bottom: 4.5rem; }
+  .hero-portrait .hero-inner .flex-wrap { flex-wrap: nowrap; }
+  .hero-portrait .hero-inner .btn-lg { flex: 1 1 0; min-width: 0; padding-inline: .75rem; white-space: nowrap; }
+  .hero-portrait .hero-img { object-position: center bottom; }
+  .hero-portrait .hero-shade-side { background: linear-gradient(to bottom, rgba(12,45,78,.75), rgba(12,45,78,.4) 35%, transparent 55%); }
+  .hero-portrait .hero-shade-bottom { display: none; }
+  section.hero-portrait-search { margin-top: -3rem; }
+}

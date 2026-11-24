@@ -104,6 +104,51 @@
       </fieldset>
     @endif
 
+    @if ($section->supports('image_mobile'))
+      <fieldset class="mt-8 pt-6 border-t border-line">
+        <legend class="font-display font-semibold text-lg">Phone &amp; tablet photo (portrait, optional)</legend>
+        <p class="text-sm text-muted mt-1">Phones and portrait tablets show this photo instead of the wide one, uncropped. Leave it empty to keep using the wide photo there.</p>
+        <div class="mt-3 grid md:grid-cols-[280px_1fr] gap-5 items-start">
+          <div class="w-36 aspect-[9/16] rounded-2xl overflow-hidden bg-ocean-50 relative">
+            @if ($section->hasMobileUpload())<img src="{{ $section->imageMobileUrl() }}" alt="" class="w-full h-full object-cover">@endif
+            {{-- Where the headline and the search card sit on a phone --}}
+            <span class="absolute inset-x-0 top-0 h-[58%] border-b border-dashed border-white/80 bg-ocean-900/20 text-[10px] text-white font-bold p-1">Headline &amp; buttons</span>
+            <span class="absolute inset-x-0 bottom-0 h-[8%] border-t border-dashed border-white/80 bg-ocean-900/20 text-[10px] text-white font-bold p-1">Search card</span>
+          </div>
+          <div class="grid gap-4">
+            <p class="text-sm font-bold">
+              @if ($section->hasMobileUpload())
+                <span class="text-[#12805C]">✓ Portrait photo in use on phones and portrait tablets</span>
+              @else
+                <span class="text-muted">No portrait photo: phones show the wide photo, cropped</span>
+              @endif
+            </p>
+            <div>
+              <label class="label" for="f-image-mobile">Upload a portrait photo</label>
+              <input id="f-image-mobile" type="file" name="image_mobile" accept="image/jpeg,image/png,image/webp" class="text-sm file:me-3 file:rounded-full file:border-0 file:bg-ocean-50 file:px-3 file:py-1.5 file:font-semibold file:text-ocean-700">
+              @if ($e = $err('image_mobile'))
+                <p class="err show">{{ $e }}</p>
+              @else
+                <p class="text-xs text-muted mt-1.5">JPG, PNG or WebP, up to 5 MB. Design it at <strong>1080 × 1920 px (9:16)</strong>, like a phone story.</p>
+              @endif
+            </div>
+            <ul class="text-xs text-muted list-disc ps-5 grid gap-1">
+              <li>Top 58%: keep it calm (sky / sea) — the headline and buttons are written over it.</li>
+              <li>Offer / campaign graphic: between 60% and 90% of the height, inside the middle 80% of the width (very small phones may trim the side edges a little).</li>
+              <li>Bottom 8%: hidden under the search card.</li>
+              <li>Put the offer's text in the photo description above too, for screen readers and search engines.</li>
+            </ul>
+            @if ($section->hasMobileUpload())
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="remove_image_mobile" value="1" class="check">
+                <span class="font-semibold">Remove the portrait photo (phones go back to the wide photo)</span>
+              </label>
+            @endif
+          </div>
+        </div>
+      </fieldset>
+    @endif
+
     @if ($section->supports('video'))
       <fieldset class="mt-8 pt-6 border-t border-line">
         <legend class="font-display font-semibold text-lg">Video</legend>
