@@ -4,6 +4,7 @@
 @php
   $route = fn (array $q) => route('admin.reports.show', [$class::key()] + $q);
   $keep = \Illuminate\Support\Arr::except($filters->query(), ['preset', 'from', 'to']);
+  $uses = fn (string $filter) => in_array($filter, $class::filters(), true);
 @endphp
 <div class="card p-4 mt-5 no-print">
   <nav class="flex flex-wrap gap-2 text-sm" aria-label="Period">
@@ -34,6 +35,7 @@
         @endforeach
       </select>
     </div>
+    @if ($uses('channel'))
     <div>
       <label for="report-channel" class="label">Channel</label>
       <select id="report-channel" name="channel" class="field !py-2 !w-auto">
@@ -42,6 +44,8 @@
         <option value="agent" @selected($filters->channel === 'agent')>Agents (B2B)</option>
       </select>
     </div>
+    @endif
+    @if ($uses('cruise'))
     <div>
       <label for="report-cruise" class="label">Cruise</label>
       <select id="report-cruise" name="cruise" class="field !py-2 !w-auto max-w-56">
@@ -51,6 +55,8 @@
         @endforeach
       </select>
     </div>
+    @endif
+    @if ($uses('sailing'))
     <div>
       <label for="report-sailing" class="label">Sailing</label>
       <select id="report-sailing" name="sailing" class="field !py-2 !w-auto max-w-64">
@@ -60,7 +66,8 @@
         @endforeach
       </select>
     </div>
-    @if ($options['staff']->isNotEmpty())
+    @endif
+    @if ($uses('seller') && $options['staff']->isNotEmpty())
       <div>
         <label for="report-seller" class="label">Assigned to</label>
         <select id="report-seller" name="seller" class="field !py-2 !w-auto max-w-56">
@@ -72,7 +79,7 @@
         </select>
       </div>
     @endif
-    @if ($options['agents']->isNotEmpty())
+    @if ($uses('agent') && $options['agents']->isNotEmpty())
       <div>
         <label for="report-agent" class="label">Agent</label>
         <select id="report-agent" name="agent" class="field !py-2 !w-auto max-w-56">
@@ -84,7 +91,7 @@
       </div>
     @endif
     <button class="btn btn-primary btn-sm">Apply</button>
-    @if (array_diff_key($filters->query(), ['preset' => 1]) || $filters->preset !== 'month')
+    @if (array_diff_key($filters->query(), ['preset' => 1]) || $filters->preset !== $class::defaultPreset())
       <a href="{{ $route([]) }}" class="btn btn-ghost btn-sm">Reset</a>
     @endif
   </form>

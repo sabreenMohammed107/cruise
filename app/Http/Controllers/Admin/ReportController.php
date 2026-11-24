@@ -30,7 +30,7 @@ class ReportController extends Controller
     public function show(Request $request, string $key): View
     {
         $class = $this->report($key);
-        $filters = ReportFilters::fromRequest($request);
+        $filters = ReportFilters::fromRequest($request, $class::defaultPreset(), $class::filters());
         $report = new $class;
 
         return view('admin.reports.show', [
@@ -45,7 +45,7 @@ class ReportController extends Controller
     public function export(Request $request, string $key): BinaryFileResponse
     {
         $class = $this->report($key);
-        $filters = ReportFilters::fromRequest($request);
+        $filters = ReportFilters::fromRequest($request, $class::defaultPreset(), $class::filters());
 
         $filename = $class::key().'-'.$filters->from->toDateString().'_'.$filters->to->toDateString().'.xlsx';
 

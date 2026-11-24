@@ -45,7 +45,14 @@ final class ReportFilters
         public readonly ?int $agent = null,
     ) {}
 
-    public static function fromRequest(Request $request): self
+    /** The filters besides the period, each report uses some of them (Report::filters()). */
+    public const FILTERS = ['channel', 'cruise', 'sailing', 'seller', 'agent'];
+
+    /**
+     * @param  string  $default  the preset without one in the URL (Report::defaultPreset())
+     * @param  list<string>  $only  the filters the report uses (Report::filters()); the others are ignored
+     */
+    public static function fromRequest(Request $request, string $default = 'month', array $only = self::FILTERS): self
     {
         $v = $request->validate([
             'preset' => ['nullable', Rule::in(array_keys(self::PRESETS))],
@@ -60,9 +67,12 @@ final class ReportFilters
             'agent' => ['nullable', 'integer'],
         ]);
         $viewer = $request->user();
+        foreach (array_diff(self::FILTERS, $only) as $unused) {
+            unset($v[$unused]);
+        }
 
         // The filter form always sends the preset with its dates: dates changed by hand make it a custom range
-        $preset = $v['preset'] ?? 'month';
+        $preset = $v['preset'] ?? $default;
         if (isset($v['from'], $v['to']) && $preset !== 'custom') {
             [$f, $t] = self::range($preset);
             if ($f->toDateString() !== $v['from'] || $t->toDateString() !== $v['to']) {
@@ -70,7 +80,7 @@ final class ReportFilters
             }
         }
         if ($preset === 'custom' && ! isset($v['from'], $v['to'])) {
-            $preset = 'month';
+            $preset = $default;
         }
         [$from, $to] = self::range($preset, $v['from'] ?? null, $v['to'] ?? null);
 
@@ -84,7 +94,7 @@ final class ReportFilters
             cruise: isset($v['cruise']) ? (int) $v['cruise'] : null,
             sailing: isset($v['sailing']) ? (int) $v['sailing'] : null,
             // A seller's reports are always their own bookings
-            seller: $viewer->isSeller() ? (string) $viewer->id : ($v['seller'] ?? null),
+            seller: $viewer->isSeller() && in_array('seller', $only, true) ? (string) $viewer->id : ($v['seller'] ?? null),
             agent: isset($v['agent']) ? (int) $v['agent'] : null,
         );
     }

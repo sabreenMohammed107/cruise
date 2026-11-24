@@ -24,7 +24,7 @@
 @endphp
 
 {{-- Headline figures --}}
-<div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
+<div class="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6" data-print-cols style="--cols: 4">
   @include('admin.reports.partials.kpi', ['icon' => 'check', 'label' => 'Net received by the team', 'value' => Format::money($c['net_received']), 'change' => $chg('net_received'), 'previous' => $prevMoney('net_received'),
     'hint' => number_format($c['payments']).' '.($c['payments'] == 1 ? 'entry' : 'entries').($c['refunded'] > 0 ? ' · '.Format::money($c['refunded']).' refunded' : '').' · by the day received'])
   @include('admin.reports.partials.kpi', ['icon' => 'users', 'label' => 'Sold by agents (B2B)', 'value' => Format::money($c['agent_revenue']), 'change' => $chg('agent_revenue'), 'previous' => $prevMoney('agent_revenue'),

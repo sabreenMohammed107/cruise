@@ -12,7 +12,7 @@
 @endphp
 
 {{-- Headline figures --}}
-<div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
+<div class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-6" data-print-cols style="--cols: 3">
   @include('admin.reports.partials.kpi', ['icon' => 'ticket', 'label' => 'Bookings', 'value' => number_format($c['bookings']), 'change' => $chg('bookings'), 'previous' => $prevNum('bookings'),
     'hint' => $c['cancelled'] ? $c['cancelled'].' cancelled ('.Format::money($c['cancelled_value']).') not counted' : null])
   @include('admin.reports.partials.kpi', ['icon' => 'users', 'label' => 'Guests', 'value' => number_format($c['guests']), 'change' => $chg('guests'), 'previous' => $prevNum('guests'),
@@ -41,7 +41,7 @@
   @endif
 </section>
 
-<div class="grid lg:grid-cols-2 gap-6 mt-6 items-start">
+<div class="grid lg:grid-cols-2 gap-6 mt-6 items-start" data-print-group>
   {{-- Revenue bridge --}}
   <section class="card p-5">
     <h2 class="font-display font-semibold text-lg">Where the revenue came from</h2>
