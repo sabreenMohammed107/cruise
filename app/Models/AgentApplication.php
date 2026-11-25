@@ -16,7 +16,7 @@ class AgentApplication extends Model
 {
     protected $table = 'agent_requests';
 
-    protected $fillable = ['company_name', 'contact_name', 'email', 'phone_dial', 'phone'];
+    protected $fillable = ['company_name', 'country', 'contact_name', 'email', 'phone_dial', 'phone'];
 
     protected $attributes = ['status' => 'pending'];
 

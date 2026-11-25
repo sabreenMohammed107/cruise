@@ -18,6 +18,7 @@ class AgentRequestsTest extends TestCase
 
     private array $valid = [
         'company_name' => 'Red Sea Travel',
+        'country' => 'SA',
         'contact_name' => 'Omar Saleh',
         'email' => 'omar@redseatravel.example',
         'dial' => '+966',
@@ -31,12 +32,15 @@ class AgentRequestsTest extends TestCase
 
     public function test_agents_page_shows_its_sections_and_the_form_in_both_languages(): void
     {
+        $this->get('/agents')->assertSee('name="country"', false)->assertSee('Choose your country')->assertSee('>Egypt</option>', false);
         $this->get('/agents')->assertOk()
             ->assertSee('Become our agent')->assertSee('Benefits of joining the program')->assertSee('Exclusive discounts')
             ->assertSee('name="'.AgentRequest::HONEYPOT.'"', false);
 
         $this->withCredentials()->withUnencryptedCookie('sc_lang', 'ar')->get('/agents')->assertOk()
-            ->assertSee('كن وكيلنا')->assertSee('اسم الشركة');
+            ->assertSee('كن وكيلنا')->assertSee('اسم الشركة')
+            // The agency's country, named in Arabic, Egypt and the Gulf first
+            ->assertSee('اختر دولتك')->assertSeeInOrder(['<option value="EG"', 'مصر', '<option value="SA"', '<option value="OM"', '<option value="AF"', 'أفغانستان'], false);
 
         // Mobile number with the site's flag + country-code widget, as on the booking form
         $this->get('/agents')->assertSee('name="dial"', false)->assertSee('data-phone-field', false)
@@ -66,7 +70,20 @@ class AgentRequestsTest extends TestCase
         $this->assertSame('Red Sea Travel', $application->company_name);
         $this->assertSame(AgentRequestStatus::Pending, $application->status);
         $this->assertSame('+966 501234567', $application->full_phone);
+        $this->assertSame('SA', $application->country);
         $this->get('/agents')->assertSee('your application has been received');
+
+        // Seen in Admin → Agents → Agent requests
+        $this->actingAs($this->admin(), 'admin')->get(route('admin.agent-requests.index'))->assertSee('Saudi Arabia');
+        $this->get(route('admin.agent-requests.show', $application))->assertSee('Country')->assertSee('Saudi Arabia');
+    }
+
+    public function test_the_country_is_required_and_from_the_list(): void
+    {
+        $this->post('/agents', ['country' => ''] + $this->valid)->assertSessionHasErrors('country');
+        $this->post('/agents', ['country' => 'Egypt'] + $this->valid)->assertSessionHasErrors('country');
+        $this->post('/agents', ['country' => 'eg'] + $this->valid)->assertSessionHasErrors('country');
+        $this->assertSame(0, AgentApplication::count());
     }
 
     public function test_invalid_applications_are_rejected(): void

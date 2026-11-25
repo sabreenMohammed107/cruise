@@ -29,6 +29,7 @@
     <dl class="grid grid-cols-2 sm:grid-cols-4 gap-5 text-sm">
       @foreach ([
           'Company' => $application->company_name,
+          'Country' => \App\Support\Countries::name($application->country, 'en') ?: '—',
           'Contact person' => $application->contact_name,
           'Email' => $application->email,
           'Mobile' => $application->full_phone,

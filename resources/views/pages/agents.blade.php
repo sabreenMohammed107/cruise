@@ -76,15 +76,35 @@
               @csrf
               @foreach ([
                   ['company_name', 'text', 'organization'],
+                  ['country', 'select', 'country'],
                   ['contact_name', 'text', 'name'],
                   ['email', 'email', 'email'],
               ] as [$name, $type, $autocomplete])
-                @include('auth.partials.field', [
-                    'name' => $name, 'type' => $type, 'autocomplete' => $autocomplete,
-                    'label' => __("pages.agents.fields.$name"), 'placeholder' => __("pages.agents.placeholders.$name"),
-                ])
+                @if ($type === 'select')
+                  {{-- The agency's country (App\Support\Countries): the site's main countries first --}}
+                  @php($countries = \App\Support\Countries::options())
+                  @php($error = $errors->first($name))
+                  <div>
+                    <label class="label" for="{{ $name }}">{{ __("pages.agents.fields.$name") }}</label>
+                    <select id="{{ $name }}" name="{{ $name }}" class="field {{ $error ? 'is-invalid' : '' }}" autocomplete="{{ $autocomplete }}" @if ($error) aria-invalid="true" aria-describedby="{{ $name }}-err" @endif>
+                      <option value="">{{ __("pages.agents.placeholders.$name") }}</option>
+                      @foreach ($countries['top'] as $code => $label)
+                        <option value="{{ $code }}" @selected(old($name) === $code)>{{ $label }}</option>
+                      @endforeach
+                      @foreach ($countries['rest'] as $code => $label)
+                        <option value="{{ $code }}" @selected(old($name) === $code)>{{ $label }}</option>
+                      @endforeach
+                    </select>
+                    @if ($error)<p class="err show" id="{{ $name }}-err">{{ $error }}</p>@endif
+                  </div>
+                @else
+                  @include('auth.partials.field', [
+                      'name' => $name, 'type' => $type, 'autocomplete' => $autocomplete,
+                      'label' => __("pages.agents.fields.$name"), 'placeholder' => __("pages.agents.placeholders.$name"),
+                  ])
+                @endif
               @endforeach
-              @include('partials.phone-field', ['label' => __('pages.agents.fields.phone')])
+              @include('partials.phone-field', ['label' => __('pages.agents.fields.phone'), 'span' => 'sm:col-span-2'])
               @include('partials.honeypot')
               <button class="btn btn-primary btn-lg sm:col-span-2">{{ __('pages.agents.send') }}</button>
             </form>

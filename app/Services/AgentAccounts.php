@@ -53,6 +53,7 @@ class AgentAccounts
             ]);
 
             $user->company_name = $application->company_name;
+            $user->country = $application->country;
             // Not mass assignable (UserResource::fill, AgentResource::fill)
             $user->role = UserRole::Agent;
             $user->agent_tier_id = $tierId;

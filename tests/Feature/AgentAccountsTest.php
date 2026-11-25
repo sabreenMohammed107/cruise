@@ -44,6 +44,7 @@ class AgentAccountsTest extends TestCase
     {
         return AgentApplication::create($override + [
             'company_name' => 'Red Sea Travel',
+            'country' => 'SA',
             'contact_name' => 'Omar Al Saleh',
             'email' => 'Omar@RedSeaTravel.example',
             'phone_dial' => '+966',
@@ -93,6 +94,9 @@ class AgentAccountsTest extends TestCase
         $this->assertSame(UserRole::Agent, $agent->role);
         $this->assertSame(['Omar', 'Al Saleh', 'Red Sea Travel', '+966', '501234567'], [$agent->first_name, $agent->last_name, $agent->company_name, $agent->phone_dial, $agent->phone]);
         $this->assertFalse($agent->isStaff());
+        // The country from the form goes with the account, seen in Admin → Agents
+        $this->assertSame('SA', $agent->country);
+        $this->get(route('admin.agents.index'))->assertSee('Saudi Arabia');
 
         $application->refresh();
         $this->assertSame(AgentRequestStatus::Accepted, $application->status);
@@ -145,7 +149,7 @@ class AgentAccountsTest extends TestCase
 
     public function test_the_application_form_needs_an_email_of_its_own(): void
     {
-        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
+        $form = ['company_name' => 'Red Sea Travel', 'country' => 'SA', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
 
         // Has an account (any case)
         $this->post('/agents', $form + ['email' => 'Reem@Example.com'])->assertSessionHasErrors(['email' => __('pages.agents.email_has_account')]);
@@ -163,7 +167,7 @@ class AgentAccountsTest extends TestCase
     {
         $this->withoutMiddleware(ThrottleRequests::class); // more than the route's 5 posts a minute
         config(['agents.business_email_only' => true]); // TODO: drop once the restriction is back on by default
-        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
+        $form = ['company_name' => 'Red Sea Travel', 'country' => 'SA', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
 
         foreach (['omar@gmail.com', 'Omar@YAHOO.com', 'omar@hotmail.com', 'omar@outlook.com', 'omar@icloud.com', 'omar@aol.com',
             'omar@yahoo.co.uk', 'omar@hotmail.fr', 'omar@outlook.sa', 'omar@live.com.eg', 'omar@mail.yahoo.com', 'omar@mailinator.com'] as $email) {
@@ -186,7 +190,7 @@ class AgentAccountsTest extends TestCase
     {
         // TODO: Remove when agents.business_email_only / agents.max_per_domain are re-enabled after launch/testing
         $this->withoutMiddleware(ThrottleRequests::class);
-        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
+        $form = ['company_name' => 'Red Sea Travel', 'country' => 'SA', 'contact_name' => 'Omar Saleh', 'dial' => '+966', 'phone' => '501 234 567'];
 
         // Free email providers are accepted
         $this->post('/agents', $form + ['email' => 'omar@gmail.com'])->assertSessionHasNoErrors();
@@ -205,7 +209,7 @@ class AgentAccountsTest extends TestCase
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         config(['agents.max_per_domain' => 1]); // TODO: drop once the restriction is back on by default
-        $form = ['company_name' => 'Red Sea Travel', 'contact_name' => 'Ahmed', 'dial' => '+966', 'phone' => '501 234 567'];
+        $form = ['company_name' => 'Red Sea Travel', 'country' => 'SA', 'contact_name' => 'Ahmed', 'dial' => '+966', 'phone' => '501 234 567'];
 
         $this->post('/agents', $form + ['email' => 'ahmed@redsea.example'])->assertSessionHasNoErrors();
         // Same company, another person, any case: refused while the first application is open
@@ -233,7 +237,7 @@ class AgentAccountsTest extends TestCase
 
     public function test_a_double_submit_saves_one_application(): void
     {
-        $form = ['company_name' => 'Lowcost holidays', 'contact_name' => 'Yasser', 'email' => 'yasser@lowcost.example', 'dial' => '+20', 'phone' => '1145282888'];
+        $form = ['company_name' => 'Lowcost holidays', 'country' => 'EG', 'contact_name' => 'Yasser', 'email' => 'yasser@lowcost.example', 'dial' => '+20', 'phone' => '1145282888'];
         $this->get('/agents')->assertSee('data-submit-once', false);
 
         // The second click's request passes the "already applied" check while the first is still saving: simulate

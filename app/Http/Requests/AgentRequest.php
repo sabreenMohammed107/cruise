@@ -6,6 +6,8 @@ use App\Enums\UserRole;
 use App\Models\AgentApplication;
 use App\Models\User;
 use App\Rules\BusinessEmail;
+use App\Support\Countries;
+use Illuminate\Validation\Rule;
 
 /**
  * "Become an agent" application (pages.agents). The mobile number is required.
@@ -18,6 +20,8 @@ class AgentRequest extends PublicFormRequest
     {
         return [
             'company_name' => ['required', 'string', 'max:255'],
+            // Where the agency is (ISO code, App\Support\Countries)
+            'country' => ['required', 'string', Rule::in(Countries::codes())],
             'contact_name' => ['required', 'string', 'max:255'],
             // "bail": a gmail.com address gets the "company email" message alone, without the database checks
             'email' => ['bail', 'required', 'string', 'email:rfc,strict', 'max:255',
@@ -64,7 +68,7 @@ class AgentRequest extends PublicFormRequest
 
     public function attributes(): array
     {
-        return collect(['company_name', 'contact_name', 'email', 'phone'])
+        return collect(['company_name', 'country', 'contact_name', 'email', 'phone'])
             ->mapWithKeys(fn ($field) => [$field => __("pages.agents.fields.$field")])
             ->all();
     }

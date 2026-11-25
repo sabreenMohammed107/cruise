@@ -43,7 +43,7 @@
         <tbody>
           @forelse ($applications as $a)
             <tr class="border-t border-line hover:bg-page">
-              <td class="p-3"><a href="{{ route('admin.agent-requests.show', $a) }}" class="font-bold text-ocean-700 hover:underline">{{ $a->company_name }}</a></td>
+              <td class="p-3"><a href="{{ route('admin.agent-requests.show', $a) }}" class="font-bold text-ocean-700 hover:underline">{{ $a->company_name }}</a>@if ($a->country)<p class="text-xs text-muted">{{ \App\Support\Countries::name($a->country, 'en') }}</p>@endif</td>
               <td class="p-3">{{ $a->contact_name }}<p class="text-xs text-muted break-all">{{ $a->email }} · <span dir="ltr">{{ $a->full_phone }}</span></p></td>
               <td class="p-3">@include('admin.partials.badge', ['status' => $a->status])</td>
               <td class="p-3 whitespace-nowrap text-muted">{{ Format::date($a->created_at, 'j M, H:i') }}</td>

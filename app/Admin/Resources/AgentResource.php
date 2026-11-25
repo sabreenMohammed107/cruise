@@ -7,6 +7,7 @@ use App\Enums\BookingStatus;
 use App\Enums\UserRole;
 use App\Models\AgentTier;
 use App\Models\User;
+use App\Support\Countries;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -53,6 +54,9 @@ class AgentResource extends UserResource
     {
         return [
             Field::text('company_name', 'Company')->rules(['nullable', 'string', 'max:255'])->index(),
+            // From the "Become an agent" form (App\Support\Countries)
+            Field::select('country', 'Country', ['' => '—'] + array_merge(...array_values(Countries::options('en'))))
+                ->rules(['nullable', Rule::in(Countries::codes())])->index(),
             Field::select('agent_tier_id', 'Agent type', ['' => 'No type'] + AgentTier::options())
                 ->rules(['nullable', Rule::exists('agent_tiers', 'id')])
                 ->help('The agent gets the rates of this type first (Agents → Agent rates), then the rates for all agent types.')->index(),
@@ -73,6 +77,7 @@ class AgentResource extends UserResource
     {
         parent::fill($record, $request);
         $record->setAttribute('company_name', $request->input('company_name'));
+        $record->setAttribute('country', $request->input('country') ?: null);
         // Not mass assignable: only set here and on approval
         $record->setAttribute('agent_tier_id', $request->input('agent_tier_id') ?: null);
     }

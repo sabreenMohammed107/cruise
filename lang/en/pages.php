@@ -153,12 +153,14 @@ return [
         'description' => 'Travel agencies: join the Safer agents program and sell AROYA Mediterranean cruises at agent prices, with a dedicated support team.',
         'fields' => [
             'company_name' => 'Company name',
+            'country' => 'Country',
             'contact_name' => 'Contact person',
             'email' => 'Email address',
             'phone' => 'Mobile number',
         ],
         'placeholders' => [
             'company_name' => 'Your travel agency',
+            'country' => 'Choose your country',
             'contact_name' => 'Full name',
             'email' => 'you@agency.com',
         ],
