@@ -3,6 +3,7 @@
 use App\Enums\SailingStatus;
 use App\Models\Sailing;
 use App\Services\CurrencyService;
+use App\Services\UnpaidBookings;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -43,3 +44,12 @@ Artisan::command('sailings:close', function () {
 })->purpose('Close bookings for sailings departing today or earlier');
 
 Schedule::command('sailings:close')->dailyAt('00:02')->withoutOverlapping();
+
+// New bookings are held for config cruise.hold_hours (24) hours: one with nothing paid when its hold is over is
+// cancelled, its cabins go back on sale, and the guest is emailed (App\Services\UnpaidBookings).
+Artisan::command('bookings:cancel-unpaid', function (UnpaidBookings $unpaid) {
+    $cancelled = $unpaid->cancelExpired();
+    $this->info(count($cancelled).' unpaid booking(s) cancelled'.($cancelled ? ': '.implode(', ', $cancelled) : '.'));
+})->purpose('Cancel bookings held without payment past their hold');
+
+Schedule::command('bookings:cancel-unpaid')->everyFiveMinutes()->withoutOverlapping(10);

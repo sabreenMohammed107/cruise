@@ -300,6 +300,8 @@ return [
         // Confirmed only once paid in full (bookings.payment_status = paid); until then it waits for payment
         'confirmed' => 'Confirmed',
         'pending' => 'Pending payment',
+        // The hold (bookings.hold_until)
+        'hold' => 'This booking is held for :hours hours, until :date, :time Cairo time. If no payment is received by then, it is cancelled automatically.',
         'cancelled' => 'Cancelled',
         'total' => 'Total',
         'download' => 'Download voucher',

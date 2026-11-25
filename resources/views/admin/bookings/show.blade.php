@@ -17,6 +17,10 @@
     <div>
       <h1 class="font-display font-bold text-2xl sm:text-3xl tabular">{{ $booking->reference }}</h1>
       <div class="mt-2 flex flex-wrap gap-1.5">@include('admin.partials.badge', ['status' => $booking->status])@include('admin.partials.badge', ['status' => $booking->payment_status])@include('admin.partials.currency-tag')</div>
+      {{-- Nothing paid yet: cancelled automatically when the hold is over (App\Services\UnpaidBookings) --}}
+      @if ($hold = $booking->holdForDisplay())
+        <p class="mt-2 text-sm font-semibold text-sun-600"><i data-icon="clock" class="w-4 h-4 inline -mt-0.5"></i> Held {{ $hold['hours'] }} hours, until {{ \App\Support\Format::date($hold['until'], 'j M Y, H:i') }} Cairo time: cancelled automatically if nothing is paid by then.</p>
+      @endif
     </div>
     <div class="flex flex-wrap gap-2">
       <a href="{{ route('booking.confirmation', $booking) }}" target="_blank" class="btn btn-outline btn-sm"><i data-icon="download" class="w-4 h-4"></i> Guest voucher</a>

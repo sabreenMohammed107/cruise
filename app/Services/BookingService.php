@@ -106,6 +106,8 @@ class BookingService
                 'locale' => app()->getLocale(),
                 'price_snapshot' => $quote,
                 'confirmed_at' => now(),
+                // Held this long: cancelled automatically if nothing is paid by then (App\Services\UnpaidBookings)
+                'hold_until' => ($hours = (int) config('cruise.hold_hours')) > 0 ? now()->addHours($hours) : null,
             ]);
 
             // Traveller slots run on across cabins (adult-1, adult-2 in cabin 1, adult-3 in cabin 2, …)

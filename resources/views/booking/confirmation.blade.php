@@ -74,6 +74,15 @@
             <p class="text-sm text-ocean-100 mt-2">{{ __('site.confirmation.total') }} <b class="text-white tabular" dir="ltr">{{ $money($booking->grand_total) }}</b></p>
           </div>
         </div>
+        {{-- Held without payment: cancelled automatically at hold_until (App\Services\UnpaidBookings) --}}
+        @if (! $cancelled && ($hold = $booking->holdForDisplay()))
+          <div class="voucher-hold-wrap px-6 sm:px-7 pt-6 sm:pt-7">
+            <p class="flex gap-2 items-start rounded-xl bg-sun-50 text-sun-600 px-4 py-3 text-sm font-semibold">
+              <i data-icon="clock" class="w-4 h-4 mt-0.5 shrink-0"></i>
+              <span>{{ __('site.confirmation.hold', ['hours' => $hold['hours'], 'date' => $date($hold['until']), 'time' => $hold['until']->format('H:i')]) }}</span>
+            </p>
+          </div>
+        @endif
         <div class="p-6 sm:p-7">
           <h2 class="font-display font-semibold text-xl">{{ $cruise->tr('name') }}</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-3 gap-5 mt-5">

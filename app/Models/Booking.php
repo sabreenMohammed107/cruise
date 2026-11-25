@@ -20,7 +20,7 @@ class Booking extends Model
         'reference', 'user_id', 'agent_id', 'agent_tier_id', 'sailing_id', 'cabin_category_id', 'promo_code_id', 'status', 'payment_status',
         'adults', 'children', 'infants', 'contact_email', 'contact_dial', 'contact_phone',
         'fare_total', 'fees_total', 'discount_total', 'offer_discount_total', 'agent_discount_total', 'grand_total', 'amount_paid', 'currency', 'display_currency', 'exchange_rate', 'locale',
-        'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'admin_notes', 'seller_id',
+        'price_snapshot', 'confirmed_at', 'paid_at', 'cancelled_at', 'hold_until', 'admin_notes', 'seller_id',
     ];
 
     protected function casts(): array
@@ -42,6 +42,7 @@ class Booking extends Model
             'confirmed_at' => 'datetime',
             'paid_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'hold_until' => 'datetime',
         ];
     }
 
@@ -209,6 +210,42 @@ class Booking extends Model
     public function money(float|int|string|null $usd): string
     {
         return app(CurrencyService::class)->format($usd, $this->display_currency ?: CurrencyService::BASE, (float) $this->exchange_rate ?: 1.0);
+    }
+
+    /**
+     * Until when the booking is held, while nothing is paid on it: then it is cancelled automatically
+     * (App\Services\UnpaidBookings). Null once something is paid, once cancelled, or without a hold (bookings from
+     * before the hold, config cruise.hold_hours 0).
+     */
+    public function heldUntil(): ?CarbonInterface
+    {
+        return $this->hold_until && $this->status === BookingStatus::Confirmed && (float) $this->amount_paid <= 0
+            ? $this->hold_until
+            : null;
+    }
+
+    /**
+     * The hold, for showing: its length in hours and its end in Cairo time (config cruise.hold_timezone), or null
+     * without one (heldUntil()). Voucher, guest booking email, admin booking page.
+     *
+     * @return array{hours: int, until: CarbonInterface}|null
+     */
+    public function holdForDisplay(): ?array
+    {
+        $until = $this->heldUntil();
+
+        return $until ? [
+            'hours' => (int) round($this->confirmed_at ? $this->confirmed_at->diffInMinutes($until) / 60 : (int) config('cruise.hold_hours')),
+            'until' => $until->copy()->setTimezone(config('cruise.hold_timezone', config('app.timezone'))),
+        ] : null;
+    }
+
+    /** Held, nothing paid, and the hold is over: to cancel (App\Services\UnpaidBookings). */
+    public function scopeHoldExpired(Builder $query): void
+    {
+        $query->where('status', BookingStatus::Confirmed)
+            ->whereNotNull('hold_until')->where('hold_until', '<=', now())
+            ->where('amount_paid', '<=', 0);
     }
 
     public function amountDue(): float

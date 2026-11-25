@@ -274,6 +274,7 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
 .voucher-sheet .voucher-itinerary li { padding-bottom: 3mm; margin-bottom: 3mm; border-bottom: 1px solid var(--line); }
 .voucher-sheet .voucher-cont .voucher-itinerary { margin-top: 0; }
 .voucher-sheet .voucher-fare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.voucher-sheet .voucher-hold-wrap { padding: 4mm 0 0; }
 /* A dashed separator that starts a sheet separates nothing */
 .voucher-sheet-body > .voucher-unit:first-child > .perf-x:first-child { display: none; }
 

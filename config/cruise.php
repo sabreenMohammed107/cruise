@@ -45,6 +45,12 @@ return [
     // No online payment: confirming creates the booking and the team arranges payment offline.
     'payment_contact_hours' => 24,
 
+    // A new booking is held this many hours: if nothing is paid by then it is cancelled automatically and the guest
+    // is emailed (bookings.hold_until, command bookings:cancel-unpaid every 5 minutes). 0 = no hold, never cancelled.
+    'hold_hours' => (int) env('CRUISE_HOLD_HOURS', 24),
+    // The hold's end is shown to guests and the team in Cairo time (the app itself runs on app.timezone)
+    'hold_timezone' => 'Africa/Cairo',
+
     'whatsapp_number' => '905016451111',
 
     // Receives a "new booking" email so the team can arrange payment.

@@ -13,7 +13,9 @@ return [
     'guest_subject' => 'Your cruise is booked: :ref',
     'guest_title' => 'Your cruise is booked',
     'guest_greeting' => 'Hello :name,',
-    'guest_intro' => 'Thank you for booking with Safer Cruise. Your booking is confirmed and your cabin is held for you.',
+    'guest_intro' => 'Thank you for booking with Safer Cruise. We have received your booking and your cabin is held for you.',
+    // The hold (bookings.hold_until): nothing paid by then, the booking is cancelled automatically
+    'hold_note' => 'Your booking is held for :hours hours, until :date, :time Cairo time. If no payment is received by then, it is cancelled automatically.',
     'next_title' => 'What happens next',
     'next_contact' => 'Our team will contact you within :hours hours on :phone to arrange payment.',
     'next_no_online' => 'There is nothing to pay online.',
@@ -21,6 +23,14 @@ return [
     'view_booking' => 'View your booking',
     'questions' => 'Questions? Message us on WhatsApp.',
     'whatsapp' => 'WhatsApp',
+
+    // Guest: booking cancelled automatically, nothing paid within the hold (App\Mail\BookingCancelled)
+    'cancelled_subject' => 'Your booking :ref was cancelled',
+    'cancelled_title' => 'Your booking was cancelled',
+    'cancelled_intro' => "We didn't receive a payment for this booking within :hours hours of booking, so it was cancelled automatically and its cabin released.",
+    'cancelled_again' => 'Still want to sail? You can book again at any time, subject to availability.',
+    'cancelled_button' => 'Book again',
+    'cancelled_paid' => 'Already paid? Message us on WhatsApp with your payment receipt and we will sort it out.',
 
     // Team: new booking
     'team_subject' => 'New booking :ref: arrange payment',

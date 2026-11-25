@@ -39,6 +39,9 @@
         {{-- Our own text; the phone number put into it is escaped --}}
         {!! __('emails.next_contact', ['hours' => (int) config('cruise.payment_contact_hours'), 'phone' => '<b dir="ltr">&#x2066;'.e($d['contact']['phone']).'&#x2069;</b>']) !!}
         {{ __('emails.next_no_online') }}
+        @if ($hold = $booking->holdForDisplay())
+          <div style="margin-top:8px;font-weight:700;">{{ __('emails.hold_note', ['hours' => $hold['hours'], 'date' => $hold['until']->translatedFormat('j M Y'), 'time' => $hold['until']->format('H:i')]) }}</div>
+        @endif
       </td>
     </tr>
   </table>
