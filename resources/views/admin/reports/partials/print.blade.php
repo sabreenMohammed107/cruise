@@ -1,9 +1,9 @@
 {{-- Printed / PDF report (Print / PDF button, or the browser's own print): A4 sheets like the booking voucher
-     (booking/confirmation.blade.php), each with the Menatours · Safer header banner, its share of the report, a line
+     (booking/confirmation.blade.php), each with the Menatours · Safer banner on top (the image named voucher-footer.jpg:
+     the two were swapped on 25 Nov 2026, the contact details now go at the bottom), its share of the report, a line
      with the report and the page number, and the footer banner at the very bottom.
 
-     The sheets are built off screen from #report-content (on load, and again just before printing so the charts are
-     current): every top-level block is a piece that never breaks across sheets ([data-print-group] wrappers are
+     The sheets are built off screen from #report-content, once, when the page and its banners have loaded: every top-level block is a piece that never breaks across sheets ([data-print-group] wrappers are
      opened up, so side-by-side cards print one under the other); a block with a table is filled row by row, the
      table's header row repeated on the next sheet, its totals row at the end. Breakpoints differ between screen and
      paper, so nothing in a sheet may depend on lg: / xl: classes ([data-print-cols] sets a grid's columns instead).
@@ -46,7 +46,7 @@
 </style>
 
 <div id="report-print" aria-hidden="true"
-     data-head="{{ asset('images/voucher/voucher-header.jpg') }}" data-foot="{{ asset('images/voucher/voucher-footer.jpg') }}"
+     data-head="{{ asset('images/voucher/voucher-footer.jpg') }}" data-foot="{{ asset('images/voucher/voucher-header.jpg') }}"
      data-title="{{ $printTitle }}"></div>
 
 @push('scripts')
@@ -107,12 +107,16 @@
     };
 
     // The piece's copy on the current sheet; on a later sheet it starts with "<its title> (continued)"
+    let shells = []; // the current piece's copies so far
     const ensureShell = (piece, continued) => {
       if (shell && zoom.contains(shell)) return shell;
+      // Continued only if some of the piece is on an earlier sheet (not when it moved over whole)
+      const before = shells.some((s) => s.isConnected && s.children.length);
       shell = piece.cloneNode(false);
+      shells.push(shell);
       zoom.append(shell);
       const h = piece.querySelector('h2, h3');
-      if (continued && h) {
+      if (continued && before && h) {
         const p = document.createElement('p');
         p.className = 'report-cont';
         p.textContent = h.textContent.trim().replace(/\s+/g, ' ') + ' (continued)';
@@ -153,9 +157,9 @@
             // Not even one row fits: the table starts on the next sheet, with the line just before it (its title)
             part.box.remove();
             const lead = shell.lastElementChild;
-            const keepLead = lead && shell.children.length > 1 && !lead.classList.contains('report-cont');
+            const keepLead = lead && !lead.classList.contains('report-cont');
             if (keepLead) lead.remove();
-            if (!shell.children.length) shell.remove();
+            if (![...shell.children].some((c) => !c.classList.contains('report-cont'))) shell.remove();
             newSheet();
             if (keepLead) ensureShell(piece, true).append(lead);
             part = open(true);
@@ -185,6 +189,7 @@
     // A piece with tables: its other children whole, each table row by row, all in one copy of the piece per sheet
     const split = (piece) => {
       shell = null;
+      shells = [];
       for (const child of piece.children) {
         if (child.matches('.no-print, script, style')) continue;
         const table = child.tagName === 'TABLE' ? child : child.querySelector('table');
@@ -226,9 +231,17 @@
       document.documentElement.classList.add('report-sheets');
     };
 
-    window.addEventListener('beforeprint', build);
-    // Also ready in advance (printing from the browser menu), once the charts are drawn
-    window.addEventListener('load', () => (document.fonts ? document.fonts.ready : Promise.resolve()).then(build));
+    // Built once, in advance, when the page (charts included), the fonts and both banners have loaded: built at the
+    // moment of printing, the new banner pictures were not drawn yet when the browser took its print snapshot, and
+    // the PDF came out without them. Printing before it is ready builds it then.
+    let built = false;
+    const once = () => { if (!built) { build(); built = true; } };
+    const loaded = (src) => new Promise((done) => { const i = new Image(); i.onload = i.onerror = done; i.src = src; if (i.complete) done(); });
+    // (never waiting more than 4 seconds for them)
+    const ready = (...waits) => Promise.race([Promise.all(waits), new Promise((done) => setTimeout(done, 4000))]);
+    const banners = [loaded(out.dataset.head), loaded(out.dataset.foot)];
+    window.addEventListener('load', () => ready(document.fonts ? document.fonts.ready : null, ...banners).then(once));
+    window.addEventListener('beforeprint', once);
   })();
 </script>
 @endpush

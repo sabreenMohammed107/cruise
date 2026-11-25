@@ -292,12 +292,14 @@ return [
 
     // Confirmation and voucher (booking/confirmation.blade.php)
     'confirmation' => [
-        'title' => 'Booking confirmed | Safer Cruise',
+        'title' => 'Booking voucher | Safer Cruise',
         'booked' => 'Your cruise is booked',
         'cancelled_title' => 'This booking was cancelled',
         'sent' => "We've sent your booking details to :email and :phone. Our team will contact you within :hours hours to arrange payment.",
         'reference' => 'Booking reference',
+        // Confirmed only once paid in full (bookings.payment_status = paid); until then it waits for payment
         'confirmed' => 'Confirmed',
+        'pending' => 'Pending payment',
         'cancelled' => 'Cancelled',
         'total' => 'Total',
         'download' => 'Download voucher',

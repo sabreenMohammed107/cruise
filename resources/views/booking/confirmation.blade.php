@@ -29,6 +29,8 @@
       ])->all()
       : [[null, $booking->travellers]];
   $cancelled = $booking->status === \App\Enums\BookingStatus::Cancelled;
+  // Confirmed only once paid in full: until then the booking is held, waiting for payment
+  $paid = $booking->payment_status === \App\Enums\PaymentStatus::Paid;
 @endphp
 
 @section('content')
@@ -53,7 +55,7 @@
              bottom of every printed page (theme.css "Print"). On screen it is plain blocks: header banner, voucher,
              footer banner. tfoot comes after tbody so the screen order is right. --}}
         <table class="voucher-frame">
-          <thead><tr><td><img src="{{ asset('images/voucher/voucher-header.jpg') }}" alt="Menatours · Safer" class="voucher-banner voucher-banner-top" width="1600" height="255"></td></tr></thead>
+          <thead><tr><td><img src="{{ asset('images/voucher/voucher-footer.jpg') }}" alt="Menatours · Safer" class="voucher-banner voucher-banner-top" width="1600" height="255"></td></tr></thead>
           <tbody><tr><td>
         <div class="voucher-bar bg-ocean-700 text-white p-6 sm:p-7 flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -63,8 +65,10 @@
           <div class="text-end">
             @if ($cancelled)
               <span class="inline-flex items-center gap-1.5 rounded-full bg-sun-50 text-sun-600 px-3 py-1 text-sm font-bold">{{ __('site.confirmation.cancelled') }}</span>
-            @else
+            @elseif ($paid)
               <span class="inline-flex items-center gap-1.5 rounded-full bg-[#E3F5EE] text-[#0E6B4C] px-3 py-1 text-sm font-bold"><i data-icon="check" class="w-4 h-4"></i> {{ __('site.confirmation.confirmed') }}</span>
+            @else
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-sun-50 text-sun-600 px-3 py-1 text-sm font-bold"><i data-icon="clock" class="w-4 h-4"></i> {{ __('site.confirmation.pending') }}</span>
             @endif
             {{-- Only the currency the guest booked in (EGP or USD); no USD equivalent or rate (step 36) --}}
             <p class="text-sm text-ocean-100 mt-2">{{ __('site.confirmation.total') }} <b class="text-white tabular" dir="ltr">{{ $money($booking->grand_total) }}</b></p>
@@ -88,6 +92,22 @@
             @endforeach
           </dl>
         </div>
+        {{-- What the fare includes and doesn't: the cruise page's lists (Admin → Cruise pages → Cruise details) --}}
+        @if ($fare->isNotEmpty())
+          <div class="perf-x"></div>
+          <div class="p-6 sm:p-7 voucher-fare grid sm:grid-cols-2 gap-6">
+            @foreach ($fare as $key => $section)
+              <div>
+                <h3 class="font-bold mb-3">{{ $section->bi('title') }}</h3>
+                <ul class="grid gap-2 text-sm {{ $key === 'not_included' ? 'text-muted' : '' }}">
+                  @foreach ($section->items as $item)
+                    <li class="flex gap-2"><i data-icon="{{ $item->icon ?: ($key === 'included' ? 'check' : 'minus') }}" class="w-4 h-4 mt-0.5 shrink-0 {{ $key === 'included' ? 'text-lagoon-600' : '' }}"></i><span>{{ $item->bi('title') }}</span></li>
+                  @endforeach
+                </ul>
+              </div>
+            @endforeach
+          </div>
+        @endif
         <div class="perf-x"></div>
         <div class="p-6 sm:p-7" data-print-split="travellers">
           <h3 class="font-bold mb-3">{{ __('site.booking.travellers') }}</h3>
@@ -139,7 +159,7 @@
           </div>
         @endif
           </td></tr></tbody>
-          <tfoot><tr><td><img src="{{ asset('images/voucher/voucher-footer.jpg') }}" alt="www.cruises.safer.travel" class="voucher-banner voucher-banner-bottom" width="1600" height="255"></td></tr></tfoot>
+          <tfoot><tr><td><img src="{{ asset('images/voucher/voucher-header.jpg') }}" alt="Cruises@menatours.com.eg · +20 105 562 4433 · 35 Abour Buildings, Salah Salem St, Heliopolis, Cairo" class="voucher-banner voucher-banner-bottom" width="1600" height="255"></td></tr></tfoot>
         </table>
       </article>
 
@@ -151,6 +171,8 @@
         (() => {
           const voucher = document.getElementById('voucher');
           const out = document.getElementById('voucher-print');
+          // A direct child of <body>, so printing leaves out everything else on the page (theme.css "Print")
+          document.body.append(out);
           const content = voucher.querySelector('.voucher-frame > tbody > tr > td');
           const head = voucher.querySelector('.voucher-banner-top').src;
           const foot = voucher.querySelector('.voucher-banner-bottom').src;
@@ -158,7 +180,8 @@
           const sheet = () => {
             const s = document.createElement('section');
             s.className = 'voucher-sheet';
-            s.innerHTML = `<img class="voucher-sheet-banner" src="${head}" alt=""><div class="voucher-sheet-body"></div><img class="voucher-sheet-banner voucher-sheet-foot" src="${foot}" alt="">`;
+            // Sized (1600 × 255), so a banner holds its place even before its picture is drawn
+            s.innerHTML = `<img class="voucher-sheet-banner" src="${head}" alt="" width="1600" height="255"><div class="voucher-sheet-body"></div><img class="voucher-sheet-banner voucher-sheet-foot" src="${foot}" alt="" width="1600" height="255">`;
             return s;
           };
           const box = (...nodes) => {
@@ -260,9 +283,16 @@
             document.documentElement.classList.add('voucher-sheets');
           };
 
-          window.addEventListener('beforeprint', build);
-          // Also ready in advance (browsers without beforeprint, or printing from the menu)
-          (document.fonts ? document.fonts.ready : Promise.resolve()).then(build);
+          // Built once, in advance, after the fonts and both banners have loaded: built at the moment of printing, the
+          // new banner pictures were not drawn yet when the browser took its print snapshot, and the PDF came out
+          // without them. Printing before it is ready (the button straight away) builds it then.
+          let built = false;
+          const once = () => { if (!built) { build(); built = true; } };
+          const loaded = (src) => new Promise((done) => { const i = new Image(); i.onload = i.onerror = done; i.src = src; if (i.complete) done(); });
+          // (never waiting more than 4 seconds for them)
+          const ready = (...waits) => Promise.race([Promise.all(waits), new Promise((done) => setTimeout(done, 4000))]);
+          ready(document.fonts ? document.fonts.ready : null, loaded(head), loaded(foot)).then(once);
+          window.addEventListener('beforeprint', once);
         })();
       </script>
 

@@ -114,6 +114,8 @@ abstract class Report
     {
         $reports = [
             SalesSummaryReport::class,
+            ReceivablesReport::class,
+            PaymentsLedgerReport::class,
             TeamChannelsReport::class,
             CustomersReport::class,
             CancellationsReport::class,

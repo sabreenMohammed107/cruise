@@ -81,6 +81,9 @@ class BookingController extends Controller
 
         return view('booking.confirmation', [
             'booking' => $booking->load(['sailing.cruise.ship', 'sailing.cruise.itinerary', 'cabinCategory', 'cabins.cabinCategory', 'cabins.travellers', 'travellers']),
+            // "Included in your fare" / "Not included": the same lists as the cruise page (Admin → Cruise pages → Cruise details)
+            'fare' => HomeSection::forPage('cruise')->only(['included', 'not_included'])
+                ->filter(fn (HomeSection $s) => $s->is_visible !== false && $s->items->isNotEmpty()),
         ]);
     }
 

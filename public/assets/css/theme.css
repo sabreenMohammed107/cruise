@@ -273,6 +273,9 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
 .voucher-sheet dl { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .voucher-sheet .voucher-itinerary li { padding-bottom: 3mm; margin-bottom: 3mm; border-bottom: 1px solid var(--line); }
 .voucher-sheet .voucher-cont .voucher-itinerary { margin-top: 0; }
+.voucher-sheet .voucher-fare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* A dashed separator that starts a sheet separates nothing */
+.voucher-sheet-body > .voucher-unit:first-child > .perf-x:first-child { display: none; }
 
 /* ---------- Print (booking voucher, A4) ----------
    No page margin: the browser's own header / footer (date, URL, page numbers) has no room and is left out, and the
@@ -304,6 +307,10 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
   html.voucher-sheets #voucher { display: none !important; }
   html.voucher-sheets #voucher-print { display: block; }
   html.voucher-sheets main:has(#voucher), html.voucher-sheets #success { margin: 0; padding: 0; }
+  /* Nothing else, so the first sheet starts at the top of the first page: anything left above it (the agent prices
+     bar, a status message) pushed it to the next page, leaving a blank first page */
+  html.voucher-sheets body > *:not(#voucher-print):not(.voucher-measure) { display: none !important; }
+  html.voucher-sheets body { display: block; min-height: 0; margin: 0; }
 }
 
 /* Home hero with a portrait photo for phones / portrait tablets (home.blade.php, admin: Hero → portrait photo).

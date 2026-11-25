@@ -115,7 +115,10 @@ class BookingCurrencyTest extends TestCase
         $last = $days->last();
 
         $response = $this->get(BookingController::signedConfirmationUrl($booking))->assertOk()
-            ->assertSee('images/voucher/voucher-header.jpg')->assertSee('images/voucher/voucher-footer.jpg')
+            // The Menatours · Safer banner on top, the one with the contact details at the bottom
+            ->assertSeeInOrder(['images/voucher/voucher-footer.jpg', 'images/voucher/voucher-header.jpg'])
+            // The cruise page's "Included in your fare" / "Not included" lists
+            ->assertSeeInOrder(['Included in your fare', 'Breakfast, lunch and dinner in main restaurants', 'Not included', 'Spa treatments and onboard shopping'])
             ->assertSee('Day-by-day itinerary')
             ->assertSee('Day '.$last->day_number)
             // Day N is departure + N − 1 days
@@ -129,6 +132,26 @@ class BookingCurrencyTest extends TestCase
         $this->withUnencryptedCookie(\App\Http\Middleware\SetLocale::COOKIE, 'ar')
             ->get(BookingController::signedConfirmationUrl($booking))->assertOk()
             ->assertSee('برنامج الرحلة يوماً بيوم')->assertSee('اليوم '.$last->day_number);
+    }
+
+    public function test_the_voucher_is_pending_until_paid_in_full(): void
+    {
+        $booking = $this->book();
+        $url = BookingController::signedConfirmationUrl($booking);
+        // The status badge (the words alone are also in the page's script translations)
+        $pending = '</i> Pending payment</span>';
+        $confirmed = '</i> Confirmed</span>';
+        $this->get($url)->assertOk()->assertSee($pending, false)->assertDontSee($confirmed, false);
+
+        $pay = fn (float $amount) => \App\Models\Payment::create(['booking_id' => $booking->id, 'type' => 'payment', 'method' => 'bank_transfer',
+            'amount' => $amount, 'currency' => 'USD', 'received_at' => now()]);
+        $pay(1000);
+        $booking->syncPaymentTotals();
+        $this->get($url)->assertOk()->assertSee($pending, false);
+
+        $pay((float) $booking->grand_total - 1000);
+        $booking->syncPaymentTotals();
+        $this->get($url)->assertOk()->assertSee($confirmed, false)->assertDontSee($pending, false);
     }
 
     public function test_a_usd_booking_is_unchanged(): void

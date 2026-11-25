@@ -99,7 +99,7 @@ class AdminPanelTest extends TestCase
         $this->actingAs($this->admin(), 'admin');
         $cruise = Cruise::where('slug', 'red-sea-discovery')->firstOrFail();
 
-        $urls = ['/admin', '/admin/bookings', '/admin/bookings/SC2611-K4P2Q', '/admin/reports', '/admin/reports/sales-summary', '/admin/reports/team-channels', '/admin/reports/customers', '/admin/reports/cancellations', '/admin/reports/seasonality', '/admin/reports/interest',
+        $urls = ['/admin', '/admin/bookings', '/admin/bookings/SC2611-K4P2Q', '/admin/reports', '/admin/reports/sales-summary', '/admin/reports/receivables', '/admin/reports/payments', '/admin/reports/team-channels', '/admin/reports/customers', '/admin/reports/cancellations', '/admin/reports/seasonality', '/admin/reports/interest',
             "/admin/cruises/{$cruise->slug}/sailings", "/admin/cruises/{$cruise->slug}/sailings/create",
             '/admin/sailings/'.$cruise->sailings()->first()->id.'/edit'];
         foreach (collect(config('admin.resources'))->flatten() as $resource) {

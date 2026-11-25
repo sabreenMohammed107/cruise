@@ -280,12 +280,13 @@ return [
     ],
 
     'confirmation' => [
-        'title' => 'تم تأكيد الحجز | Safer Cruise',
+        'title' => 'قسيمة الحجز | Safer Cruise',
         'booked' => 'تم حجز رحلتك',
         'cancelled_title' => 'تم إلغاء هذا الحجز',
         'sent' => 'أرسلنا تفاصيل حجزك إلى :email و:phone. سيتواصل معك فريقنا خلال :hours ساعة لترتيب الدفع.',
         'reference' => 'رقم الحجز',
         'confirmed' => 'مؤكد',
+        'pending' => 'في انتظار الدفع',
         'cancelled' => 'ملغى',
         'total' => 'الإجمالي',
         'download' => 'تحميل القسيمة',

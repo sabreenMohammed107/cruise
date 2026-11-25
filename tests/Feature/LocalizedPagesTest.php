@@ -135,8 +135,8 @@ class LocalizedPagesTest extends TestCase
         $url = $this->inArabic()->postJson('/booking/confirm', $this->bookingPayload())->assertCreated()->json('redirect');
 
         $voucher = $this->inArabic()->get($url)->assertOk()
-            ->assertSee('<title>تم تأكيد الحجز | Safer Cruise</title>', false)
-            ->assertSee('تم حجز رحلتك')->assertSee('رقم الحجز')->assertSee('مؤكد')
+            ->assertSee('<title>قسيمة الحجز | Safer Cruise</title>', false)
+            ->assertSee('تم حجز رحلتك')->assertSee('رقم الحجز')->assertSee('في انتظار الدفع')->assertSee('مشمول في سعر الرحلة')
             ->assertSee('13 ديسمبر 2026')                 // month name in Arabic
             ->assertSee('7 ليالٍ')->assertSee('بالغ واحد')
             ->assertSee('السعودية')->assertSee('تحميل القسيمة')
