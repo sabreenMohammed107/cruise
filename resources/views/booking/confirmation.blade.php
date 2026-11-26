@@ -29,8 +29,8 @@
       ])->all()
       : [[null, $booking->travellers]];
   $cancelled = $booking->status === \App\Enums\BookingStatus::Cancelled;
-  // Confirmed only once paid in full: until then the booking is held, waiting for payment
-  $paid = $booking->payment_status === \App\Enums\PaymentStatus::Paid;
+  // Confirmed once a payment is recorded (part or in full), "Pending payment" until then, as the admin (Booking::stage())
+  $paid = $booking->stage() === 'confirmed';
 @endphp
 
 @section('content')

@@ -39,6 +39,9 @@ class BookingController extends Controller
     {
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
+            // Tabs: new (the page opens on it), confirmed, cancelled, all (Booking::stage())
+            'stage' => ['nullable', Rule::in([...Booking::STAGES, 'all'])],
+            // From before the tabs, still accepted so old links work (with no tab chosen, they show every stage)
             'status' => ['nullable', Rule::enum(BookingStatus::class)],
             'payment' => ['nullable', Rule::enum(PaymentStatus::class)],
             // "Assigned to": a staff member's id (admin, supervisor or seller), or "none" for unassigned bookings
@@ -51,7 +54,7 @@ class BookingController extends Controller
         ]);
         $user = $request->user();
 
-        // Everything but the channel, so the B2C / Agents tabs can count within the other filters
+        // Everything but the tab and the channel, so both can count within the other filters
         $filtered = fn () => Booking::query()
             ->visibleTo($user)
             ->when($user->isSeller(), fn (Builder $query) => $query->where('seller_id', $user->id))
@@ -72,22 +75,30 @@ class BookingController extends Controller
                 : $query->where('agent_tier_id', $tier))
             ->when($filters['agent'] ?? null, fn (Builder $query, int|string $agent) => $query->where('agent_id', $agent));
 
-        $bookings = $filtered()
+        // The tab: "new" unless one is chosen (an old ?status= link with no tab shows every stage)
+        $stage = $filters['stage'] ?? (isset($filters['status']) ? 'all' : 'new');
+        $inStage = fn (Builder $query, string $stage) => $stage === 'all' ? $query : $query->atStage($stage);
+        $inChannel = fn (Builder $query) => ($filters['channel'] ?? null) ? $query->channel($filters['channel']) : $query;
+
+        $bookings = $inChannel($inStage($filtered(), $stage))
             ->with(['sailing.cruise', 'cabinCategory', 'seller', 'agent', 'agentTier'])
-            ->when($filters['channel'] ?? null, fn (Builder $query, string $channel) => $query->channel($channel))
             ->latest()
             ->paginate(25)
             ->withQueryString();
 
+        // Each tab counts within the chosen channel, each channel within the chosen tab
         $counts = [
-            'all' => $filtered()->count(),
-            'b2c' => $filtered()->channel('b2c')->count(),
-            'agent' => $filtered()->channel('agent')->count(),
+            'stages' => collect([...Booking::STAGES, 'all'])
+                ->mapWithKeys(fn (string $s) => [$s => $inChannel($inStage($filtered(), $s))->count()])->all(),
+            'all' => $inStage($filtered(), $stage)->count(),
+            'b2c' => $inStage($filtered(), $stage)->channel('b2c')->count(),
+            'agent' => $inStage($filtered(), $stage)->channel('agent')->count(),
         ];
 
         return view('admin.bookings.index', [
             'bookings' => $bookings,
             'filters' => $filters,
+            'stage' => $stage,
             'counts' => $counts,
             'agentTiers' => AgentTier::options(),
             // Agents who have booked, for the "Agent" filter

@@ -301,7 +301,7 @@ class SalesSummaryReport extends Report
                         [(float) $b->grand_total, 'money'],
                         [(float) $b->amount_paid, 'money'],
                         [$cancelled ? 0.0 : $b->amountDue(), 'money'],
-                        ucfirst($b->status->value),
+                        Format::badge($b)[1],
                         Format::badge($b->payment_status)[1],
                         $b->display_currency,
                         [(float) $b->exchange_rate, 'rate'],

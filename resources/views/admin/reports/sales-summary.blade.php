@@ -134,7 +134,7 @@
             <td class="p-3 text-end tabular {{ $cancelled ? 'line-through' : '' }}">{{ Format::money($b->grand_total) }}</td>
             <td class="p-3 text-end tabular">{{ Format::money($b->amount_paid) }}</td>
             <td class="p-3 text-end tabular font-bold">{{ $cancelled ? '—' : Format::money($b->amountDue()) }}</td>
-            <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b->status])@include('admin.partials.badge', ['status' => $b->payment_status])</div></td>
+            <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b])@include('admin.partials.badge', ['status' => $b->payment_status])</div></td>
             <td class="p-3 whitespace-nowrap">{{ $b->seller?->name ?? 'Unassigned' }}</td>
           </tr>
         @empty

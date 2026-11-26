@@ -160,6 +160,34 @@ class Booking extends Model
         $query->where('status', BookingStatus::Cancelled);
     }
 
+    /**
+     * Where the booking stands in the admin (Bookings tabs, status badge) and on the voucher:
+     *   new        not cancelled and nothing paid yet: held for config cruise.hold_hours, then cancelled automatically
+     *   confirmed  not cancelled and something paid (part or in full)
+     *   cancelled  cancelled
+     * status stays "confirmed" for new bookings too: they are sold (their cabins are taken) and count in the reports.
+     */
+    public const STAGES = ['new', 'confirmed', 'cancelled'];
+
+    public function stage(): string
+    {
+        return match (true) {
+            $this->status === BookingStatus::Cancelled => 'cancelled',
+            (float) $this->amount_paid > 0 => 'confirmed',
+            default => 'new',
+        };
+    }
+
+    /** The bookings at a stage (self::STAGES), as stage(). */
+    public function scopeAtStage(Builder $query, string $stage): void
+    {
+        match ($stage) {
+            'cancelled' => $query->where('status', BookingStatus::Cancelled),
+            'confirmed' => $query->where('status', BookingStatus::Confirmed)->where('amount_paid', '>', 0),
+            default => $query->where('status', BookingStatus::Confirmed)->where('amount_paid', '<=', 0),
+        };
+    }
+
     /** Admin follow-up list: confirmed bookings the team still has to collect payment for. */
     public function scopeAwaitingPayment(Builder $query): void
     {

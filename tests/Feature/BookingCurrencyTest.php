@@ -134,7 +134,7 @@ class BookingCurrencyTest extends TestCase
             ->assertSee('برنامج الرحلة يوماً بيوم')->assertSee('اليوم '.$last->day_number);
     }
 
-    public function test_the_voucher_is_pending_until_paid_in_full(): void
+    public function test_the_voucher_is_pending_until_a_payment_is_recorded(): void
     {
         $booking = $this->book();
         $url = BookingController::signedConfirmationUrl($booking);
@@ -145,9 +145,10 @@ class BookingCurrencyTest extends TestCase
 
         $pay = fn (float $amount) => \App\Models\Payment::create(['booking_id' => $booking->id, 'type' => 'payment', 'method' => 'bank_transfer',
             'amount' => $amount, 'currency' => 'USD', 'received_at' => now()]);
+        // A part payment confirms it, as in the admin (Booking::stage())
         $pay(1000);
         $booking->syncPaymentTotals();
-        $this->get($url)->assertOk()->assertSee($pending, false);
+        $this->get($url)->assertOk()->assertSee($confirmed, false)->assertDontSee($pending, false);
 
         $pay((float) $booking->grand_total - 1000);
         $booking->syncPaymentTotals();

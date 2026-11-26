@@ -73,7 +73,7 @@
               <td class="p-3"><a href="{{ route('admin.bookings.show', $b) }}" class="font-bold text-ocean-700 hover:underline tabular">{{ $b->reference }}</a>
                 <p class="text-xs text-muted">{{ Format::date($b->confirmed_at ?? $b->created_at, 'j M Y') }}@if ($b->agentTier) · {{ $b->agentTier->name }}@endif</p></td>
               <td class="p-3">{{ $b->sailing->cruise->name }}<p class="text-xs text-muted">{{ Format::date($b->sailing->departure_date) }} · {{ $b->cabinSummary() }}</p></td>
-              <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b->status])@include('admin.partials.badge', ['status' => $b->payment_status])</div></td>
+              <td class="p-3"><div class="flex flex-wrap gap-1">@include('admin.partials.badge', ['status' => $b])@include('admin.partials.badge', ['status' => $b->payment_status])</div></td>
               <td class="p-3 text-end tabular">{{ Format::money($b->fare_total + $b->agent_discount_total, 2) }}</td>
               <td class="p-3 text-end tabular font-semibold {{ $cancelled ? '' : 'text-[#12805C]' }}">{{ Format::money($b->agent_discount_total, 2) }}
                 <p class="text-xs font-normal">{{ $percent !== null ? rtrim(rtrim(number_format($percent, 2), '0'), '.').'%' : ((float) $b->agent_discount_total > 0 ? 'Varies by cabin' : '0%') }}</p></td>

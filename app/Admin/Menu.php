@@ -30,7 +30,7 @@ final class Menu
 
     private static function seller(int $id): array
     {
-        $awaiting = Booking::awaitingPayment()->visibleTo(request()->user())->where('seller_id', $id)->count();
+        $awaiting = Booking::atStage('new')->visibleTo(request()->user())->where('seller_id', $id)->count();
 
         return [
             self::link('Dashboard', 'grid', 'admin.dashboard', ['admin.dashboard']),
@@ -41,7 +41,7 @@ final class Menu
 
     private static function admin(bool $managesUsers): array
     {
-        $awaiting = Booking::awaitingPayment()->visibleTo(request()->user())->count();
+        $awaiting = Booking::atStage('new')->visibleTo(request()->user())->count();
 
         return [
             self::link('Dashboard', 'grid', 'admin.dashboard', ['admin.dashboard']),

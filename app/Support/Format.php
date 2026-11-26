@@ -6,6 +6,7 @@ use App\Enums\AgentRequestStatus;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\SailingStatus;
+use App\Models\Booking;
 use DateTimeInterface;
 
 /**
@@ -26,10 +27,19 @@ final class Format
     }
 
     /**
-     * [tag class, label] for a status badge.
+     * [tag class, label] for a status badge. A booking shows where it stands (Booking::stage()): New while nothing
+     * is paid, Confirmed once a payment is recorded, or Cancelled; its status alone is "confirmed" for both.
      */
-    public static function badge(BookingStatus|PaymentStatus|SailingStatus|AgentRequestStatus $status): array
+    public static function badge(Booking|BookingStatus|PaymentStatus|SailingStatus|AgentRequestStatus $status): array
     {
+        if ($status instanceof Booking) {
+            return match ($status->stage()) {
+                'new' => ['tag-sun', 'New'],
+                'confirmed' => ['tag-lagoon', 'Confirmed'],
+                default => ['tag-sun', 'Cancelled'],
+            };
+        }
+
         return match ($status) {
             AgentRequestStatus::Pending => ['tag-sun', 'Pending'],
             AgentRequestStatus::Reviewing => ['tag-ocean', 'Under review'],

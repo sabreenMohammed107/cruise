@@ -504,8 +504,9 @@ class AgentAccountsTest extends TestCase
         $this->assertTrue($booking->fresh()->isAgentBooking());
 
         $this->actingAs($this->staff('admin@safercruise.test'), 'admin');
+        // The "All" tab: the seeded bookings too (the page opens on "New")
         $all = Booking::count();
-        $this->get(route('admin.bookings.index'))->assertOk()
+        $this->get(route('admin.bookings.index', ['stage' => 'all']))->assertOk()
             ->assertSeeText('All bookings ('.$all.')')->assertSeeText('B2C customers ('.($all - 1).')')->assertSeeText('Agents (1)')
             ->assertSee('Agent · Nile Travel · Gold')->assertSee('Commission $896.00');
 

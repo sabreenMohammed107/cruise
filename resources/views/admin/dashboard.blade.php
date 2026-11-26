@@ -28,7 +28,7 @@
     <section class="card overflow-hidden">
       <div class="p-5 flex items-center justify-between gap-3">
         <h2 class="font-display font-semibold text-lg">Awaiting payment</h2>
-        <a href="{{ route('admin.bookings.index', ['status' => 'confirmed', 'payment' => 'unpaid']) }}" class="text-sm font-bold text-ocean-600 hover:underline">All unpaid</a>
+        <a href="{{ route('admin.bookings.index') }}" class="text-sm font-bold text-ocean-600 hover:underline">New bookings</a>
       </div>
       @include('admin.bookings.table', ['bookings' => $awaiting, 'empty' => 'Every confirmed booking is paid.'])
     </section>
