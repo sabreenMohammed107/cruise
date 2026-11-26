@@ -223,6 +223,8 @@ input[type="range"] { accent-color: var(--ocean-600); width: 100%; }
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .tabular { font-variant-numeric: tabular-nums; }
+/* The currency word of an amount ("EGP", "جنيه مصري"), a size smaller than the number: SC.moneyHtml in core.js */
+.money-cur { font-size: .78em; font-weight: 600; }
 .hero-shade { background: linear-gradient(180deg, rgba(12,45,78,.25) 0%, rgba(12,45,78,.55) 55%, rgba(12,45,78,.92) 100%); }
 .wave-edge { display: block; width: 100%; height: 56px; }
 .step-dot { width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; font-weight: 800; font-size: .85rem; border: 2px solid var(--line); background: #fff; color: var(--muted); }

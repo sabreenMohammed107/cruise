@@ -98,11 +98,24 @@
   SC.esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // Amounts are USD; shown in the visitor's currency (header USD / EGP switch), e.g. $2,310 or EGP 115,500.
   // Laravel: SC_DATA.exchangeRate / displaySymbol from App\Services\CurrencyService (1 and $ for USD)
-  SC.moneyAt = (n, rate, symbol) => {
+  // An Arabic currency word ("جنيه مصري ") comes after the number, as Arabic reads: "93,134 جنيه مصري", the whole
+  // isolated right to left (U+2067 … U+2069) and the signed number left to right, so the parts never swap places
+  // in a sentence or an equation. html: the currency word smaller than the number (.money-cur).
+  SC.moneyAt = (n, rate, symbol, html = false) => {
     const v = Math.round(n * (rate || 1));
-    return `${v < 0 ? '−' : ''}${symbol ?? D.currencySymbol}${Math.abs(v).toLocaleString('en-US')}`;
+    const sym = symbol ?? D.currencySymbol;
+    const num = Math.abs(v).toLocaleString('en-US');
+    // "$" sticks to the number; a currency word ("EGP ", "جنيه مصري ") has a space, and in HTML may be set smaller.
+    // The words never split ("جنيه" / "مصري"); in HTML a narrow card may still put the word under the number.
+    const word = sym.trim().replace(/ /g, '\u00a0');
+    const spaced = word !== sym;
+    const cur = html && spaced ? `<span class="money-cur">${SC.esc(word)}</span>` : word;
+    if (/[\u0600-\u06FF]/.test(sym)) return `\u2067${v < 0 ? `\u2066−${num}\u2069` : num}${html ? ' ' : '\u00a0'}${cur}\u2069`;
+    return `${v < 0 ? '−' : ''}${cur}${spaced ? (html ? '\u00a0' : ' ') : ''}${num}`;
   };
   SC.money = (n) => SC.moneyAt(n, D.exchangeRate, D.displaySymbol);
+  // For HTML: the currency word ("EGP", "جنيه مصري") a size smaller than the number
+  SC.moneyHtml = (n) => SC.moneyAt(n, D.exchangeRate, D.displaySymbol, true);
   SC.parseDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
   SC.toISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   SC.addDays = (iso, n) => { const d = SC.parseDate(iso); d.setDate(d.getDate() + n); return SC.toISO(d); };
@@ -451,10 +464,11 @@
     const h = line && line.hint;
     if (!h) return '';
     const T = (k, r) => SC.t(`ui.offer_hint.${k}`, r);
-    // Amounts never break across lines ("EGP 93,134" / "جنيه مصري 93,134")
+    // Amounts never break across lines ("EGP 93,134" / "93,134 جنيه مصري")
     const money = (v) => SC.money(v).replace(/ /g, '\u00a0');
-    // An equation reads left to right on Arabic pages too: isolated LTR (U+2066 … U+2069)
-    const ltr = (x) => `⁦${x.replace(/ /g, ' ')}⁩`; // never breaks in the middle (non-breaking spaces)
+    // An equation is isolated in the page's direction (U+2067 / U+2066 … U+2069): on Arabic pages it reads right to
+    // left like the sentence around it, "33,006 جنيه مصري − 2 × 5,522 جنيه مصري = 21,962 جنيه مصري"
+    const iso = (x) => `${SC.lang() === 'ar' ? '\u2067' : '\u2066'}${x.replace(/ /g, '\u00a0')}\u2069`; // never breaks in the middle
     const n = h.units || 1;
     const cabin = line.target === 'fare';
     let who;
@@ -462,21 +476,21 @@
     else if (line.target === 'third_guest') who = n > 1 ? T('who_many', { count: n }) : T('who_third');
     else if (cabin) who = T('who_cabin');
     else return '';
-    const price = ltr(money(h.base));
-    const value = ltr(money(h.value));
+    const price = iso(money(h.base));
+    const value = iso(money(h.value));
     const times = (v) => (n > 1 ? `${n} × ${money(v)}` : money(v));
     let text;
     if (h.type === 'fixed_price') {
       const deal = cabin ? T('cabin_pays', { value, price }) : n > 1 ? T('pays_many', { who, value }) : T('pays', { who, value, price });
-      text = `${deal} · ${T('discount')} ${ltr(`${money(h.base)} − ${times(h.value)} = ${money(h.raw)}`)}`;
+      text = `${deal} · ${T('discount')} ${iso(`${money(h.base)} − ${times(h.value)} = ${money(h.raw)}`)}`;
     } else if (h.type === 'free') {
       text = cabin ? T('cabin_free', { price }) : T('free', { who, price });
     } else if (h.type === 'fixed') {
-      text = n > 1 ? `${T('fixed_many', { value, who })}: ${ltr(`${times(h.value)} = ${money(h.raw)}`)}` : T('fixed', { value, who, price });
+      text = n > 1 ? `${T('fixed_many', { value, who })}: ${iso(`${times(h.value)} = ${money(h.raw)}`)}` : T('fixed', { value, who, price });
     } else {
-      text = `${T('percent', { value: h.value, who })}: ${ltr(`${money(h.base)} × ${h.value}% = ${money(h.raw)}`)}`;
+      text = `${T('percent', { value: h.value, who })}: ${iso(`${money(h.base)} × ${h.value}% = ${money(h.raw)}`)}`;
     }
-    return h.capped ? `${text} · ${T('capped', { value: ltr(money(line.discount)) })}` : text;
+    return h.capped ? `${text} · ${T('capped', { value: iso(money(line.discount)) })}` : text;
   };
   // Offers of a sailing that wait for the travellers (age or nationality): shown as a note until they are entered
   SC.ageOffers = (sailing) => (sailing.offers || []).filter((o) => o.target === 'age' || o.nationalities);
@@ -829,7 +843,7 @@
     const item = ({ id, name, amount, detail, applied = true, ends }) => `<li class="py-3 first:pt-0 last:pb-0"${id ? ` data-offer-row="${id}"` : ''}${applied ? '' : ' data-offer-pending'}>
         <div class="flex items-start justify-between gap-3">
           <p class="min-w-0 break-words font-bold text-ink leading-snug">${SC.esc(name)}</p>
-          ${applied ? `<span class="shrink-0 whitespace-nowrap font-bold text-[#12805C] tabular">−&nbsp;${SC.money(amount)}</span>` : ''}
+          ${applied ? `<span class="shrink-0 whitespace-nowrap font-bold text-[#12805C] tabular">${SC.moneyHtml(-amount)}</span>` : ''}
         </div>
         ${detail ? `<p class="mt-1 text-xs text-muted leading-relaxed break-words"${applied ? ' data-offer-hint' : ''}>${SC.esc(detail)}</p>` : ''}
         <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold">
@@ -851,7 +865,7 @@
           ${applied.map(item).join('')}
           ${waiting.map((o) => item({ id: o.id, name: o.name, detail: gives(o), applied: false, ends: ends(o) })).join('')}
         </ul>
-        ${applied.length ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">−&nbsp;${SC.money(saving)}</span></div>` : ''}
+        ${applied.length ? `<div class="mt-3 pt-3 border-t border-[#CDEBDC] flex items-center justify-between gap-3 font-bold text-[#12805C]" data-offers-total><span>${T('offers_saving')}</span><span class="tabular whitespace-nowrap">${SC.moneyHtml(-saving)}</span></div>` : ''}
       </div>`;
   };
 
@@ -880,16 +894,16 @@
     const row = 'flex items-start justify-between gap-3', label = 'min-w-0 flex-1 break-words', amount = 'shrink-0 text-end whitespace-nowrap';
     const discounts = SC.ui.offersBox(q, sailing, { rooms, lead: SC.agentDiscount(q.agent), extras, pending, title: 'discounts_title' });
     return `<dl class="grid grid-cols-[minmax(0,1fr)] gap-3 text-sm tabular" data-summary-lines>
-        ${charges.map((c) => `<div class="${row}"><dt class="${label} text-muted">${c.label}${c.note ? `<span class="block text-xs">${c.note}</span>` : ''}</dt><dd class="${amount}">${SC.money(c.amount)}</dd></div>`).join('')}
-        ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${SC.t('ui.details.port_tax')}<span class="block text-xs">${SC.money(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.money(q.fees)}</dd></div>` : ''}
-        ${discounts ? `<div class="${row} pt-3 border-t border-line font-bold" data-subtotal><dt class="${label}">${SC.t('ui.details.charges_subtotal')}</dt><dd class="${amount}">${SC.money(SC.publicSubtotal(q))}</dd></div>` : ''}
+        ${charges.map((c) => `<div class="${row}"><dt class="${label} text-muted">${c.label}${c.note ? `<span class="block text-xs">${c.note}</span>` : ''}</dt><dd class="${amount}">${SC.moneyHtml(c.amount)}</dd></div>`).join('')}
+        ${q.fees > 0 ? `<div class="${row}" data-port-tax><dt class="${label} text-muted">${SC.t('ui.details.port_tax')}<span class="block text-xs">${SC.moneyHtml(q.portTax)} × ${Math.round(q.fees / q.portTax)}</span></dt><dd class="${amount}">${SC.moneyHtml(q.fees)}</dd></div>` : ''}
+        ${discounts ? `<div class="${row} pt-3 border-t border-line font-bold" data-subtotal><dt class="${label}">${SC.t('ui.details.charges_subtotal')}</dt><dd class="${amount}">${SC.moneyHtml(SC.publicSubtotal(q))}</dd></div>` : ''}
       </dl>
       ${discounts}`;
   };
   // The net total row (pinned at the bottom of a summary card)
   SC.ui.netTotal = (total) => `<div class="flex flex-wrap items-end justify-between gap-x-3 gap-y-1" data-net-total>
       <p class="min-w-0"><span class="block font-bold text-base">${SC.t('ui.details.net_total')}</span><span class="text-xs font-semibold text-lagoon-600">${SC.t('ui.details.tax_included')}</span></p>
-      <p class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap tabular">${SC.money(total)}</p>
+      <p class="ms-auto font-display font-bold text-xl sm:text-2xl text-ocean-800 whitespace-nowrap tabular">${SC.moneyHtml(total)}</p>
     </div>`;
   SC.detailsUrl = (v) => SC.route('details', { cruise: v.cruiseId }) + (v.sailingId ? `?sailing=${encodeURIComponent(v.sailingId)}` : '');
 
@@ -907,9 +921,9 @@
     const soldOutTag = v.allSoldOut ? `<p class="text-xs font-bold text-rose-600 mt-0.5">${SC.t('ui.details.sold_out')}</p>` : '';
     // An offer lowers the price: the price before it, struck through
     const before = !v.allSoldOut && Number.isFinite(v.fromBefore) && v.fromBefore - v.fromPrice >= 0.5
-      ? `<p class="text-xs font-semibold text-muted line-through tabular whitespace-nowrap" data-price-before>${SC.money(v.fromBefore)}</p>` : '';
+      ? `<p class="text-xs font-semibold text-muted line-through tabular whitespace-nowrap" data-price-before>${SC.moneyHtml(v.fromBefore)}</p>` : '';
     const priceBlock = Number.isFinite(v.fromPrice)
-      ? `<div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p>${before}<p class="font-display font-bold text-xl tabular ${v.allSoldOut ? 'text-muted line-through' : 'text-ocean-800'}">${SC.money(v.fromPrice)}</p>${soldOutTag}</div>`
+      ? `<div><p class="text-xs text-muted font-semibold">${SC.t('ui.from_per_person')}</p>${before}<p class="font-display font-bold text-xl tabular ${v.allSoldOut ? 'text-muted line-through' : 'text-ocean-800'}">${SC.moneyHtml(v.fromPrice)}</p>${soldOutTag}</div>`
       : `<div><p class="font-display font-bold text-lg text-rose-600">${SC.t('ui.details.sold_out')}</p></div>`;
     const actions = `<div class="flex items-center gap-2">
         <a href="${SC.whatsapp(SC.t('ui.card.whatsapp_message', { cruise: v.name, date: SC.fmtDate(v.departure) }))}" target="_blank" rel="noopener" class="icon-btn" aria-label="${SC.t('ui.card.ask_whatsapp')}">${SC.icon('chat', 'w-5 h-5')}</a>

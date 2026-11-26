@@ -254,4 +254,21 @@ class CurrencyTest extends TestCase
         $this->api(fn () => Http::response('down', 500));
         $this->asAdmin()->post('/admin/currency/refresh')->assertSessionHas('error');
     }
+
+    public function test_arabic_pages_put_the_number_before_the_currency_word(): void
+    {
+        $currency = app(CurrencyService::class);
+
+        app()->setLocale('en');
+        $this->assertSame(['EGP 50,000', '−EGP 50,000', '$1,000'], [
+            $currency->format(1000, 'EGP', 50), $currency->format(-1000, 'EGP', 50), $currency->format(1000),
+        ]);
+
+        // "50,000 جنيه مصري" isolated right to left (U+2067 … U+2069); a negative number isolated left to right,
+        // so the minus stays on it; the words never split (no-break spaces)
+        app()->setLocale('ar');
+        $this->assertSame("\u{2067}50,000\u{00A0}جنيه\u{00A0}مصري\u{2069}", $currency->format(1000, 'EGP', 50));
+        $this->assertSame("\u{2067}\u{2066}−50,000\u{2069}\u{00A0}جنيه\u{00A0}مصري\u{2069}", $currency->format(-1000, 'EGP', 50));
+        $this->assertSame('$1,000', $currency->format(1000));
+    }
 }

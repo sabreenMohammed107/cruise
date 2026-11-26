@@ -218,12 +218,12 @@ document.addEventListener('sc:ready', () => {
           <button class="self-start mt-3 text-sm font-bold text-ocean-600 hover:underline" data-cabin-info="${c.id}">${SC.t('ui.cabin.details_photos')}</button>
           <dl class="mt-4 pt-4 border-t border-line grid gap-1.5 text-sm">
             <p class="text-xs text-muted">${SC.t('ui.details.per_cabin')}</p>
-            ${priceRow(SC.t('ui.details.single'), SC.money(p.single))}${priceRow(SC.t('ui.details.double'), SC.money(p.double))}
-            ${c.maxGuests > 2 ? priceRow(SC.t('ui.details.extra'), `+ ${SC.money(p.extra)}`) : ''}${priceRow(SC.t('ui.details.infant'), SC.t('ui.details.free'))}
+            ${priceRow(SC.t('ui.details.single'), SC.moneyHtml(p.single))}${priceRow(SC.t('ui.details.double'), SC.moneyHtml(p.double))}
+            ${c.maxGuests > 2 ? priceRow(SC.t('ui.details.extra'), `+ ${SC.moneyHtml(p.extra)}`) : ''}${priceRow(SC.t('ui.details.infant'), SC.t('ui.details.free'))}
           </dl>
           <div class="mt-auto pt-5">
             <p class="text-xs text-muted">${SC.t('ui.from_per_person')}</p>
-            <p class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.money(p.perPerson)}</p>
+            <p class="font-display font-bold text-2xl text-ocean-800 tabular">${SC.moneyHtml(p.perPerson)}</p>
             <button class="btn ${selected ? 'btn-primary' : 'btn-accent'} w-full mt-3" data-select-cabin="${c.id}" ${soldOut || tooSmall ? 'disabled' : ''} aria-pressed="${selected}">
               ${soldOut ? SC.t('ui.details.sold_out') : tooSmall ? SC.t('ui.details.fits_up_to', { count: c.maxGuests }) : selected ? `${SC.icon('check', 'w-4 h-4')} ${SC.t('ui.details.selected')}` : SC.t(c.id === 'suite' ? 'ui.cabin.choose_suite' : 'ui.cabin.choose')}
             </button>
@@ -354,7 +354,7 @@ document.addEventListener('sc:ready', () => {
                 <button type="button" class="text-muted hover:text-[#C42F2F] ms-2" data-room-remove="${i}" aria-label="${SC.esc(SC.t('ui.details.remove_cabin', { n: i + 1 }))}">${SC.icon('x', 'w-4 h-4')}</button>
               </div>
             </div>
-            ${rq ? `<p class="mt-1 flex justify-between gap-3"><span class="text-muted">${rq.lines.map((l) => l.label).join(' + ')}</span><span class="tabular font-bold whitespace-nowrap">${SC.money(rq.agent ? rq.agent.publicFare : rq.fare)}</span></p>` : ''}
+            ${rq ? `<p class="mt-1 flex justify-between gap-3"><span class="text-muted">${rq.lines.map((l) => l.label).join(' + ')}</span><span class="tabular font-bold whitespace-nowrap">${SC.moneyHtml(rq.agent ? rq.agent.publicFare : rq.fare)}</span></p>` : ''}
           </li>`;
         }).join('')}
       </ul>

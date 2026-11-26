@@ -116,12 +116,24 @@ class CurrencyService
         return (float) $usd * $this->rate($code);
     }
 
-    /** "$2,310" / "EGP 129,563": a USD amount at $rate, rounded like SC.money() in core.js. */
+    /**
+     * "$2,310" / "EGP 129,563" / "129,563 جنيه مصري": a USD amount at $rate, rounded and laid out like SC.money()
+     * in core.js. An Arabic currency word comes after the number, as Arabic reads, the whole isolated right to left
+     * (U+2067 … U+2069) and a signed number left to right, so the parts never swap places in a sentence or in a
+     * left-to-right cell.
+     */
     public function format(float|int|string|null $usd, string $code = self::BASE, float $rate = 1.0): string
     {
         $value = round((float) $usd * ($code === self::BASE ? 1.0 : $rate));
+        $symbol = $this->symbol($code);
 
-        return ($value < 0 ? '−' : '').$this->symbol($code).number_format(abs($value));
+        if (preg_match('/\p{Arabic}/u', $symbol)) {
+            $number = $value < 0 ? "\u{2066}−".number_format(abs($value))."\u{2069}" : number_format(abs($value));
+
+            return "\u{2067}".$number."\u{00A0}".str_replace(' ', "\u{00A0}", trim($symbol))."\u{2069}";
+        }
+
+        return ($value < 0 ? '−' : '').$symbol.number_format(abs($value));
     }
 
     /**

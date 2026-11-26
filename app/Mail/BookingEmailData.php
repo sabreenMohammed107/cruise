@@ -17,7 +17,7 @@ final class BookingEmailData
 
     public static function money(float|string|null $amount): string
     {
-        return config('cruise.currency_symbol').number_format((float) $amount);
+        return ((float) $amount < 0 ? '−' : '').config('cruise.currency_symbol').number_format(abs((float) $amount));
     }
 
     /**
@@ -79,10 +79,10 @@ final class BookingEmailData
                     : null,
                 // Time-limited offers (step 26), in the booking's language
                 ...collect($booking->price_snapshot['offers'] ?? [])->mapWithKeys(fn (array $o) => [
-                    __('emails.offer', ['name' => (Bi::isArabic() && filled($o['nameAr'] ?? null)) ? $o['nameAr'] : $o['name']]) => '−'.$money($o['discount']),
+                    __('emails.offer', ['name' => (Bi::isArabic() && filled($o['nameAr'] ?? null)) ? $o['nameAr'] : $o['name']]) => $money(-$o['discount']),
                 ])->all(),
                 ($booking->promoCode ? __('emails.discount_code', ['code' => $booking->promoCode->code]) : __('emails.discount'))
-                    => (float) $booking->discount_total > 0 ? '−'.$money($booking->discount_total) : null,
+                    => (float) $booking->discount_total > 0 ? $money(-$booking->discount_total) : null,
             ]),
             'total' => $money($booking->grand_total),
             'tax_included' => (float) $booking->fees_total <= 0,
